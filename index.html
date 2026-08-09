@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dicey — Casino &amp; Sportsbook</title>
+<meta name="description" content="Dicey casino demo: originals like Dice, Mines, Blackjack, Limbo, Plinko and more, playable in-browser with play money.">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/games.css">
+</head>
+<body>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar" id="sidebar">
+  <button class="rail-btn rail-toggle" id="sidebarToggle" aria-label="Toggle menu">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    <span class="rail-text">Menu</span>
+  </button>
+
+  <div class="rail-group">
+    <button class="rail-btn active" data-nav="casino" data-tip="Casino">
+      <svg viewBox="0 0 24 24"><path d="M12 3.5c2.6 3 6 5.2 6 8.4a6 6 0 0 1-6 6 6 6 0 0 1-6-6c0-3.2 3.4-5.4 6-8.4Z"/><path d="M12 17.9V21"/></svg>
+      <span class="rail-text">Casino</span>
+    </button>
+    <button class="rail-btn" data-nav="sports" data-tip="Sports">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5c2.4 2.6 2.4 14.4 0 17M3.5 12h17"/></svg>
+      <span class="rail-text">Sports</span>
+    </button>
+  </div>
+
+  <div class="rail-sep"></div>
+
+  <div class="rail-group">
+    <button class="rail-btn" data-nav="casino" data-filter="originals" data-tip="Originals">
+      <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.4 9.4l6-.8L12 3Z"/></svg>
+      <span class="rail-text">Originals</span>
+    </button>
+    <button class="rail-btn" data-nav="casino" data-filter="slots" data-tip="Slots">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M9 5v14M15 5v14"/></svg>
+      <span class="rail-text">Slots</span>
+    </button>
+    <button class="rail-btn" data-nav="casino" data-filter="live" data-tip="Live Casino">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 16.2a6 6 0 0 0 0-8.4"/><path d="M4.9 4.9a10 10 0 0 0 0 14.2M19.1 19.1a10 10 0 0 0 0-14.2"/></svg>
+      <span class="rail-text">Live</span>
+    </button>
+    <button class="rail-btn" data-nav="races" data-tip="Races">
+      <svg viewBox="0 0 24 24"><path d="M5 21V4h9l-1 3h6l-1.5 5H21l-2 5H5"/></svg>
+      <span class="rail-text">Races</span>
+    </button>
+    <button class="rail-btn" data-nav="vip" data-tip="VIP Club">
+      <svg viewBox="0 0 24 24"><path d="M3 18l2-9 4.5 4L12 5l2.5 8L19 9l2 9H3Z"/></svg>
+      <span class="rail-text">VIP Club</span>
+    </button>
+    <button class="rail-btn" data-nav="promos" data-tip="Promotions">
+      <svg viewBox="0 0 24 24"><path d="M20 12v8H4v-8M2 8h20v4H2zM12 8v12M12 8s-1-4-4-4-2.5 4 4 4Zm0 0s1-4 4-4 2.5 4-4 4Z"/></svg>
+      <span class="rail-text">Promos</span>
+    </button>
+  </div>
+
+  <div class="rail-sep"></div>
+
+  <div class="rail-group rail-bottom">
+    <button class="rail-btn" data-nav="profile" data-tip="My Profile">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1.2-3.6 3.7-5.2 7-5.2s5.8 1.6 7 5.2"/></svg>
+      <span class="rail-text">Profile</span>
+    </button>
+    <button class="rail-btn" id="railSupport" data-tip="Live Support">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.3-2.8 4M12 17.5h.01"/></svg>
+      <span class="rail-text">Support</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ============ TOPBAR ============ -->
+<header class="topbar">
+  <button class="icon-btn only-mobile" id="mobileMenu" aria-label="Open menu">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+
+  <a class="brand" data-nav="casino" href="#casino">
+    <span class="brand-mark">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="#00e676"/>
+        <circle cx="11" cy="11" r="2.6" fill="#04150c"/>
+        <circle cx="21" cy="11" r="2.6" fill="#04150c"/>
+        <circle cx="11" cy="21" r="2.6" fill="#04150c"/>
+        <circle cx="21" cy="21" r="2.6" fill="#04150c"/>
+      </svg>
+    </span>
+    <span class="brand-text">dicey</span>
+  </a>
+
+  <div class="topbar-center">
+    <button class="wallet" id="walletBtn">
+      <span class="wallet-coin">$</span>
+      <span class="wallet-amount" id="walletAmount">$0.00</span>
+      <svg class="wallet-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <button class="btn btn-primary btn-cashier" id="cashierBtn">
+      <svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M2.5 10.5h19"/></svg>
+      Cashier
+    </button>
+  </div>
+
+  <div class="topbar-right">
+    <div class="level-chip" id="levelChip">
+      <div class="level-meta">
+        <span class="level-name">Gold</span>
+        <span class="level-pct" id="levelPct">64%</span>
+      </div>
+      <div class="level-bar"><i id="levelFill" style="width:64%"></i></div>
+    </div>
+    <button class="avatar" data-nav="profile" aria-label="Profile">VS</button>
+    <button class="icon-btn" id="notifBtn" aria-label="Notifications">
+      <svg viewBox="0 0 24 24"><path d="M18 15V10a6 6 0 1 0-12 0v5l-1.5 2.5h15L18 15Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+      <i class="dot"></i>
+    </button>
+    <button class="icon-btn" id="chatBtn" aria-label="Chat">
+      <svg viewBox="0 0 24 24"><path d="M20.5 12.5c0 3.6-3.8 6.5-8.5 6.5-.9 0-1.8-.1-2.6-.3L4.5 21l1.2-3.4C4.2 16.3 3.5 14.5 3.5 12.5c0-3.6 3.8-6.5 8.5-6.5s8.5 2.9 8.5 6.5Z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ============ MAIN ============ -->
+<main class="main">
+
+  <!-- ===== CASINO ===== -->
+  <section class="page active" id="page-casino">
+
+    <!-- Live wins strip -->
+    <div class="wins">
+      <div class="wins-tabs">
+        <button class="wins-tab active" data-wins="live"><i class="pulse"></i>Live Wins</button>
+        <button class="wins-tab" data-wins="lucky">Luckiest Wins</button>
+      </div>
+      <div class="wins-track" id="winsTrack"></div>
+    </div>
+
+    <!-- Banners -->
+    <div class="banners">
+      <article class="banner banner-race">
+        <div class="banner-body">
+          <span class="banner-kicker">Weekly Race · Top 75</span>
+          <h2 class="banner-amount">$35,000</h2>
+          <p class="banner-copy">Wager on any original and climb the leaderboard.</p>
+          <button class="btn btn-primary" data-nav="races">Enter Now</button>
+        </div>
+        <div class="banner-art art-race" aria-hidden="true">
+          <svg viewBox="0 0 220 120">
+            <defs><linearGradient id="raceG" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#00e676"/><stop offset="1" stop-color="#00838f"/>
+            </linearGradient></defs>
+            <path d="M10 86h40l16-18h44l14 18h34l18-12v20c0 6-5 10-11 10H21c-6 0-11-4-11-10V86Z" fill="url(#raceG)" opacity=".85"/>
+            <circle cx="58" cy="98" r="13" fill="#04150c" stroke="#00e676" stroke-width="3"/>
+            <circle cx="158" cy="98" r="13" fill="#04150c" stroke="#00e676" stroke-width="3"/>
+            <path d="M70 68h34l8-12H84l-14 12Z" fill="#0affa0" opacity=".5"/>
+          </svg>
+        </div>
+      </article>
+
+      <article class="banner banner-vip">
+        <div class="banner-body">
+          <span class="banner-kicker">Don't start over</span>
+          <h2 class="banner-title">VIP Transfer</h2>
+          <p class="banner-copy">Bring your status over and match your rank instantly.</p>
+          <button class="btn btn-gold" data-nav="vip">Match Status</button>
+        </div>
+        <div class="banner-art art-vip" aria-hidden="true">
+          <svg viewBox="0 0 220 120">
+            <defs><linearGradient id="vipG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#c98d00"/>
+            </linearGradient></defs>
+            <path d="M40 92l-12-44 26 20 20-34 20 34 26-20-12 44H40Z" fill="url(#vipG)" opacity=".9"/>
+            <path d="M120 96l-9-33 19 15 15-25 15 25 19-15-9 33h-50Z" fill="url(#vipG)" opacity=".5"/>
+          </svg>
+        </div>
+      </article>
+    </div>
+
+    <!-- Category tabs -->
+    <div class="cat-row">
+      <div class="cat-tabs" id="catTabs">
+        <button class="cat-tab active" data-filter="lobby">
+          <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20H4v-9.5Z"/></svg>Lobby
+        </button>
+        <button class="cat-tab" data-filter="originals">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>Originals
+        </button>
+        <button class="cat-tab" data-filter="slots">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M9 5v14M15 5v14"/></svg>Slots
+        </button>
+        <button class="cat-tab" data-filter="live">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>Live
+        </button>
+        <button class="cat-tab" data-filter="shows">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16v11H4zM9 21h6"/><path d="M10 11l4 2-4 2v-4Z"/></svg>Shows
+        </button>
+        <button class="cat-tab" data-filter="new">
+          <svg viewBox="0 0 24 24"><path d="M12 4l1.8 4.4L18 10l-4.2 1.6L12 16l-1.8-4.4L6 10l4.2-1.6L12 4Z"/></svg>New Releases
+        </button>
+      </div>
+      <label class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <input type="search" id="searchInput" placeholder="Search games" autocomplete="off">
+        <kbd>Ctrl+K</kbd>
+      </label>
+    </div>
+
+    <div class="grid" id="gameGrid"></div>
+    <div class="empty" id="gridEmpty" hidden>
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      </div>
+      <h3>Nothing here yet</h3>
+      <p id="emptyCopy">Try another category or search for one of our originals.</p>
+    </div>
+  </section>
+
+  <!-- ===== SPORTS ===== -->
+  <section class="page" id="page-sports">
+    <div class="section-head">
+      <h1>Sportsbook</h1>
+      <p>Live odds on the biggest matches of the day.</p>
+    </div>
+    <div class="sports-grid" id="sportsGrid"></div>
+    <div class="note-card">
+      This sportsbook view is a static preview. Odds and matches are sample data.
+    </div>
+  </section>
+
+  <!-- ===== RACES ===== -->
+  <section class="page" id="page-races">
+    <div class="section-head">
+      <h1>Weekly Race</h1>
+      <p>$35,000 shared between the top 75 players. Every wager counts.</p>
+    </div>
+    <div class="race-top" id="raceTop"></div>
+    <div class="panel">
+      <div class="panel-head"><span class="dot-green"></span>Leaderboard</div>
+      <div class="lb" id="raceBoard"></div>
+    </div>
+  </section>
+
+  <!-- ===== VIP ===== -->
+  <section class="page" id="page-vip">
+    <div class="vip-hero">
+      <div class="vip-crown">
+        <svg viewBox="0 0 24 24"><path d="M3 18l2-9 4.5 4L12 5l2.5 8L19 9l2 9H3Z"/></svg>
+      </div>
+      <h1>VIP <span>Club</span></h1>
+      <p>Six ranks, escalating cashback, and rewards that never reset. The more you play, the better it gets.</p>
+      <div class="vip-stats">
+        <div class="vip-stat"><b>6</b><span>Ranks</span></div>
+        <div class="vip-stat"><b>30%</b><span>Max cashback</span></div>
+        <div class="vip-stat"><b>24/7</b><span>VIP host</span></div>
+        <div class="vip-stat"><b>+200%</b><span>Bonus boost</span></div>
+      </div>
+    </div>
+
+    <div class="panel vip-progress">
+      <div class="panel-head"><span class="dot-gold"></span>Your progress</div>
+      <div class="prog-copy">You're <b>Gold</b>. Wager <b>$8,500</b> more to unlock Platinum.</div>
+      <div class="prog-bar"><i style="width:83%"></i></div>
+      <div class="prog-labels"><span>Gold — $41,500 wagered</span><span>Platinum at $50,000</span></div>
+    </div>
+
+    <div class="ranks" id="ranks"></div>
+  </section>
+
+  <!-- ===== PROMOS ===== -->
+  <section class="page" id="page-promos">
+    <div class="section-head">
+      <h1>Promotions</h1>
+      <p>Bonuses, drops and challenges running right now.</p>
+    </div>
+    <div class="promo-grid" id="promoGrid"></div>
+  </section>
+
+  <!-- ===== PROFILE ===== -->
+  <section class="page" id="page-profile">
+    <div class="profile-hero">
+      <div class="profile-avatar">VS</div>
+      <div class="profile-id">
+        <h1>VegasStar</h1>
+        <span class="muted">User ID #36658531 · Member since Jan 2023</span>
+        <span class="rank-pill">
+          <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.4 9.4l6-.8L12 3Z"/></svg>
+          Gold VIP
+        </span>
+      </div>
+      <div class="profile-balance">
+        <span class="muted">Balance</span>
+        <b id="profileBalance">$0.00</b>
+        <button class="btn btn-primary" id="profileCashier">Deposit / Withdraw</button>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat"><b id="statWagered">$0.00</b><span>Total wagered</span></div>
+      <div class="stat"><b id="statBets">0</b><span>Bets placed</span></div>
+      <div class="stat"><b id="statWon">$0.00</b><span>Total won</span></div>
+      <div class="stat"><b id="statWinRate">0%</b><span>Win rate</span></div>
+    </div>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-head"><span class="dot-green"></span>Account</div>
+        <div class="rows">
+          <div class="row"><span>Username</span><b>VegasStar</b></div>
+          <div class="row"><span>Email</span><b>v***@gmail.com</b></div>
+          <div class="row"><span>VIP rank</span><b class="gold">Gold</b></div>
+          <div class="row"><span>2FA</span><b class="green">Enabled</b></div>
+          <div class="row"><span>KYC</span><b class="green">Verified</b></div>
+          <div class="row"><span>Currency</span><b>USD (play money)</b></div>
+        </div>
+        <button class="btn btn-ghost btn-block" id="resetBalance">Reset demo balance to $1,000</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="dot-blue"></span>My bets</div>
+        <div class="bets" id="myBets"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ CASHIER MODAL ============ -->
+<div class="overlay" id="cashierModal" hidden>
+  <div class="modal modal-cashier" role="dialog" aria-modal="true" aria-label="Cashier">
+    <header class="modal-head">
+      <h2>Cashier</h2>
+      <button class="icon-btn close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <div class="seg" id="cashierSeg">
+      <button class="seg-btn active" data-tab="deposit">Deposit</button>
+      <button class="seg-btn" data-tab="withdraw">Withdraw</button>
+      <button class="seg-btn" data-tab="history">History</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="tab active" id="tab-deposit">
+        <div class="coins" id="depositCoins"></div>
+        <div class="addr-card">
+          <span class="label">Your deposit address</span>
+          <div class="qr" id="depositQr"></div>
+          <div class="addr-row">
+            <code id="depositAddress"></code>
+            <button class="btn btn-primary" id="copyAddress">Copy</button>
+          </div>
+        </div>
+        <p class="hint">Demo only — no real deposits. Use the button below to top up play money.</p>
+        <button class="btn btn-primary btn-block" id="fakeDeposit">Add $500 play money</button>
+      </div>
+
+      <div class="tab" id="tab-withdraw">
+        <div class="coins" id="withdrawCoins"></div>
+        <label class="field"><span>Wallet address</span><input type="text" id="wdAddress" placeholder="bc1q…"></label>
+        <label class="field"><span>Amount (USD)</span><input type="number" id="wdAmount" placeholder="Minimum $20.00" min="20" step="0.01"></label>
+        <p class="hint">Available <b id="wdAvailable">$0.00</b> · min $20 · processed in ~30 min</p>
+        <button class="btn btn-primary btn-block" id="wdSubmit">Request withdrawal</button>
+      </div>
+
+      <div class="tab" id="tab-history">
+        <div class="tx-head"><span>Type</span><span>Amount</span><span>Asset</span><span>Status</span></div>
+        <div class="tx-list" id="txList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ GAME MODAL ============ -->
+<div class="overlay" id="gameModal" hidden>
+  <div class="modal modal-game" role="dialog" aria-modal="true" aria-label="Game">
+    <header class="modal-head game-head">
+      <div class="game-head-id">
+        <span class="game-head-icon" id="gameHeadIcon"></span>
+        <div>
+          <h2 id="gameTitle">Game</h2>
+          <span class="game-head-sub" id="gameSub">Dicey Original</span>
+        </div>
+      </div>
+      <div class="game-head-actions">
+        <span class="fair-pill" title="Outcomes use the browser crypto RNG">
+          <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+          Provably random
+        </span>
+        <span class="game-head-balance" id="gameBalance">$0.00</span>
+        <button class="icon-btn close" data-close aria-label="Close game">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="game-shell">
+      <aside class="bet-panel" id="betPanel"></aside>
+      <section class="game-stage" id="gameStage"></section>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="assets/js/core.js"></script>
+<script src="assets/js/game-modal.js"></script>
+<script src="assets/js/games/dice.js"></script>
+<script src="assets/js/games/limbo.js"></script>
+<script src="assets/js/games/coinflip.js"></script>
+<script src="assets/js/games/mines.js"></script>
+<script src="assets/js/games/blackjack.js"></script>
+<script src="assets/js/games/keno.js"></script>
+<script src="assets/js/games/digdig.js"></script>
+<script src="assets/js/games/blackholes.js"></script>
+<script src="assets/js/games/plinko.js"></script>
+<script src="assets/js/games/wheel.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
