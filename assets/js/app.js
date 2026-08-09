@@ -79,8 +79,8 @@
       accent: 'linear-gradient(140deg,#00e676,#00695c)',
       art: '<div class="tile-art" style="background:radial-gradient(120% 90% at 50% 15%,#04613c,#03130d 72%)">' +
         '<svg viewBox="0 0 160 200" style="position:absolute;inset:0;width:100%;height:100%">' +
-        '<path d="M96 34l-42 66h30l-12 46 44-70H86l10-42Z" fill="#00e676"/>' +
-        '<text x="80" y="176" text-anchor="middle" font-family="Rajdhani,sans-serif" font-size="26" font-weight="700" fill="#7dffbe" opacity=".8">100\u00d7</text>' +
+        '<path d="M96 30l-44 70h32l-13 48 46-74H88l8-44Z" fill="#00e676"/>' +
+        '<path d="M30 128h30M100 138h30" stroke="#00e676" stroke-width="4" stroke-linecap="round" opacity=".35"/>' +
         '</svg></div>',
     },
     mines: {
@@ -109,14 +109,12 @@
       name: 'Wheel', kicker: 'Spin the multiplier', badge: 'new', players: 860, rtp: '97%',
       accent: 'linear-gradient(140deg,#ffcc33,#b26a00)',
       art: '<div class="tile-art" style="background:radial-gradient(120% 90% at 50% 18%,#4a3a05,#120d02 72%)">' +
-        '<svg viewBox="0 0 160 200" style="position:absolute;inset:0;width:100%;height:100%">' +
-        '<circle cx="80" cy="88" r="44" fill="#1d2333"/>' +
-        '<path d="M80 88 L80 44 A44 44 0 0 1 111 57 Z" fill="#ffcc33"/>' +
-        '<path d="M80 88 L111 57 A44 44 0 0 1 124 88 Z" fill="#4fd6a0"/>' +
-        '<path d="M80 88 L124 88 A44 44 0 0 1 111 119 Z" fill="#ff8a3d"/>' +
-        '<path d="M80 88 L111 119 A44 44 0 0 1 80 132 Z" fill="#ff4757"/>' +
-        '<circle cx="80" cy="88" r="14" fill="#0b0f17"/>' +
-        '</svg></div>',
+        '<div style="position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:62%;aspect-ratio:1;border-radius:50%;' +
+        'background:conic-gradient(#ffcc33 0 45deg,#2b3348 45deg 90deg,#4fd6a0 90deg 135deg,#2b3348 135deg 180deg,' +
+        '#ff8a3d 180deg 225deg,#2b3348 225deg 270deg,#ff4757 270deg 315deg,#2b3348 315deg 360deg);' +
+        'box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>' +
+        '<div style="position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:22%;aspect-ratio:1;border-radius:50%;background:#0b0f17"></div>' +
+        '</div>',
     },
   };
 
@@ -137,11 +135,12 @@
   function tileHtml(id) {
     const g = D.games[id];
     return (
-      '<div class="tile" data-game="' + id + '" tabindex="0" role="button" aria-label="Play ' + g.name + '">' +
+      '<div class="tile" data-game="' + id + '" tabindex="0" role="button" ' +
+        'aria-label="Play ' + g.name + '" title="' + g.name + ' · RTP ' + g.rtp + '">' +
         g.art +
         '<span class="tile-badge badge-' + g.badge + '">' + g.badge + '</span>' +
         '<div class="tile-name">' + g.name + '<small>' + g.kicker + '</small></div>' +
-        '<div class="tile-foot"><i class="live-dot"></i>' + g.players.toLocaleString() + ' playing<span>· RTP ' + g.rtp + '</span></div>' +
+        '<div class="tile-foot"><i class="live-dot"></i>' + g.players.toLocaleString() + ' playing</div>' +
         '<div class="tile-hover"><button class="btn btn-primary">Play now</button></div>' +
       '</div>'
     );
@@ -240,7 +239,7 @@
     target.classList.add('active');
     D.$$('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === page));
     D.$('#sidebar').classList.remove('open');
-    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+    window.scrollTo(0, 0);
     if (history.replaceState) history.replaceState(null, '', '#' + page);
   }
 
