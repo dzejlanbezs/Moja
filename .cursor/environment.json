@@ -1,0 +1,4 @@
+{
+  "name": "Moja",
+  "install": "python3 -c \"import json; d = json.load(open('allowedUsernames.json')); names = d['allowedUsernames']; assert isinstance(names, list) and all(isinstance(n, str) for n in names), 'allowedUsernames must be a list of strings'; print('allowedUsernames.json OK:', len(names), 'usernames')\""
+}
