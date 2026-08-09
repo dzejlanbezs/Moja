@@ -8,7 +8,11 @@ deposits and no real payouts.
 
 ## Run it
 
-Any static file server works:
+There is nothing to install or build. Unzip the folder and open `index.html` in a
+browser — the site is plain HTML/CSS/JS and runs straight from `file://`, including the
+`localStorage` balance.
+
+If you would rather serve it over HTTP, any static server works:
 
 ```bash
 python3 -m http.server 4173
