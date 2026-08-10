@@ -49,6 +49,9 @@ body {
 
 body.modal-open { overflow: hidden; }
 
+/* keeps .btn's display from resurrecting elements the games hide mid-round */
+[hidden] { display: none !important; }
+
 button, input, select { font: inherit; color: inherit; }
 button { background: none; border: none; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
@@ -143,14 +146,9 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .rail-btn:hover { background: var(--surface-2); color: var(--text); }
 .rail-btn.active { background: var(--green-soft); color: var(--green); border-color: rgba(0, 230, 118, .28); }
 
-.rail-text {
-  font-size: 13.5px; font-weight: 600; white-space: nowrap;
-  opacity: 0; transform: translateX(-6px);
-  transition: opacity .18s, transform .18s;
-  pointer-events: none;
-}
-.sidebar.expanded .rail-text { opacity: 1; transform: none; }
-.sidebar:not(.expanded) .rail-btn { justify-content: center; padding: 0; }
+.rail-text { font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.sidebar:not(.expanded) .rail-text { display: none; }
+.sidebar:not(.expanded) .rail-btn { justify-content: center; gap: 0; padding: 0; }
 
 .sidebar:not(.expanded) .rail-btn[data-tip]::after {
   content: attr(data-tip);
@@ -660,6 +658,72 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .tx-list { display: flex; flex-direction: column; gap: 8px; }
 .tx-row { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 13px; }
 .tx-row .amt { font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---------------- auth ---------------- */
+.auth-actions { display: flex; gap: 8px; }
+.modal-auth { max-width: 420px; }
+.modal-auth .field .optional { font-style: normal; color: var(--text-3); font-size: 11px; margin-left: 4px; }
+.form-error {
+  font-size: 12.5px; font-weight: 600; color: var(--red);
+  background: rgba(255, 71, 87, .1); border: 1px solid rgba(255, 71, 87, .25);
+  border-radius: 9px; padding: 9px 12px; margin-bottom: 12px;
+}
+
+/* ---------------- admin ---------------- */
+.admin-list { display: flex; flex-direction: column; gap: 8px; }
+
+.admin-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 11px 14px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+}
+.admin-row-main { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.admin-row-main .muted { font-size: 11.5px; }
+.admin-amount { font-variant-numeric: tabular-nums; }
+.admin-row-actions { display: flex; gap: 6px; }
+.admin-row-actions .btn { height: 32px; padding: 0 13px; font-size: 12px; }
+
+.tag-in, .tag-out {
+  font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  padding: 5px 9px; border-radius: 6px;
+}
+.tag-in { background: rgba(0, 230, 118, .14); color: var(--green); }
+.tag-out { background: rgba(255, 71, 87, .14); color: var(--red); }
+
+.table-scroll { overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table th {
+  text-align: left; white-space: nowrap;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase;
+  color: var(--text-3); padding: 8px 10px; border-bottom: 1px solid var(--line);
+}
+.admin-table td { padding: 11px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.admin-table tbody tr:hover { background: var(--surface-2); }
+.admin-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-table .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--text-2); }
+.admin-table code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; font-size: 11.5px; }
+.admin-table .btn { height: 30px; padding: 0 12px; font-size: 12px; }
+
+.pill-admin, .pill-blocked {
+  margin-left: 7px; font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 5px;
+}
+.pill-admin { background: rgba(255, 204, 51, .15); color: var(--gold); }
+.pill-blocked { background: rgba(255, 71, 87, .15); color: var(--red); }
+
+.modal-admin-user { max-width: 940px; max-height: 92vh; display: flex; flex-direction: column; }
+.modal-admin-user .modal-body { overflow-y: auto; }
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.admin-grid .stat b { font-size: 19px; }
+.admin-facts { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 4px 14px; margin-bottom: 16px; }
+.admin-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.field-inline {
+  flex: 1; min-width: 150px; height: 38px; padding: 0 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 9px;
+  font-size: 13px; outline: none;
+}
+.field-inline:focus { border-color: rgba(0, 230, 118, .45); }
+.admin-sub { font-size: 12px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; color: var(--text-2); margin: 20px 0 10px; }
 
 /* ---------------- toasts ---------------- */
 .toast-wrap { position: fixed; top: 74px; right: 18px; z-index: 400; display: flex; flex-direction: column; gap: 9px; pointer-events: none; }

@@ -243,6 +243,8 @@
     if (history.replaceState) history.replaceState(null, '', '#' + page);
   }
 
+  D.navigate = navigate;
+
   document.addEventListener('click', (e) => {
     const navEl = e.target.closest('[data-nav]');
     if (!navEl) return;
@@ -299,24 +301,38 @@
     return svg + '</svg>';
   }
 
+  const TX_COLOR = { Confirmed: 'var(--green)', Completed: 'var(--green)', Pending: 'var(--gold)', Rejected: 'var(--red)' };
+
   let coinId = 'btc';
+  const currentCoin = () => COINS.filter((c) => c.id === coinId)[0] || COINS[0];
+
   function paintCashier() {
-    const coin = COINS.filter((c) => c.id === coinId)[0] || COINS[0];
+    const coin = currentCoin();
     D.$('#depositCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     D.$('#withdrawCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     D.$('#depositAddress').textContent = coin.addr;
     D.$('#depositQr').innerHTML = fakeQr(coin.addr);
     D.$('#wdAddress').placeholder = coin.addr.slice(0, 6) + '…';
     D.$('#wdAvailable').textContent = D.fmt(D.Store.balance);
-    D.$('#txList').innerHTML = D.Store.state.tx.length
-      ? D.Store.state.tx.map((tx) =>
-          '<div class="tx-row"><span class="muted">' + tx.type + '</span>' +
-          '<span class="amt ' + (tx.amount > 0 ? 'green' : 'red') + '">' + (tx.amount > 0 ? '+' : '') + D.fmt(tx.amount) + '</span>' +
-          '<span>' + tx.asset + '</span>' +
-          '<span style="color:' + (tx.status === 'Completed' ? 'var(--green)' : 'var(--gold)') + ';font-weight:700">' + tx.status + '</span></div>'
-        ).join('')
-      : '<div class="bets-empty">No transactions yet</div>';
+    paintTransactions();
   }
+
+  function paintTransactions() {
+    const list = D.$('#txList');
+    D.Wallet.transactions().then((rows) => {
+      list.innerHTML = rows.length
+        ? rows.map((tx) =>
+            '<div class="tx-row" title="' + (tx.address ? 'To ' + tx.address : '') + '">' +
+            '<span class="muted">' + tx.type + '</span>' +
+            '<span class="amt ' + (tx.amount >= 0 ? 'green' : 'red') + '">' + (tx.amount > 0 ? '+' : '') + D.fmt(tx.amount) + '</span>' +
+            '<span>' + tx.asset + '</span>' +
+            '<span style="color:' + (TX_COLOR[tx.status] || 'var(--text-2)') + ';font-weight:700">' + tx.status + '</span></div>'
+          ).join('')
+        : '<div class="bets-empty">No transactions yet</div>';
+    }).catch(() => { list.innerHTML = '<div class="bets-empty">Could not load transactions</div>'; });
+  }
+
+  D.paintCashier = paintCashier;
 
   D.$('#cashierModal').addEventListener('click', (e) => {
     const coin = e.target.closest('[data-coin]');
@@ -352,19 +368,32 @@
   });
 
   D.$('#fakeDeposit').addEventListener('click', () => {
-    D.Store.deposit(500);
-    paintCashier();
-    D.toast('Added $500 play money', 'win');
+    const coin = currentCoin();
+    if (!D.Wallet.isServer()) {
+      D.Wallet.deposit(coin.sym, 500);
+      paintCashier();
+      D.toast('Added $500 play money', 'win');
+      return;
+    }
+    const amount = D.round2(parseFloat(D.$('#depAmount').value));
+    if (!(amount > 0)) { D.toast('Enter the amount you sent', 'info'); return; }
+    D.Wallet.deposit(coin.sym, amount, coin.addr).then(() => {
+      D.$('#depAmount').value = '';
+      paintTransactions();
+      D.toast('Deposit submitted — waiting for confirmation', 'info');
+    }).catch((err) => D.toast(err.message, 'lose'));
   });
 
   D.$('#wdSubmit').addEventListener('click', () => {
-    const amount = parseFloat(D.$('#wdAmount').value);
+    const amount = D.round2(parseFloat(D.$('#wdAmount').value));
+    const address = D.$('#wdAddress').value.trim();
+    if (!address) { D.toast('Enter a wallet address', 'info'); return; }
     if (!(amount >= 20)) { D.toast('Minimum withdrawal is $20', 'info'); return; }
-    if (!D.$('#wdAddress').value.trim()) { D.toast('Enter a wallet address', 'info'); return; }
-    if (!D.Store.withdraw(D.round2(amount))) { D.toast('Not enough balance', 'lose'); return; }
-    D.$('#wdAmount').value = '';
-    paintCashier();
-    D.toast('Withdrawal requested', 'win');
+    D.Wallet.withdraw(currentCoin().sym, address, amount).then(() => {
+      D.$('#wdAmount').value = '';
+      paintCashier();
+      D.toast('Withdrawal requested — pending review', 'win');
+    }).catch((err) => D.toast(err.message || 'Not enough balance', 'lose'));
   });
 
   D.$('#gameModal').addEventListener('click', (e) => {

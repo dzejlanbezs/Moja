@@ -2,18 +2,28 @@
 (function (D) {
   'use strict';
 
+  // suits are drawn as paths so the cards never depend on font glyph coverage
+  const SUIT_PATHS = {
+    spade: 'M12 2.2C9.2 6.1 4.2 8.4 4.2 12.9a4.4 4.4 0 0 0 7 3.5c-.2 2-1 3.5-2.3 4.4h6.2c-1.3-.9-2.1-2.4-2.3-4.4a4.4 4.4 0 0 0 7-3.5c0-4.5-5-6.8-7.8-10.7Z',
+    heart: 'M12 21.2S3.6 15.9 3.6 9.9c0-2.7 2-4.7 4.5-4.7 1.7 0 3.1.9 3.9 2.3.8-1.4 2.2-2.3 3.9-2.3 2.5 0 4.5 2 4.5 4.7 0 6-8.4 11.3-8.4 11.3Z',
+    diamond: 'M12 2.4 19 12l-7 9.6L5 12l7-9.6Z',
+    club: 'M12 2.6a3.5 3.5 0 0 0-2.6 5.8A3.6 3.6 0 1 0 8.7 15.5c1 0 1.9-.4 2.6-1-.2 2-1 3.5-2.3 4.4h6.2c-1.3-.9-2.1-2.4-2.3-4.4.7.6 1.6 1 2.6 1a3.6 3.6 0 1 0-.7-7.1A3.5 3.5 0 0 0 12 2.6Z',
+  };
+
   const SUITS = [
-    { s: '\u2660', red: false },
-    { s: '\u2665', red: true },
-    { s: '\u2666', red: true },
-    { s: '\u2663', red: false },
+    { key: 'spade', red: false },
+    { key: 'heart', red: true },
+    { key: 'diamond', red: true },
+    { key: 'club', red: false },
   ];
   const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+  const suitSvg = (key) => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + SUIT_PATHS[key] + '"/></svg>';
 
   function freshShoe() {
     const shoe = [];
     for (let d = 0; d < 6; d++) {
-      SUITS.forEach((su) => RANKS.forEach((r) => shoe.push({ rank: r, suit: su.s, red: su.red })));
+      SUITS.forEach((su) => RANKS.forEach((r) => shoe.push({ rank: r, suit: su.key, red: su.red })));
     }
     return D.shuffle(shoe);
   }
@@ -81,11 +91,15 @@
       ctx.panel.appendChild(action);
 
       function cardNode(card, faceDown) {
-        if (faceDown) return D.h('<div class="card back"></div>');
-        const node = D.h('<div class="card' + (card.red ? ' red' : '') + '"><span class="rank"></span><span class="suit"></span></div>');
-        node.querySelector('.rank').textContent = card.rank;
-        node.querySelector('.suit').textContent = card.suit;
-        return node;
+        if (faceDown) return D.h('<div class="card back" aria-label="Face down card"></div>');
+        const pip = suitSvg(card.suit);
+        return D.h(
+          '<div class="card' + (card.red ? ' red' : '') + '" aria-label="' + card.rank + ' of ' + card.suit + 's">' +
+            '<span class="corner tl"><b>' + card.rank + '</b>' + pip + '</span>' +
+            '<span class="pip">' + pip + '</span>' +
+            '<span class="corner br"><b>' + card.rank + '</b>' + pip + '</span>' +
+          '</div>'
+        );
       }
 
       function render() {
@@ -94,7 +108,7 @@
         dHand.innerHTML = '';
         dealer.forEach((c, i) => dHand.appendChild(cardNode(c, hideHole && i === 1)));
         pScore.textContent = player.length ? score(player) : '—';
-        dScore.textContent = dealer.length ? (hideHole ? score(dealer.slice(0, 1)) + ' +' : score(dealer)) : '—';
+        dScore.textContent = dealer.length ? (hideHole ? score(dealer.slice(0, 1)) + '+' : score(dealer)) : '—';
         shoeOut.set(shoe.length + ' / 312');
       }
 
@@ -114,6 +128,7 @@
       }
 
       function deal() {
+        if (round === 'player') return; // never abandon a hand that still has money on it
         const bet = amount.get();
         if (!ctx.bet(bet)) return;
         stake = bet;

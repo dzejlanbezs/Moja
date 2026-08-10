@@ -64,6 +64,10 @@
   <div class="rail-sep"></div>
 
   <div class="rail-group rail-bottom">
+    <button class="rail-btn" data-nav="admin" data-tip="Admin" id="railAdmin" hidden>
+      <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+      <span class="rail-text">Admin</span>
+    </button>
     <button class="rail-btn" data-nav="profile" data-tip="My Profile">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1.2-3.6 3.7-5.2 7-5.2s5.8 1.6 7 5.2"/></svg>
       <span class="rail-text">Profile</span>
@@ -107,6 +111,11 @@
   </div>
 
   <div class="topbar-right">
+    <div class="auth-actions" id="authActions" hidden>
+      <button class="btn btn-ghost" id="loginBtn">Log in</button>
+      <button class="btn btn-primary" id="registerBtn">Register</button>
+    </div>
+
     <div class="level-chip" id="levelChip">
       <div class="level-meta">
         <span class="level-name">Gold</span>
@@ -114,13 +123,16 @@
       </div>
       <div class="level-bar"><i id="levelFill" style="width:64%"></i></div>
     </div>
-    <button class="avatar" data-nav="profile" aria-label="Profile">VS</button>
+    <button class="avatar" id="topAvatar" data-nav="profile" aria-label="Profile">VS</button>
     <button class="icon-btn" id="notifBtn" aria-label="Notifications">
       <svg viewBox="0 0 24 24"><path d="M18 15V10a6 6 0 1 0-12 0v5l-1.5 2.5h15L18 15Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
       <i class="dot"></i>
     </button>
     <button class="icon-btn" id="chatBtn" aria-label="Chat">
       <svg viewBox="0 0 24 24"><path d="M20.5 12.5c0 3.6-3.8 6.5-8.5 6.5-.9 0-1.8-.1-2.6-.3L4.5 21l1.2-3.4C4.2 16.3 3.5 14.5 3.5 12.5c0-3.6 3.8-6.5 8.5-6.5s8.5 2.9 8.5 6.5Z"/></svg>
+    </button>
+    <button class="icon-btn" id="logoutBtn" aria-label="Log out" title="Log out" hidden>
+      <svg viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/></svg>
     </button>
   </div>
 </header>
@@ -280,13 +292,38 @@
     <div class="promo-grid" id="promoGrid"></div>
   </section>
 
+  <!-- ===== ADMIN ===== -->
+  <section class="page" id="page-admin">
+    <div class="section-head">
+      <h1>Admin dashboard</h1>
+      <p>Everything players do lands here: rounds, deposits, withdrawals, referrals and IPs.</p>
+    </div>
+
+    <div class="stat-grid" id="adminTotals"></div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><span class="dot-gold"></span>Pending requests</div>
+      <div class="admin-list" id="adminPending"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="dot-green"></span>Players
+        <button class="btn btn-ghost" id="adminRefresh" style="margin-left:auto;height:30px">Refresh</button>
+      </div>
+      <div class="table-scroll">
+        <table class="admin-table" id="adminUsers"></table>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== PROFILE ===== -->
   <section class="page" id="page-profile">
     <div class="profile-hero">
-      <div class="profile-avatar">VS</div>
+      <div class="profile-avatar" id="profileAvatar">VS</div>
       <div class="profile-id">
-        <h1>VegasStar</h1>
-        <span class="muted">User ID #36658531 · Member since Jan 2023</span>
+        <h1 id="profileName">VegasStar</h1>
+        <span class="muted" id="profileMeta">User ID #36658531 · Member since Jan 2023</span>
         <span class="rank-pill">
           <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.4 9.4l6-.8L12 3Z"/></svg>
           Gold VIP
@@ -309,15 +346,15 @@
     <div class="two-col">
       <div class="panel">
         <div class="panel-head"><span class="dot-green"></span>Account</div>
-        <div class="rows">
-          <div class="row"><span>Username</span><b>VegasStar</b></div>
-          <div class="row"><span>Email</span><b>v***@gmail.com</b></div>
-          <div class="row"><span>VIP rank</span><b class="gold">Gold</b></div>
-          <div class="row"><span>2FA</span><b class="green">Enabled</b></div>
-          <div class="row"><span>KYC</span><b class="green">Verified</b></div>
-          <div class="row"><span>Currency</span><b>USD (play money)</b></div>
-        </div>
-        <button class="btn btn-ghost btn-block" id="resetBalance">Reset demo balance to $1,000</button>
+          <div class="rows">
+            <div class="row"><span>Username</span><b id="profileUsername">VegasStar</b></div>
+            <div class="row"><span>Email</span><b id="profileEmail">v***@gmail.com</b></div>
+            <div class="row"><span>Referral code</span><b class="green" id="profileReferral">—</b></div>
+            <div class="row"><span>Referred by</span><b id="profileReferredBy">—</b></div>
+            <div class="row"><span>VIP rank</span><b class="gold">Gold</b></div>
+            <div class="row"><span>Currency</span><b id="profileCurrency">USD (play money)</b></div>
+          </div>
+          <button class="btn btn-ghost btn-block" id="resetBalance">Reset demo balance to $1,000</button>
       </div>
 
       <div class="panel">
@@ -355,7 +392,11 @@
             <button class="btn btn-primary" id="copyAddress">Copy</button>
           </div>
         </div>
-        <p class="hint">Demo only — no real deposits. Use the button below to top up play money.</p>
+        <label class="field" id="depAmountField" hidden>
+          <span>Amount you sent (USD)</span>
+          <input type="number" id="depAmount" min="1" step="0.01" placeholder="100.00">
+        </label>
+        <p class="hint" id="depHint">Demo only — no real deposits. Use the button below to top up play money.</p>
         <button class="btn btn-primary btn-block" id="fakeDeposit">Add $500 play money</button>
       </div>
 
@@ -372,6 +413,56 @@
         <div class="tx-list" id="txList"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ AUTH MODAL ============ -->
+<div class="overlay" id="authModal" hidden>
+  <div class="modal modal-auth" role="dialog" aria-modal="true" aria-label="Account">
+    <header class="modal-head">
+      <h2 id="authTitle">Create your account</h2>
+      <button class="icon-btn close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <div class="seg" id="authSeg">
+      <button class="seg-btn active" data-auth="register">Register</button>
+      <button class="seg-btn" data-auth="login">Log in</button>
+    </div>
+
+    <div class="modal-body">
+      <form id="authForm" novalidate>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="authEmail" name="email" autocomplete="email" placeholder="you@example.com" required>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="authPassword" name="password" autocomplete="current-password" placeholder="At least 8 characters" required>
+        </label>
+        <label class="field" id="referralField">
+          <span>Referral code <em class="optional">optional</em></span>
+          <input type="text" id="authReferral" name="referral" autocomplete="off" placeholder="e.g. K7QM2X">
+        </label>
+        <p class="form-error" id="authError" hidden></p>
+        <button class="btn btn-primary btn-block btn-lg" type="submit" id="authSubmit">Create account</button>
+      </form>
+      <p class="hint" id="authHint">New accounts start at $0.00 — request a deposit from the Cashier and it lands once an admin confirms it.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN USER MODAL ============ -->
+<div class="overlay" id="adminUserModal" hidden>
+  <div class="modal modal-admin-user" role="dialog" aria-modal="true" aria-label="Player detail">
+    <header class="modal-head">
+      <h2 id="adminUserTitle">Player</h2>
+      <button class="icon-btn close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div class="modal-body" id="adminUserBody"></div>
   </div>
 </div>
 
@@ -407,6 +498,7 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script src="assets/js/core.js"></script>
+<script src="assets/js/api.js"></script>
 <script src="assets/js/game-modal.js"></script>
 <script src="assets/js/games/dice.js"></script>
 <script src="assets/js/games/limbo.js"></script>
@@ -419,5 +511,7 @@
 <script src="assets/js/games/plinko.js"></script>
 <script src="assets/js/games/wheel.js"></script>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/admin.js"></script>
+<script src="assets/js/account.js"></script>
 </body>
 </html>

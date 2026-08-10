@@ -144,6 +144,7 @@
     const def = registry[id];
     const meta = D.games[id] || {};
     if (!def) { D.toast('This game is coming soon', 'info'); return; }
+    if (D.guardPlay && !D.guardPlay()) return;
     closeGame();
 
     const overlay = document.getElementById('gameModal');

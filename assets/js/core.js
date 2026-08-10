@@ -70,8 +70,11 @@ window.Dicey = (function () {
 
   const state = load();
   const listeners = [];
+  const hooks = {};
+  let persist = true;
 
   function save() {
+    if (!persist) return;
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage full or blocked */ }
   }
   function emit() {
@@ -82,6 +85,19 @@ window.Dicey = (function () {
   const Store = {
     get state() { return state; },
     get balance() { return state.balance; },
+    hooks: hooks,
+
+    /** Server mode owns the wallet, so stop mirroring it into localStorage. */
+    setPersistence(on) {
+      persist = !!on;
+      if (!persist) { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } }
+    },
+
+    /** Replaces wallet fields with authoritative values (server or reset). */
+    hydrate(data) {
+      Object.assign(state, data);
+      emit();
+    },
     onChange(fn) {
       listeners.push(fn);
       fn(state);
@@ -100,6 +116,7 @@ window.Dicey = (function () {
       state.wagered = round2(state.wagered + amount);
       state.bets += 1;
       emit();
+      if (hooks.wager) hooks.wager(amount);
       return true;
     },
 
@@ -132,6 +149,7 @@ window.Dicey = (function () {
       state.history.unshift(Object.assign({ ts: Date.now() }, entry));
       state.history = state.history.slice(0, 40);
       emit();
+      if (hooks.record) hooks.record(entry);
     },
 
     reset() {
