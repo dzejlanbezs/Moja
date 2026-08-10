@@ -214,7 +214,11 @@ function serveStatic(req, res, urlPath) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('Not found');
     }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+      // the browser must never serve a stale build after you edit a file
+      'Cache-Control': 'no-cache',
+    });
     res.end(buf);
   });
 }

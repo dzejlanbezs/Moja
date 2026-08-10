@@ -734,8 +734,8 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .feed-table td { padding: 11px 12px; border-bottom: 1px solid rgba(255, 255, 255, .04); white-space: nowrap; }
 .feed-table tbody tr:last-child td { border-bottom: none; opacity: .45; }
 .feed-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.feed-table .feed-user, .feed-table .feed-game { display: flex; align-items: center; gap: 9px; }
-.feed-table .feed-game span { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.feed-table .cell-flex { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.feed-table .feed-game { display: inline-block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 .feed-rank { font-weight: 800; color: var(--text-3); }
 .feed-empty { text-align: center; color: var(--text-3); padding: 28px 0; }
 

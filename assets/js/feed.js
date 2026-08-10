@@ -100,8 +100,8 @@
       '<th class="num">Amount</th><th class="num">Multiplier</th><th class="num">Payout</th></tr></thead><tbody>' +
       rows.map((r) =>
         '<tr>' +
-          '<td class="feed-user">' + avatar(r.user) + '<span>' + esc(r.user) + '</span></td>' +
-          '<td class="feed-game">' + thumb(r.gameId) + '<span>' + esc(r.game) + '</span></td>' +
+          '<td><span class="cell-flex">' + avatar(r.user) + '<span>' + esc(r.user) + '</span></span></td>' +
+          '<td><span class="cell-flex">' + thumb(r.gameId) + '<span class="feed-game">' + esc(r.game) + '</span></span></td>' +
           '<td class="muted">' + esc(ago(r.ts)) + '</td>' +
           '<td class="num">' + coin() + esc(D.fmt(r.bet)) + '</td>' +
           '<td class="num">' + esc((r.multiplier || 0).toFixed(2)) + '\u00d7</td>' +
@@ -120,7 +120,7 @@
       rows.map((r) =>
         '<tr>' +
           '<td class="feed-rank">#' + r.rank + '</td>' +
-          '<td class="feed-user">' + avatar(r.user) + '<span>' + esc(r.user) + '</span></td>' +
+          '<td><span class="cell-flex">' + avatar(r.user) + '<span>' + esc(r.user) + '</span></span></td>' +
           '<td class="num">' + coin() + esc(D.fmt(r.wagered)) + '</td>' +
           '<td class="num muted">' + esc(r.bets) + '</td>' +
         '</tr>'
