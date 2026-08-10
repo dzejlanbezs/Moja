@@ -81,7 +81,7 @@
         closeAuth();
         authForm.reset();
         D.toast(tab === 'register' ? 'Account created — welcome!' : 'Signed in as ' + user.email, 'win');
-        return applySession(user);
+        return applySession(user).then(() => { if (D.Feed) D.Feed.load(); });
       })
       .catch((err) => showError(err.message || 'Something went wrong'))
       .then(() => { authSubmit.disabled = false; });
@@ -92,6 +92,7 @@
   D.$('#logoutBtn').addEventListener('click', () => {
     Api.logout()
       .then(() => { D.toast('Signed out', 'info'); return applySession(null); })
+      .then(() => { if (D.Feed) D.Feed.load(); })
       .catch(() => D.toast('Could not sign out', 'lose'));
   });
 
@@ -213,7 +214,7 @@
     }
     document.body.classList.add('server-mode');
     D.Store.setPersistence(false);
-    return applySession(Api.user);
+    return applySession(Api.user).then(() => { if (D.Feed) D.Feed.load(); });
   });
 
   D.openAuth = openAuth;
