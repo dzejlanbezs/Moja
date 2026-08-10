@@ -110,6 +110,7 @@
 
     /** Normalised rows for the cashier history tab. */
     transactions() {
+      if (Wallet.isServer() && !Api.user) return Promise.resolve([]);
       if (!Wallet.isServer()) {
         return Promise.resolve(D.Store.state.tx.map((tx) => ({
           type: tx.type, amount: tx.amount, asset: tx.asset, status: tx.status, ts: tx.ts,
