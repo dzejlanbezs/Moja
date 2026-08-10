@@ -192,7 +192,7 @@
   let winsMode = 'live';
 
   function winCard(id, amount, user) {
-    const g = D.games[id];
+    const g = D.games[id] || { accent: 'var(--surface-3)', name: '?' };
     return (
       '<div class="win-card">' +
         '<div class="win-thumb" style="background:' + g.accent + '">' + g.name.slice(0, 1) + '</div>' +
@@ -225,8 +225,20 @@
     });
   });
 
+  /** Real wins once the backend has some; the simulated strip stays as a fallback. */
+  function realWins() {
+    return D.Api.request('GET', '/api/feed?tab=' + (winsMode === 'lucky' ? 'lucky' : 'live') + '&limit=14')
+      .then((data) => {
+        const wins = (data.rows || []).filter((r) => r.payout > r.bet);
+        if (!wins.length) return;
+        winsTrack.innerHTML = wins.map((r) => winCard(r.gameId, r.payout, r.user)).join('');
+      })
+      .catch(() => {});
+  }
+
   setInterval(() => {
     if (document.hidden || !D.$('#page-casino').classList.contains('active')) return;
+    if (D.Wallet.isServer()) { realWins(); return; }
     winsTrack.insertAdjacentHTML('afterbegin', randomWin());
     while (winsTrack.children.length > 16) winsTrack.lastElementChild.remove();
   }, 3200);
@@ -265,6 +277,7 @@
   D.$('#notifBtn').addEventListener('click', () => D.toast('No new notifications', 'info'));
 
   /* ---------------- cashier ---------------- */
+  // Demo defaults; server mode replaces these with the real deposit wallets.
   const COINS = [
     { id: 'btc', name: 'Bitcoin', sym: 'BTC', color: '#f7931a', addr: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
     { id: 'eth', name: 'Ethereum', sym: 'ETH', color: '#627eea', addr: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F' },
@@ -272,6 +285,17 @@
     { id: 'ltc', name: 'Litecoin', sym: 'LTC', color: '#a6a9aa', addr: 'ltc1q0wz5a5dp4w8vvhkxf75k6c7wkfqd0yfwkcxtmx' },
     { id: 'sol', name: 'Solana', sym: 'SOL', color: '#9945ff', addr: '7KYq3U8DsK82FmxZaBQ1uJUGKMrHFYhz6D3V2vqtApWQ' },
   ];
+
+  D.setCoins = (list) => {
+    if (!list || !list.length) return;
+    COINS.length = 0;
+    list.forEach((c) => COINS.push({
+      id: c.sym.toLowerCase(), name: c.name, sym: c.sym,
+      color: c.color, addr: c.address, network: c.network,
+    }));
+    coinId = COINS[0].id;
+    paintCashier();
+  };
 
   function coinHtml(coin, active) {
     return (
@@ -312,6 +336,9 @@
     D.$('#withdrawCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     D.$('#depositAddress').textContent = coin.addr;
     D.$('#depositQr').innerHTML = fakeQr(coin.addr);
+    const net = D.$('#depNetwork');
+    net.textContent = coin.network || '';
+    net.hidden = !coin.network;
     D.$('#wdAddress').placeholder = coin.addr.slice(0, 6) + '…';
     D.$('#wdAvailable').textContent = D.fmt(D.Store.balance);
     paintTransactions();
@@ -382,6 +409,31 @@
       paintTransactions();
       D.toast('Deposit submitted — waiting for confirmation', 'info');
     }).catch((err) => D.toast(err.message, 'lose'));
+  });
+
+  D.$('#saveSender').addEventListener('click', () => {
+    const address = D.$('#depSender').value.trim();
+    D.Api.request('POST', '/api/wallet/sender', { address: address })
+      .then(() => D.toast('Wallet saved — deposits from it credit automatically', 'win'))
+      .catch((err) => D.toast(err.message, 'lose'));
+  });
+
+  D.$('#claimDeposit').addEventListener('click', () => {
+    const input = D.$('#depTxHash');
+    const txHash = input.value.trim();
+    if (!txHash) { D.toast('Paste the transaction hash', 'info'); return; }
+    const button = D.$('#claimDeposit');
+    button.disabled = true;
+    D.Api.request('POST', '/api/wallet/claim', { txHash: txHash })
+      .then((data) => {
+        if (data.pending) { D.toast(data.error || data.message, 'info'); return; }
+        D.Store.hydrate({ balance: data.balance });
+        input.value = '';
+        paintCashier();
+        D.toast('Credited ' + D.fmt(data.credited) + ' from ' + data.coin, 'win');
+      })
+      .catch((err) => D.toast(err.message, 'lose'))
+      .then(() => { button.disabled = false; });
   });
 
   D.$('#wdSubmit').addEventListener('click', () => {
@@ -460,25 +512,6 @@
       '<span class="lb-user">' + r[0] + '</span>' +
       '<span class="lb-wager">' + D.fmt(r[1]) + ' wagered</span>' +
       '<span class="lb-prize">' + (r[2] ? D.fmt(r[2]) : '—') + '</span>' +
-    '</div>'
-  ).join('');
-
-  const RANKS = [
-    { name: 'Bronze', color: '#cd7f32', wager: '$0 – $5,000', perks: ['5% weekly cashback', 'Daily bonus', 'Priority chat'] },
-    { name: 'Silver', color: '#c0c0c0', wager: '$5,001 – $20,000', perks: ['10% weekly cashback', 'Weekly reload', 'Silver badge'] },
-    { name: 'Gold', color: '#ffcc33', wager: '$20,001 – $50,000', perks: ['15% weekly cashback', 'Birthday bonus', 'VIP manager'], current: true },
-    { name: 'Platinum', color: '#7eb8ff', wager: '$50,001 – $150,000', perks: ['20% weekly cashback', 'Monthly bonus', 'Faster withdrawals'] },
-    { name: 'Diamond', color: '#b388ff', wager: '$150,001 – $500,000', perks: ['25% weekly cashback', 'Personal host', 'No withdrawal limits'] },
-    { name: 'Legend', color: '#ff8a3d', wager: '$500,001+', perks: ['30% weekly cashback', 'Custom packages', 'Private events'] },
-  ];
-
-  D.$('#ranks').innerHTML = RANKS.map((r) =>
-    '<div class="rank" style="border-color:' + r.color + '33">' +
-      (r.current ? '<span class="rank-badge-now">Your rank</span>' : '') +
-      '<div class="rank-icon" style="background:' + r.color + '1f;color:' + r.color + '">\u2605</div>' +
-      '<h3 style="color:' + r.color + '">' + r.name + '</h3>' +
-      '<div class="wager">' + r.wager + '</div>' +
-      '<ul>' + r.perks.map((p) => '<li>' + p + '</li>').join('') + '</ul>' +
     '</div>'
   ).join('');
 

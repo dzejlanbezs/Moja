@@ -13,6 +13,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const chain = require('./chain');
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
@@ -21,9 +22,20 @@ const PORT = parseInt(process.env.PORT, 10) || 3000;
 const SESSION_DAYS = 30;
 const MAX_ROUNDS = 20000;
 
+// Codes you hand out yourself. Anyone signing up with one gets the
+// 100% first-deposit sports bonus banner in the cashier.
+const PROMO_CODES = (process.env.DICEY_PROMO_CODES || 'DXDXDA,FGASDK')
+  .split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
+
+const COINS = [
+  { sym: 'USDT', name: 'Tether', network: 'Ethereum · ERC-20', color: '#26a17b' },
+  { sym: 'USDC', name: 'USD Coin', network: 'Ethereum · ERC-20', color: '#2775ca' },
+  { sym: 'ETH', name: 'Ethereum', network: 'Ethereum · mainnet', color: '#627eea' },
+];
+
 /* ------------------------------------------------------------------ storage */
 
-const EMPTY_DB = { users: [], sessions: {}, rounds: [], transactions: [] };
+const EMPTY_DB = { users: [], sessions: {}, rounds: [], transactions: [], meta: { lastBlock: 0, seenTx: [] } };
 
 function loadDb() {
   try {
@@ -35,6 +47,7 @@ function loadDb() {
 }
 
 const db = loadDb();
+db.meta = Object.assign({ lastBlock: 0, seenTx: [] }, db.meta);
 let saveTimer = null;
 
 function save() {
@@ -97,9 +110,19 @@ function publicUser(user) {
     isAdmin: !!user.isAdmin,
     referralCode: user.referralCode,
     referredBy: user.referredBy || null,
+    promoCode: user.promoCode || null,
+    bonus: user.bonus || null,
+    walletAddress: user.walletAddress || null,
+    depositRef: user.depositRef || null,
     createdAt: user.createdAt,
     stats: user.stats,
   };
+}
+
+/** "player@mail.com" -> "pl***" so the public feed leaks nothing. */
+function maskEmail(email) {
+  const handle = String(email || '').split('@')[0];
+  return handle.slice(0, 2) + '***';
 }
 
 /* ------------------------------------------------------------------ sessions */
@@ -216,6 +239,41 @@ function userAggregates(user) {
   };
 }
 
+/**
+ * Records an on-chain deposit. `user` may be null when we cannot tell who
+ * sent it — those wait in the admin panel to be assigned by hand.
+ */
+function creditDeposit(user, deposit, status) {
+  const eligible = !!(user && user.bonus && !user.bonus.used);
+  const tx = {
+    id: id('tx'),
+    userId: user ? user.id : null,
+    type: 'deposit',
+    coin: deposit.coin,
+    address: deposit.from,
+    txHash: deposit.txHash,
+    crypto: deposit.amount,
+    amount: deposit.usd,
+    status: status,
+    onChain: true,
+    bonus: eligible ? (user.bonus.label || '100% Sports Bonus') : null,
+    note: deposit.usd ? '' : 'Needs a USD value',
+    ip: '',
+    ts: now(),
+  };
+
+  db.transactions.unshift(tx);
+  db.meta.seenTx.unshift(deposit.txHash);
+  db.meta.seenTx = db.meta.seenTx.slice(0, 1000);
+
+  if (user && status === 'confirmed') {
+    user.balance = round2(user.balance + deposit.usd);
+    if (eligible) user.bonus.used = true;
+  }
+  save();
+  return tx;
+}
+
 const ROUTES = {
   'GET /api/session': (ctx) => {
     if (!ctx.session) return sendJson(ctx.res, 200, { user: null });
@@ -237,10 +295,15 @@ const ROUTES = {
     if (findByEmail(email)) return sendJson(ctx.res, 409, { error: 'That email is already registered' });
 
     let referredBy = null;
+    let promo = null;
     if (referral) {
-      const owner = db.users.filter((u) => u.referralCode === referral)[0];
-      if (!owner) return sendJson(ctx.res, 400, { error: 'That referral code does not exist' });
-      referredBy = owner.referralCode;
+      if (PROMO_CODES.indexOf(referral) > -1) {
+        promo = referral;
+      } else {
+        const owner = db.users.filter((u) => u.referralCode === referral)[0];
+        if (!owner) return sendJson(ctx.res, 400, { error: 'That referral code does not exist' });
+        referredBy = owner.referralCode;
+      }
     }
 
     const creds = hashPassword(password);
@@ -254,6 +317,10 @@ const ROUTES = {
       blocked: false,
       referralCode: referralCode(),
       referredBy: referredBy,
+      promoCode: promo,
+      bonus: promo ? { type: 'sports100', label: '100% Sports Bonus', used: false } : null,
+      walletAddress: null,
+      depositRef: 'DX-' + crypto.randomBytes(3).toString('hex').toUpperCase(),
       createdAt: now(),
       lastSeenAt: now(),
       signupIp: clientIp(ctx.req),
@@ -319,7 +386,102 @@ const ROUTES = {
     return sendJson(ctx.res, 200, { balance: user.balance, stats: user.stats });
   },
 
+  /* ---- config & feed ---- */
+  'GET /api/config': async (ctx) => {
+    const user = ctx.session ? ctx.session.user : null;
+    return sendJson(ctx.res, 200, {
+      coins: COINS.map((c) => Object.assign({ address: chain.config.house }, c)),
+      house: chain.config.house,
+      confirmations: chain.config.confirmations,
+      chainOnline: chain.online,
+      bonus: user && user.bonus && !user.bonus.used ? user.bonus : null,
+      depositRef: user ? user.depositRef : null,
+      walletAddress: user ? user.walletAddress : null,
+    });
+  },
+
+  'GET /api/feed': (ctx) => {
+    const tab = ctx.query.get('tab') || 'live';
+    const limit = Math.min(50, Math.max(5, parseInt(ctx.query.get('limit'), 10) || 10));
+
+    if (tab === 'race') {
+      const board = db.users
+        .filter((u) => !u.isAdmin && u.stats.wagered > 0)
+        .sort((a, b) => b.stats.wagered - a.stats.wagered)
+        .slice(0, limit)
+        .map((u, i) => ({ rank: i + 1, user: maskEmail(u.email), wagered: round2(u.stats.wagered), bets: u.stats.bets }));
+      return sendJson(ctx.res, 200, { tab: tab, race: board });
+    }
+
+    let rounds = db.rounds.slice();
+    if (tab === 'mine') {
+      const user = ctx.requireUser();
+      if (!user) return;
+      rounds = rounds.filter((r) => r.userId === user.id);
+    }
+
+    if (tab === 'high') rounds.sort((a, b) => b.bet - a.bet);
+    else if (tab === 'lucky') rounds = rounds.filter((r) => r.payout > r.bet).sort((a, b) => b.multiplier - a.multiplier);
+    else rounds.reverse();
+
+    const emails = {};
+    db.users.forEach((u) => { emails[u.id] = maskEmail(u.email); });
+
+    return sendJson(ctx.res, 200, {
+      tab: tab,
+      rows: rounds.slice(0, limit).map((r) => ({
+        user: tab === 'mine' ? 'You' : (emails[r.userId] || 'Hidden'),
+        game: r.game, gameId: r.gameId,
+        bet: r.bet, multiplier: r.multiplier, payout: r.payout, ts: r.ts,
+      })),
+    });
+  },
+
   /* ---- wallet ---- */
+  'POST /api/wallet/sender': async (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    const body = await ctx.body();
+    const address = String(body.address || '').trim().toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(address)) return sendJson(ctx.res, 400, { error: 'Enter a valid 0x… wallet address' });
+    const taken = db.users.filter((u) => u.walletAddress === address && u.id !== user.id)[0];
+    if (taken) return sendJson(ctx.res, 409, { error: 'Another account already uses that wallet' });
+    user.walletAddress = address;
+    save();
+    return sendJson(ctx.res, 200, { walletAddress: address });
+  },
+
+  /** Player pastes a transaction hash; we check it on-chain and credit it. */
+  'POST /api/wallet/claim': async (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    const body = await ctx.body();
+    const txHash = String(body.txHash || '').trim().toLowerCase();
+
+    if (db.meta.seenTx.indexOf(txHash) > -1) return sendJson(ctx.res, 409, { error: 'That transaction was already credited' });
+
+    let deposit;
+    try {
+      deposit = await chain.verifyTx(txHash);
+    } catch (err) {
+      return sendJson(ctx.res, 400, { error: err.message });
+    }
+    if (!deposit.enough) {
+      return sendJson(ctx.res, 202, {
+        pending: true,
+        error: 'Seen on-chain with ' + deposit.confirmations + ' confirmation(s). Try again at ' + chain.config.confirmations + '.',
+      });
+    }
+    if (!deposit.usd) {
+      creditDeposit(user, deposit, 'pending');
+      return sendJson(ctx.res, 200, { pending: true, message: 'Deposit found — an admin will set its USD value shortly.' });
+    }
+
+    if (!user.walletAddress) user.walletAddress = deposit.from;
+    creditDeposit(user, deposit, 'confirmed');
+    return sendJson(ctx.res, 200, { balance: round2(user.balance), credited: deposit.usd, coin: deposit.coin });
+  },
+
   'POST /api/wallet/deposit': async (ctx) => {
     const user = ctx.requireUser();
     if (!user) return;
@@ -402,7 +564,7 @@ const ROUTES = {
       .reduce((sum, t) => sum + t.amount, 0));
     return sendJson(ctx.res, 200, {
       users: users,
-      pending: db.transactions.filter((t) => t.status === 'pending')
+      pending: db.transactions.filter((t) => t.status === 'pending' || t.status === 'unclaimed')
         .map((t) => Object.assign({}, t, { email: (findUser(t.userId) || {}).email })),
       totals: {
         users: db.users.length,
@@ -486,6 +648,33 @@ const ROUTES = {
     });
     save();
     return sendJson(ctx.res, 200, { balance: user.balance });
+  },
+
+  /** Attach an unidentified on-chain deposit to a player and credit it. */
+  'POST /api/admin/assign': async (ctx) => {
+    const admin = ctx.requireAdmin();
+    if (!admin) return;
+    const body = await ctx.body();
+    const tx = db.transactions.filter((t) => t.id === body.id)[0];
+    if (!tx) return sendJson(ctx.res, 404, { error: 'No such transaction' });
+    if (tx.status === 'confirmed') return sendJson(ctx.res, 400, { error: 'Already credited' });
+
+    const user = findByEmail(body.email || '') || findUser(body.userId);
+    if (!user) return sendJson(ctx.res, 404, { error: 'No player with that email' });
+
+    const amount = round2(body.amount || tx.amount);
+    if (!(amount > 0)) return sendJson(ctx.res, 400, { error: 'Set the USD amount for this deposit' });
+
+    tx.userId = user.id;
+    tx.amount = amount;
+    tx.status = 'confirmed';
+    tx.resolvedAt = now();
+    tx.resolvedBy = admin.email;
+    user.balance = round2(user.balance + amount);
+    if (user.bonus && !user.bonus.used) { user.bonus.used = true; tx.bonus = user.bonus.label; }
+    if (!user.walletAddress && tx.address) user.walletAddress = tx.address;
+    save();
+    return sendJson(ctx.res, 200, { transaction: tx, balance: user.balance });
   },
 
   'POST /api/admin/block': async (ctx) => {
@@ -603,9 +792,42 @@ function bootstrapAdmin() {
   save();
 }
 
+/* ------------------------------------------------------------------ deposit watcher */
+
+function startWatcher() {
+  if (!chain.config.rpcUrl) {
+    console.log('No RPC configured — deposits fall back to manual confirmation.');
+    return;
+  }
+  console.log('Watching ' + chain.config.house + ' for ETH / USDT / USDC deposits');
+
+  chain.watch(
+    {
+      get: () => db.meta.lastBlock,
+      set: (block) => { db.meta.lastBlock = block; save(); },
+    },
+    async (deposit) => {
+      if (db.meta.seenTx.indexOf(deposit.txHash) > -1) return;
+      const owner = db.users.filter((u) => u.walletAddress && u.walletAddress === deposit.from)[0] || null;
+
+      if (owner && deposit.usd) {
+        creditDeposit(owner, deposit, 'confirmed');
+        console.log('Credited ' + deposit.usd + ' USD to ' + owner.email + ' (' + deposit.coin + ' ' + deposit.amount + ')');
+      } else if (owner) {
+        creditDeposit(owner, deposit, 'pending');
+        console.log('Deposit from ' + owner.email + ' needs a USD value: ' + deposit.coin + ' ' + deposit.amount);
+      } else {
+        creditDeposit(null, deposit, 'unclaimed');
+        console.log('Unidentified deposit ' + deposit.coin + ' ' + deposit.amount + ' from ' + deposit.from);
+      }
+    }
+  );
+}
+
 bootstrapAdmin();
 
 server.listen(PORT, () => {
   console.log('Dicey running on http://localhost:' + PORT);
   console.log(db.users.length + ' account(s) in ' + path.relative(ROOT, DB_FILE));
+  startWatcher();
 });

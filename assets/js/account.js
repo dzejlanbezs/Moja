@@ -111,9 +111,9 @@
     D.$('#levelChip').hidden = !signedIn;
     D.$('#railAdmin').hidden = !(signedIn && user.isAdmin);
     D.$('#resetBalance').hidden = true;
-    D.$('#depAmountField').hidden = false;
     D.$('#fakeDeposit').textContent = 'I have sent the deposit';
     D.$('#depHint').textContent = 'Send the coin to the address above, then tell us the amount. It is credited once an admin confirms it.';
+    loadConfig(user);
 
     if (!signedIn) {
       D.Store.hydrate({ balance: 0, wagered: 0, won: 0, bets: 0, wins: 0, history: [], tx: [] });
@@ -157,6 +157,40 @@
         });
       })
       .catch(() => {});
+  }
+
+  /* ---------------- cashier config ---------------- */
+
+  /**
+   * Pulls the live deposit wallets, the promo bonus and the chain status,
+   * then puts the deposit tab into the right shape for this account.
+   */
+  function loadConfig(user) {
+    return Api.request('GET', '/api/config').then((cfg) => {
+      D.setCoins(cfg.coins);
+
+      const banner = D.$('#bonusBanner');
+      banner.hidden = !cfg.bonus;
+      if (cfg.bonus) D.$('#bonusTitle').textContent = cfg.bonus.label;
+
+      const refRow = D.$('#depRefRow');
+      refRow.hidden = !cfg.depositRef;
+      if (cfg.depositRef) D.$('#depRef').textContent = cfg.depositRef;
+
+      const onChain = !!(cfg.chainOnline && user);
+      D.$('#depServer').hidden = !onChain;
+      D.$('#depAmountField').hidden = onChain;
+      D.$('#fakeDeposit').className = onChain ? 'btn btn-ghost btn-block' : 'btn btn-primary btn-block';
+      D.$('#fakeDeposit').hidden = onChain;
+      D.$('#depHint').hidden = onChain;
+
+      if (onChain) {
+        D.$('#depSender').value = cfg.walletAddress || '';
+        D.$('#depChainHint').textContent =
+          'Deposits are picked up automatically after ' + cfg.confirmations +
+          ' confirmations. USDT and USDC credit 1:1, ETH at the live rate.';
+      }
+    }).catch(() => {});
   }
 
   /* ---------------- boot ---------------- */

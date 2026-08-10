@@ -23,7 +23,8 @@
   const when = (ts) => (ts ? new Date(ts).toLocaleString() : '—');
   const short = (text, n) => (text && text.length > n ? text.slice(0, n) + '…' : text || '—');
 
-  const STATUS_CLASS = { pending: 'gold', confirmed: 'green', rejected: 'red' };
+  const STATUS_CLASS = { pending: 'gold', unclaimed: 'gold', confirmed: 'green', rejected: 'red' };
+  const vipName = (wagered) => (D.Vip ? D.Vip.progress(wagered).rank.name : '—');
 
   /* ---------------- overview ---------------- */
 
@@ -61,20 +62,36 @@
       pendingEl.innerHTML = '<div class="bets-empty">Nothing waiting for review</div>';
       return;
     }
-    pendingEl.innerHTML = rows.map((tx) =>
-      '<div class="admin-row">' +
+    pendingEl.innerHTML = rows.map((tx) => {
+      const unclaimed = tx.status === 'unclaimed';
+      const detail = [
+        tx.coin + (tx.crypto ? ' ' + tx.crypto : ''),
+        tx.address ? (tx.type === 'withdraw' ? '→ ' : 'from ') + short(tx.address, 24) : '',
+        tx.txHash ? 'tx ' + short(tx.txHash, 14) : '',
+        when(tx.ts),
+        tx.note,
+      ].filter(Boolean).join(' · ');
+
+      return '<div class="admin-row">' +
         '<span class="tag-' + (tx.type === 'withdraw' ? 'out' : 'in') + '">' + esc(tx.type) + '</span>' +
         '<div class="admin-row-main">' +
-          '<b>' + esc(tx.email || 'unknown') + '</b>' +
-          '<span class="muted">' + esc(tx.coin) + (tx.address ? ' → ' + esc(short(tx.address, 26)) : '') + ' · ' + esc(when(tx.ts)) + '</span>' +
+          '<b>' + esc(tx.email || (unclaimed ? 'Unidentified sender' : 'unknown')) + '</b>' +
+          (tx.bonus ? '<span class="pill-bonus">' + esc(tx.bonus) + '</span>' : '') +
+          '<span class="muted">' + esc(detail) + '</span>' +
         '</div>' +
-        '<b class="admin-amount">' + esc(D.fmt(tx.amount)) + '</b>' +
-        '<div class="admin-row-actions">' +
-          '<button class="btn btn-primary" data-resolve="confirmed" data-tx="' + esc(tx.id) + '">Confirm</button>' +
-          '<button class="btn btn-danger" data-resolve="rejected" data-tx="' + esc(tx.id) + '">Reject</button>' +
-        '</div>' +
-      '</div>'
-    ).join('');
+        '<b class="admin-amount">' + esc(tx.amount ? D.fmt(tx.amount) : 'set value') + '</b>' +
+        (unclaimed
+          ? '<div class="admin-row-actions">' +
+              '<input class="field-inline slim" data-assign-email="' + esc(tx.id) + '" placeholder="player email">' +
+              '<input class="field-inline slim" data-assign-amount="' + esc(tx.id) + '" type="number" step="0.01" placeholder="USD" value="' + (tx.amount || '') + '">' +
+              '<button class="btn btn-primary" data-assign="' + esc(tx.id) + '">Credit</button>' +
+            '</div>'
+          : '<div class="admin-row-actions">' +
+              '<button class="btn btn-primary" data-resolve="confirmed" data-tx="' + esc(tx.id) + '">Confirm</button>' +
+              '<button class="btn btn-danger" data-resolve="rejected" data-tx="' + esc(tx.id) + '">Reject</button>' +
+            '</div>') +
+      '</div>';
+    }).join('');
   }
 
   function renderUsers(users) {
@@ -90,9 +107,13 @@
         '<td class="num green">' + esc(D.fmt(u.totals.deposited)) + '</td>' +
         '<td class="num">' + esc(D.fmt(u.totals.withdrawn)) + '</td>' +
         '<td class="num">' + esc(D.fmt(u.totals.wagered)) + '</td>' +
+        '<td>' + esc(vipName(u.totals.wagered)) + '</td>' +
         '<td class="num">' + esc(u.totals.bets) + '</td>' +
         '<td><code>' + esc(u.referralCode) + '</code></td>' +
         '<td>' + esc(u.referredBy || '—') + '</td>' +
+        '<td>' + (u.promoCode
+          ? '<code>' + esc(u.promoCode) + '</code>' + (u.bonus && !u.bonus.used ? '<span class="pill-bonus">bonus</span>' : '')
+          : '—') + '</td>' +
         '<td class="mono">' + esc(u.lastIp || u.signupIp) + '</td>' +
         '<td class="muted">' + esc(when(u.lastSeenAt)) + '</td>' +
         '<td><button class="btn btn-ghost" data-open-user="' + esc(u.id) + '">Open</button></td>' +
@@ -102,8 +123,8 @@
     usersEl.innerHTML =
       '<thead><tr>' +
         '<th>Email</th><th class="num">Balance</th><th class="num">Deposited</th><th class="num">Withdrawn</th>' +
-        '<th class="num">Wagered</th><th class="num">Bets</th><th>Code</th><th>Referred by</th>' +
-        '<th>IP</th><th>Last seen</th><th></th>' +
+        '<th class="num">Wagered</th><th>VIP</th><th class="num">Bets</th><th>Code</th><th>Referred by</th>' +
+        '<th>Promo</th><th>IP</th><th>Last seen</th><th></th>' +
       '</tr></thead><tbody>' + rows + '</tbody>';
   }
 
@@ -205,6 +226,18 @@
   document.addEventListener('click', (e) => {
     const resolve = e.target.closest('[data-resolve]');
     if (resolve) { resolveTx(resolve.dataset.tx, resolve.dataset.resolve); return; }
+
+    const assign = e.target.closest('[data-assign]');
+    if (assign) {
+      const txId = assign.dataset.assign;
+      const email = (D.$('[data-assign-email="' + txId + '"]') || {}).value;
+      const amount = parseFloat((D.$('[data-assign-amount="' + txId + '"]') || {}).value);
+      if (!email) { D.toast('Enter the player email', 'info'); return; }
+      Api.request('POST', '/api/admin/assign', { id: txId, email: email.trim(), amount: amount })
+        .then(() => { D.toast('Deposit credited to ' + email, 'win'); return load(); })
+        .catch((err) => D.toast(err.message || 'Could not credit', 'lose'));
+      return;
+    }
 
     const open = e.target.closest('[data-open-user]');
     if (open) { openUser(open.dataset.openUser); return; }
