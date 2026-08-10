@@ -644,7 +644,7 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .hint b { color: var(--green); }
 
 .field { display: block; margin-bottom: 13px; }
-.field span { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.field span, .field > label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
 .field input {
   width: 100%; height: 42px; padding: 0 13px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 10px;

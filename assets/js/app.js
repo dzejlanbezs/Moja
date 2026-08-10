@@ -411,12 +411,19 @@
     }).catch((err) => D.toast(err.message, 'lose'));
   });
 
-  D.$('#saveSender').addEventListener('click', () => {
+  function saveSender() {
     const address = D.$('#depSender').value.trim();
     D.Api.request('POST', '/api/wallet/sender', { address: address })
-      .then(() => D.toast('Wallet saved — deposits from it credit automatically', 'win'))
+      .then((data) => {
+        D.$('#depSender').value = data.walletAddress;
+        D.toast('Wallet saved — deposits from it credit automatically', 'win');
+      })
       .catch((err) => D.toast(err.message, 'lose'));
-  });
+  }
+
+  D.$('#saveSender').addEventListener('click', saveSender);
+  D.$('#depSender').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveSender(); } });
+  D.$('#depTxHash').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); D.$('#claimDeposit').click(); } });
 
   D.$('#claimDeposit').addEventListener('click', () => {
     const input = D.$('#depTxHash');

@@ -439,20 +439,20 @@
         </div>
 
         <div id="depServer" hidden>
-          <label class="field">
-            <span>Your sending wallet <em class="optional">so deposits credit automatically</em></span>
-            <span class="field-row">
-              <input type="text" id="depSender" placeholder="0x…" autocomplete="off">
-              <button class="btn btn-ghost" id="saveSender">Save</button>
-            </span>
-          </label>
-          <label class="field">
-            <span>Already sent? Paste the transaction hash</span>
-            <span class="field-row">
-              <input type="text" id="depTxHash" placeholder="0x… (66 characters)" autocomplete="off">
-              <button class="btn btn-primary" id="claimDeposit">Credit</button>
-            </span>
-          </label>
+          <div class="field">
+            <label for="depSender">Your sending wallet <em class="optional">so deposits credit automatically</em></label>
+            <div class="field-row">
+              <input type="text" id="depSender" placeholder="0x…" autocomplete="off" spellcheck="false">
+              <button class="btn btn-ghost" id="saveSender" type="button">Save</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="depTxHash">Already sent? Paste the transaction hash</label>
+            <div class="field-row">
+              <input type="text" id="depTxHash" placeholder="0x… (66 characters)" autocomplete="off" spellcheck="false">
+              <button class="btn btn-primary" id="claimDeposit" type="button">Credit</button>
+            </div>
+          </div>
           <p class="hint" id="depChainHint"></p>
         </div>
 
