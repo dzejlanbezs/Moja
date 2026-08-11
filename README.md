@@ -91,6 +91,18 @@ the wagered part. The rates live in `REWARD_RATES` at the top of `server.js`.
 The 02:00 boundary follows `DICEY_TZ_OFFSET` (default `2`, i.e. Serbian summer time). Set
 it to your own UTC offset so the day rolls over at the right moment.
 
+Only rakeback shows a figure. Daily, weekly and monthly sit behind a padlock until they
+can be opened, and their amounts never reach the browser at all — the API leaves the
+numbers out rather than hiding them in the page.
+
+### Promo free bet
+
+A player who signed up with one of your promo codes earns a free sports bet worth 100% of
+their **first deposit** the moment it credits. The Sports icon in the rail starts glowing
+gold, and clicking it explains the offer: the amount, allowed odds of 1.50–5.00 and no
+wager requirement. Cap it with `DICEY_FREEBET_MAX` if you want an upper limit. Settling
+the bet is manual, since the sportsbook is still a preview.
+
 ## Weekly race
 
 $15,000 split between the ten biggest wagerers. The race runs Sunday 02:00 to Sunday
@@ -137,12 +149,24 @@ form to fill in and nothing for an admin to approve.
 * anything worth at least `DICEY_MIN_DEPOSIT_USD` (default $10) is credited automatically
   once it has `DICEY_CONFIRMATIONS` (default 3) confirmations; smaller dust is logged as
   pending so you can decide what to do with it
-* a **reconciliation sweep** walks the addresses in the background and compares each
-  balance with what has already been credited, so a deposit that arrives while the server
-  is down, or during a hiccup at the node, is still picked up afterwards
-* a transaction can only ever be credited once, and an address that is watched for the
-  first time is only baselined — restoring a backup never re-credits old balances
+* when a deposit lands the player gets a toast and a glowing pill in the topbar showing
+  the amount and the coin
 * anything that arrives at an address we do not recognise waits in the admin panel
+
+**Why a deposit can never be counted twice.** Every detection path — a transfer log, a
+block scan, the background sweep — funnels through one function that credits *the
+difference between the confirmed on-chain balance and what has already been credited*,
+then writes the new total back. Seeing the same deposit again is simply a no-op, and a
+deposit that arrives while the server is down is picked up by the next sweep. An address
+being watched for the first time is only baselined, so restoring a backup never
+re-credits balances that were already there.
+
+Upgrading from an older build? Start once with `node server.js --resync-deposits` to
+forget the old ledger and re-baseline every address from the chain.
+
+One operational note: because crediting compares balances, avoid sweeping funds out of a
+player address in the same minute a deposit lands, or the two can cancel out. Deposits are
+credited within a poll cycle (20 seconds by default), so in practice just sweep whenever.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -242,6 +266,7 @@ assets/js/vip.js           the VIP ladder and everything that displays it
 assets/js/feed.js          Live Wins / My Bets / High Rollers / Lucky Wins / Wager Race
 assets/js/rewards.js       the rewards popup
 assets/js/race.js          weekly race board and countdown
+assets/js/deposits.js      deposit alerts and the sports free bet
 assets/js/account.js       register / log in / log out and session UI
 assets/js/admin.js         admin dashboard
 ```

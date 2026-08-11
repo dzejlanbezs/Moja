@@ -1144,6 +1144,14 @@ function refreshWatchList() {
 }
 
 function startWatcher() {
+  // `node server.js --resync-deposits` forgets what has been credited and
+  // re-baselines every address, so an upgrade cannot re-credit old balances
+  if (process.argv.indexOf('--resync-deposits') > -1) {
+    db.meta.chainState = {};
+    save();
+    console.log('Deposit ledger cleared — balances will be re-baselined on the first sweep.');
+  }
+
   if (!hdSeed) {
     console.log('No wallet seed found — put your BIP39 mnemonic in data/seed.txt to hand out deposit addresses.');
     return;
