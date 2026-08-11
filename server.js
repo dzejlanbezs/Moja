@@ -14,13 +14,25 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const chain = require('./chain');
+const hd = require('./hd');
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+const SEED_FILE = path.join(DATA_DIR, 'seed.txt');
 const PORT = parseInt(process.env.PORT, 10) || 3000;
-const SESSION_DAYS = 30;
+const SESSION_YEARS = 10;       // sessions do not expire in practice
 const MAX_ROUNDS = 20000;
+
+// Hours east of UTC used for the 02:00 bonus reset (2 = Serbia in summer).
+const TZ_OFFSET = parseFloat(process.env.DICEY_TZ_OFFSET || '2');
+
+const REWARD_RATES = {
+  rakeback: { wager: 0.0005, loss: 0 },
+  daily: { wager: 0.001, loss: 0.01 },
+  weekly: { wager: 0.002, loss: 0.03 },
+  monthly: { wager: 0.01, loss: 0.15 },
+};
 
 // Codes you hand out yourself. Anyone signing up with one gets the
 // 100% first-deposit sports bonus banner in the cashier.
@@ -31,11 +43,16 @@ const COINS = [
   { sym: 'USDT', name: 'Tether', network: 'Ethereum · ERC-20', color: '#26a17b' },
   { sym: 'USDC', name: 'USD Coin', network: 'Ethereum · ERC-20', color: '#2775ca' },
   { sym: 'ETH', name: 'Ethereum', network: 'Ethereum · mainnet', color: '#627eea' },
+  { sym: 'BTC', name: 'Bitcoin', network: 'Bitcoin · native segwit', color: '#f7931a' },
+  { sym: 'SOL', name: 'Solana', network: 'Solana · mainnet', color: '#9945ff' },
 ];
 
 /* ------------------------------------------------------------------ storage */
 
-const EMPTY_DB = { users: [], sessions: {}, rounds: [], transactions: [], meta: { lastBlock: 0, seenTx: [] } };
+const EMPTY_DB = {
+  users: [], sessions: {}, rounds: [], transactions: [],
+  meta: { lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} },
+};
 
 function loadDb() {
   try {
@@ -47,7 +64,7 @@ function loadDb() {
 }
 
 const db = loadDb();
-db.meta = Object.assign({ lastBlock: 0, seenTx: [] }, db.meta);
+db.meta = Object.assign({ lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} }, db.meta);
 let saveTimer = null;
 
 function save() {
@@ -125,6 +142,145 @@ function maskEmail(email) {
   return handle.slice(0, 2) + '***';
 }
 
+/* ------------------------------------------------------------------ hd wallet */
+
+// The mnemonic never lives in the repo: put it in data/seed.txt or DICEY_MNEMONIC.
+let hdSeed = null;
+
+function loadSeed() {
+  let mnemonic = process.env.DICEY_MNEMONIC || '';
+  if (!mnemonic) {
+    try { mnemonic = fs.readFileSync(SEED_FILE, 'utf8'); } catch (err) { mnemonic = ''; }
+  }
+  mnemonic = mnemonic.trim();
+  if (!mnemonic) return null;
+  if (mnemonic.split(/\s+/).length < 12) {
+    console.error('Ignoring seed: a BIP39 mnemonic needs at least 12 words.');
+    return null;
+  }
+  return hd.mnemonicToSeed(mnemonic, process.env.DICEY_MNEMONIC_PASSPHRASE || '');
+}
+
+/** Derives (and caches) this player's own deposit address for every coin. */
+function addressesFor(user) {
+  if (!hdSeed) return null;
+  if (!user.walletIndex) {
+    db.meta.nextWalletIndex = (db.meta.nextWalletIndex || 0) + 1;
+    user.walletIndex = db.meta.nextWalletIndex;
+    save();
+  }
+  if (!user.addresses || user.addresses.index !== user.walletIndex) {
+    user.addresses = Object.assign({ index: user.walletIndex }, hd.addressesFor(hdSeed, user.walletIndex));
+    save();
+  }
+  return user.addresses;
+}
+
+/* ------------------------------------------------------------------ reward windows */
+
+const HOUR = 3600e3;
+const DAY = 24 * HOUR;
+const shift = TZ_OFFSET * HOUR - 2 * HOUR;   // local clock, with 02:00 as the day boundary
+
+const rewardDate = (ts) => new Date(ts + shift);
+const fromUtcParts = (y, m, d) => Date.UTC(y, m, d) - shift;
+
+function startOfRewardDay(ts) {
+  const d = rewardDate(ts);
+  return fromUtcParts(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+function startOfRewardWeek(ts) {
+  const monday = (rewardDate(ts).getUTCDay() + 6) % 7;
+  return startOfRewardDay(ts) - monday * DAY;
+}
+function startOfRewardMonth(ts) {
+  const d = rewardDate(ts);
+  return fromUtcParts(d.getUTCFullYear(), d.getUTCMonth(), 1);
+}
+
+const emptyWindow = (start) => ({ start: start, wagered: 0, net: 0, claimedAt: 0 });
+
+function ensureRewards(user, now) {
+  if (!user.rewards) {
+    user.rewards = {
+      rakeback: 0,
+      daily: emptyWindow(startOfRewardDay(now)),
+      weekly: emptyWindow(startOfRewardWeek(now)),
+      monthly: Object.assign(emptyWindow(startOfRewardMonth(now)), { carry: { wagered: 0, net: 0, month: 0 }, carryClaimed: 0 }),
+    };
+  }
+  const r = user.rewards;
+
+  if (r.daily.start !== startOfRewardDay(now)) r.daily = emptyWindow(startOfRewardDay(now));
+  if (r.weekly.start !== startOfRewardWeek(now)) r.weekly = emptyWindow(startOfRewardWeek(now));
+
+  const monthStart = startOfRewardMonth(now);
+  if (r.monthly.start !== monthStart) {
+    // last month's total waits in `carry` so it can be collected on the 1st
+    const carry = { wagered: r.monthly.wagered, net: r.monthly.net, month: r.monthly.start };
+    r.monthly = Object.assign(emptyWindow(monthStart), { carry: carry, carryClaimed: r.monthly.carryClaimed || 0 });
+  }
+  return r;
+}
+
+function addWager(user, bet, payout, now) {
+  const r = ensureRewards(user, now);
+  const net = round2(bet - payout);
+  r.rakeback = round2(r.rakeback + bet);
+  ['daily', 'weekly', 'monthly'].forEach((key) => {
+    r[key].wagered = round2(r[key].wagered + bet);
+    r[key].net = round2(r[key].net + net);
+  });
+}
+
+const bonusValue = (rate, wagered, net) => round2(wagered * rate.wager + Math.max(0, net) * rate.loss);
+
+/** Everything the rewards popup needs: amounts, whether they can be taken, and when next. */
+function rewardState(user, now) {
+  const r = ensureRewards(user, now);
+  const local = rewardDate(now);
+  const nextDay = startOfRewardDay(now) + DAY;
+  const nextWeek = startOfRewardWeek(now) + 7 * DAY;
+  const nextMonth = fromUtcParts(local.getUTCFullYear(), local.getUTCMonth() + 1, 1);
+
+  const rakeback = round2(r.rakeback * REWARD_RATES.rakeback.wager);
+  const daily = bonusValue(REWARD_RATES.daily, r.daily.wagered, r.daily.net);
+  const weekly = bonusValue(REWARD_RATES.weekly, r.weekly.wagered, r.weekly.net);
+  const monthly = bonusValue(REWARD_RATES.monthly, r.monthly.carry.wagered, r.monthly.carry.net);
+
+  const isSunday = local.getUTCDay() === 0;
+  const isFirst = local.getUTCDate() === 1;
+
+  return {
+    rakeback: {
+      amount: rakeback, claimable: rakeback >= 0.01,
+      wagered: r.rakeback, rate: '0.05% of wagered',
+      note: 'Builds up with every bet and can be taken any time.',
+    },
+    daily: {
+      amount: daily, claimable: daily >= 0.01 && r.daily.claimedAt < r.daily.start,
+      wagered: r.daily.wagered, loss: Math.max(0, r.daily.net), rate: '0.10% of wagered + 1% lossback',
+      availableAt: r.daily.claimedAt >= r.daily.start ? nextDay : 0,
+      note: 'Resets every day at 02:00.',
+    },
+    weekly: {
+      amount: weekly,
+      claimable: weekly >= 0.01 && isSunday && r.weekly.claimedAt < r.weekly.start,
+      wagered: r.weekly.wagered, loss: Math.max(0, r.weekly.net), rate: '0.20% of wagered + 3% lossback',
+      availableAt: isSunday && r.weekly.claimedAt < r.weekly.start ? 0 : nextWeek - DAY,
+      note: 'Monday to Sunday. Collect on Sunday after 02:00.',
+    },
+    monthly: {
+      amount: monthly,
+      claimable: monthly >= 0.01 && isFirst && r.monthly.carry.month > 0 && r.monthly.carryClaimed !== r.monthly.carry.month,
+      wagered: r.monthly.carry.wagered, loss: Math.max(0, r.monthly.carry.net),
+      pendingWagered: r.monthly.wagered, rate: '1.00% of wagered + 15% lossback',
+      availableAt: isFirst ? 0 : nextMonth,
+      note: 'Last full month. Collect on the 1st after 02:00.',
+    },
+  };
+}
+
 /* ------------------------------------------------------------------ sessions */
 
 function sessionFrom(req) {
@@ -133,11 +289,6 @@ function sessionFrom(req) {
   if (!match) return null;
   const record = db.sessions[match[1]];
   if (!record) return null;
-  if (now() - record.createdAt > SESSION_DAYS * 864e5) {
-    delete db.sessions[match[1]];
-    save();
-    return null;
-  }
   const user = findUser(record.userId);
   if (!user) return null;
   return { token: match[1], user: user };
@@ -147,7 +298,7 @@ function startSession(res, user, req) {
   const token = crypto.randomBytes(24).toString('hex');
   db.sessions[token] = { userId: user.id, createdAt: now(), ip: clientIp(req), ua: req.headers['user-agent'] || '' };
   res.setHeader('Set-Cookie',
-    'dicey_session=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + SESSION_DAYS * 86400);
+    'dicey_session=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + SESSION_YEARS * 365 * 86400);
   save();
 }
 
@@ -332,6 +483,8 @@ const ROUTES = {
       stats: { wagered: 0, won: 0, bets: 0, wins: 0 },
     };
     db.users.push(user);
+    addressesFor(user);
+    refreshWatchList();
     startSession(ctx.res, user, ctx.req);
     return sendJson(ctx.res, 200, { user: publicUser(user) });
   },
@@ -374,6 +527,7 @@ const ROUTES = {
     if (payout > bet) user.stats.wins += 1;
     user.lastSeenAt = now();
     user.lastIp = clientIp(ctx.req);
+    addWager(user, bet, payout, now());
 
     db.rounds.push({
       id: id('rnd'),
@@ -387,20 +541,75 @@ const ROUTES = {
     });
     if (db.rounds.length > MAX_ROUNDS) db.rounds.splice(0, db.rounds.length - MAX_ROUNDS);
     save();
-    return sendJson(ctx.res, 200, { balance: user.balance, stats: user.stats });
+    return sendJson(ctx.res, 200, {
+      balance: user.balance,
+      stats: user.stats,
+      rewards: rewardState(user, now()),
+    });
   },
 
   /* ---- config & feed ---- */
   'GET /api/config': async (ctx) => {
     const user = ctx.session ? ctx.session.user : null;
+    const addresses = user ? addressesFor(user) : null;
+
     return sendJson(ctx.res, 200, {
-      coins: COINS.map((c) => Object.assign({ address: chain.config.house }, c)),
-      house: chain.config.house,
+      coins: COINS
+        .map((coin) => Object.assign({}, coin, { address: addresses ? addresses[coin.sym] : '' }))
+        .filter((coin) => coin.address),
+      hdEnabled: !!hdSeed,
       confirmations: chain.config.confirmations,
       chainOnline: chain.online,
       bonus: user && user.bonus && !user.bonus.used ? user.bonus : null,
       depositRef: user ? user.depositRef : null,
-      walletAddress: user ? user.walletAddress : null,
+    });
+  },
+
+  /* ---- rewards ---- */
+  'GET /api/rewards': (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    const state = rewardState(user, now());
+    save();
+    return sendJson(ctx.res, 200, { rewards: state, balance: round2(user.balance) });
+  },
+
+  'POST /api/rewards/claim': async (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    const body = await ctx.body();
+    const type = String(body.type || '');
+    const state = rewardState(user, now());
+    const reward = state[type];
+    if (!reward) return sendJson(ctx.res, 400, { error: 'Unknown reward' });
+    if (!reward.claimable) return sendJson(ctx.res, 400, { error: 'That bonus is not available yet' });
+
+    const r = user.rewards;
+    if (type === 'rakeback') r.rakeback = 0;
+    if (type === 'daily') { r.daily.claimedAt = now(); r.daily.wagered = 0; r.daily.net = 0; }
+    if (type === 'weekly') { r.weekly.claimedAt = now(); r.weekly.wagered = 0; r.weekly.net = 0; }
+    if (type === 'monthly') { r.monthly.carryClaimed = r.monthly.carry.month; r.monthly.carry = { wagered: 0, net: 0, month: r.monthly.carry.month }; }
+
+    user.balance = round2(user.balance + reward.amount);
+    db.transactions.unshift({
+      id: id('tx'),
+      userId: user.id,
+      type: 'bonus',
+      coin: 'USD',
+      address: '',
+      amount: reward.amount,
+      status: 'confirmed',
+      note: type.charAt(0).toUpperCase() + type.slice(1) + ' bonus',
+      ip: clientIp(ctx.req),
+      ts: now(),
+      resolvedAt: now(),
+    });
+    save();
+
+    return sendJson(ctx.res, 200, {
+      claimed: reward.amount,
+      balance: user.balance,
+      rewards: rewardState(user, now()),
     });
   },
 
@@ -798,36 +1007,53 @@ function bootstrapAdmin() {
 
 /* ------------------------------------------------------------------ deposit watcher */
 
+/** Tells the watcher about every player's derived addresses. */
+function refreshWatchList() {
+  if (!hdSeed) return;
+  chain.setWatchList(db.users.map((user) => {
+    const addresses = addressesFor(user);
+    return addresses ? Object.assign({ userId: user.id }, addresses) : null;
+  }).filter(Boolean));
+}
+
 function startWatcher() {
-  if (!chain.config.rpcUrl) {
-    console.log('No RPC configured — deposits fall back to manual confirmation.');
+  if (!hdSeed) {
+    console.log('No wallet seed found — put your BIP39 mnemonic in data/seed.txt to hand out deposit addresses.');
     return;
   }
-  console.log('Watching ' + chain.config.house + ' for ETH / USDT / USDC deposits');
+  refreshWatchList();
+  const counts = chain.watchCount();
+  console.log('Watching ' + counts.eth + ' ETH, ' + counts.btc + ' BTC and ' + counts.sol + ' SOL deposit addresses');
+
+  const state = {
+    get: (key) => db.meta.chainState[key],
+    set: (key, value) => { db.meta.chainState[key] = value; save(); },
+  };
 
   chain.watch(
     {
-      get: () => db.meta.lastBlock,
-      set: (block) => { db.meta.lastBlock = block; save(); },
+      block: { get: () => db.meta.lastBlock, set: (block) => { db.meta.lastBlock = block; save(); } },
+      state: state,
     },
     async (deposit) => {
       if (db.meta.seenTx.indexOf(deposit.txHash) > -1) return;
-      const owner = db.users.filter((u) => u.walletAddress && u.walletAddress === deposit.from)[0] || null;
+      const owner = deposit.userId ? findUser(deposit.userId) : null;
 
       if (owner && deposit.usd) {
         creditDeposit(owner, deposit, 'confirmed');
-        console.log('Credited ' + deposit.usd + ' USD to ' + owner.email + ' (' + deposit.coin + ' ' + deposit.amount + ')');
+        console.log('Credited $' + deposit.usd + ' to ' + owner.email + ' (' + deposit.coin + ' ' + deposit.amount + ')');
       } else if (owner) {
         creditDeposit(owner, deposit, 'pending');
         console.log('Deposit from ' + owner.email + ' needs a USD value: ' + deposit.coin + ' ' + deposit.amount);
       } else {
         creditDeposit(null, deposit, 'unclaimed');
-        console.log('Unidentified deposit ' + deposit.coin + ' ' + deposit.amount + ' from ' + deposit.from);
+        console.log('Deposit to an unknown address: ' + deposit.coin + ' ' + deposit.amount);
       }
     }
   );
 }
 
+hdSeed = loadSeed();
 bootstrapAdmin();
 
 server.listen(PORT, () => {

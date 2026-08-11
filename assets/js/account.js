@@ -117,6 +117,7 @@
     loadConfig(user);
 
     if (!signedIn) {
+      if (D.Rewards) D.Rewards.apply(null);
       D.Store.hydrate({ balance: 0, wagered: 0, won: 0, bets: 0, wins: 0, history: [], tx: [] });
       D.$('#profileName').textContent = 'Guest';
       D.$('#profileMeta').textContent = 'Not signed in';
@@ -149,6 +150,8 @@
       wins: user.stats.wins,
     });
 
+    if (D.Rewards) D.Rewards.refresh();
+
     return Api.myBets()
       .then((data) => {
         D.Store.hydrate({
@@ -178,18 +181,16 @@
       refRow.hidden = !cfg.depositRef;
       if (cfg.depositRef) D.$('#depRef').textContent = cfg.depositRef;
 
-      const onChain = !!(cfg.chainOnline && user);
+      const onChain = !!(cfg.hdEnabled && user);
       D.$('#depServer').hidden = !onChain;
       D.$('#depAmountField').hidden = onChain;
-      D.$('#fakeDeposit').className = onChain ? 'btn btn-ghost btn-block' : 'btn btn-primary btn-block';
       D.$('#fakeDeposit').hidden = onChain;
       D.$('#depHint').hidden = onChain;
 
       if (onChain) {
-        D.$('#depSender').value = cfg.walletAddress || '';
         D.$('#depChainHint').textContent =
-          'Deposits are picked up automatically after ' + cfg.confirmations +
-          ' confirmations. USDT and USDC credit 1:1, ETH at the live rate.';
+          'These addresses belong to your account only. Anything you send lands on your balance by itself after ' +
+          cfg.confirmations + ' confirmations — USDT and USDC count 1:1, ETH, BTC and SOL at the live rate.';
       }
     }).catch(() => {});
   }

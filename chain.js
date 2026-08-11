@@ -18,14 +18,34 @@ const TOKENS = {
 
 const config = {
   rpcUrl: process.env.DICEY_RPC_URL || 'https://ethereum-rpc.publicnode.com',
-  house: (process.env.DICEY_HOUSE_ADDRESS || '0xd124c4ce3fd72f9d25df8eb279266f07c2abc3f6').toLowerCase(),
+  solRpcUrl: process.env.DICEY_SOL_RPC_URL || 'https://api.mainnet-beta.solana.com',
+  btcApiUrl: process.env.DICEY_BTC_API_URL || 'https://blockstream.info/api',
   confirmations: parseInt(process.env.DICEY_CONFIRMATIONS, 10) || 3,
   pollMs: parseInt(process.env.DICEY_POLL_MS, 10) || 20000,
   maxBlocksPerPoll: 12,
   watchNative: process.env.DICEY_WATCH_ETH !== '0',
+  watchBtc: process.env.DICEY_WATCH_BTC !== '0',
+  watchSol: process.env.DICEY_WATCH_SOL !== '0',
   ethUsdOverride: parseFloat(process.env.DICEY_ETH_USD) || 0,
-  priceUrl: 'https://api.coinbase.com/v2/prices/ETH-USD/spot',
+  priceUrl: 'https://api.coinbase.com/v2/prices/',
 };
+
+// { eth: Map(address -> userId), btc: Map(...), sol: Map(...) }
+const watched = { eth: new Map(), btc: new Map(), sol: new Map() };
+
+/** Replaces the set of addresses being watched. Called whenever a player is added. */
+function setWatchList(entries) {
+  watched.eth.clear();
+  watched.btc.clear();
+  watched.sol.clear();
+  entries.forEach((entry) => {
+    if (entry.ETH) watched.eth.set(String(entry.ETH).toLowerCase(), entry.userId);
+    if (entry.BTC) watched.btc.set(entry.BTC, entry.userId);
+    if (entry.SOL) watched.sol.set(entry.SOL, entry.userId);
+  });
+}
+
+const watchCount = () => ({ eth: watched.eth.size, btc: watched.btc.size, sol: watched.sol.size });
 
 let rpcId = 0;
 let online = false;
@@ -75,78 +95,167 @@ const tokenByAddress = (address) => {
 
 /* ------------------------------------------------------------------ price */
 
-let priceCache = { value: 0, at: 0 };
+const priceCache = {};
 
-async function ethUsd() {
-  if (config.ethUsdOverride) return config.ethUsdOverride;
-  if (priceCache.value && Date.now() - priceCache.at < 300000) return priceCache.value;
+async function spotPrice(symbol) {
+  if (symbol === 'ETH' && config.ethUsdOverride) return config.ethUsdOverride;
+  const cached = priceCache[symbol];
+  if (cached && Date.now() - cached.at < 300000) return cached.value;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(config.priceUrl, { signal: controller.signal });
+    const res = await fetch(config.priceUrl + symbol + '-USD/spot', { signal: controller.signal });
     clearTimeout(timer);
     const data = await res.json();
     const value = parseFloat(data && data.data && data.data.amount);
-    if (value > 0) priceCache = { value: value, at: Date.now() };
+    if (value > 0) priceCache[symbol] = { value: value, at: Date.now() };
   } catch (err) {
     /* keep whatever we had; the caller decides what to do without a price */
   }
-  return priceCache.value;
+  return priceCache[symbol] ? priceCache[symbol].value : 0;
 }
 
-/** USD value of a deposit, or 0 when we cannot price it (ETH with no feed). */
+const ethUsd = () => spotPrice('ETH');
+
+/** USD value of a deposit, or 0 when we cannot price it. */
 async function usdValue(coin, amount) {
   if (coin === 'USDT' || coin === 'USDC') return Math.round(amount * 100) / 100;
-  const price = await ethUsd();
+  const price = await spotPrice(coin);
   return price ? Math.round(amount * price * 100) / 100 : 0;
 }
 
 /* ------------------------------------------------------------------ scanning */
 
-/** Token transfers into the house address inside a block range. */
+/** Token transfers into any watched address inside a block range. */
 async function tokenDeposits(fromBlock, toBlock) {
-  const logs = await rpc('eth_getLogs', [{
-    fromBlock: '0x' + fromBlock.toString(16),
-    toBlock: '0x' + toBlock.toString(16),
-    address: Object.keys(TOKENS).map((sym) => TOKENS[sym].address),
-    topics: [TRANSFER_TOPIC, null, '0x000000000000000000000000' + config.house.slice(2)],
-  }]);
+  if (!watched.eth.size) return [];
+  const targets = Array.from(watched.eth.keys()).map((addr) => '0x000000000000000000000000' + addr.slice(2));
+  const found = [];
 
-  return Promise.all((logs || []).map(async (log) => {
-    const token = tokenByAddress(log.address);
-    if (!token) return null;
-    const amount = scaled(hexToBig(log.data), token.decimals);
-    return {
-      txHash: log.transactionHash,
-      from: addrFromTopic(log.topics[1]),
-      coin: token.symbol,
-      amount: amount,
-      usd: await usdValue(token.symbol, amount),
-      blockNumber: hexToInt(log.blockNumber),
-    };
-  })).then((rows) => rows.filter(Boolean));
+  // topic filters get unwieldy with many addresses, so query in chunks
+  for (let i = 0; i < targets.length; i += 100) {
+    const logs = await rpc('eth_getLogs', [{
+      fromBlock: '0x' + fromBlock.toString(16),
+      toBlock: '0x' + toBlock.toString(16),
+      address: Object.keys(TOKENS).map((sym) => TOKENS[sym].address),
+      topics: [TRANSFER_TOPIC, null, targets.slice(i, i + 100)],
+    }]);
+
+    for (const log of logs || []) {
+      const token = tokenByAddress(log.address);
+      if (!token) continue;
+      const to = addrFromTopic(log.topics[2]);
+      const amount = scaled(hexToBig(log.data), token.decimals);
+      found.push({
+        txHash: log.transactionHash,
+        from: addrFromTopic(log.topics[1]),
+        to: to,
+        userId: watched.eth.get(to) || null,
+        coin: token.symbol,
+        amount: amount,
+        usd: await usdValue(token.symbol, amount),
+        blockNumber: hexToInt(log.blockNumber),
+      });
+    }
+  }
+  return found;
 }
 
-/** Plain ETH transfers into the house address inside a block range. */
+/** Plain ETH transfers into any watched address inside a block range. */
 async function nativeDeposits(fromBlock, toBlock) {
+  if (!watched.eth.size) return [];
   const found = [];
   for (let n = fromBlock; n <= toBlock; n++) {
     const block = await rpc('eth_getBlockByNumber', ['0x' + n.toString(16), true]);
     if (!block || !block.transactions) continue;
     for (const tx of block.transactions) {
-      if (!tx.to || tx.to.toLowerCase() !== config.house) continue;
+      const to = tx.to ? tx.to.toLowerCase() : '';
+      if (!to || !watched.eth.has(to)) continue;
       const value = hexToBig(tx.value);
       if (value === 0n) continue;
       const amount = scaled(value, 18);
       found.push({
         txHash: tx.hash,
         from: String(tx.from).toLowerCase(),
+        to: to,
+        userId: watched.eth.get(to),
         coin: 'ETH',
         amount: amount,
         usd: await usdValue('ETH', amount),
         blockNumber: hexToInt(tx.blockNumber),
       });
     }
+  }
+  return found;
+}
+
+/* ---- bitcoin: poll the address API for a rise in total received ---- */
+
+async function btcDeposits(state) {
+  const found = [];
+  for (const [address, userId] of watched.btc) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(config.btcApiUrl + '/address/' + address, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const funded = (data.chain_stats && data.chain_stats.funded_txo_sum) || 0;
+      const key = 'btc:' + address;
+      const seen = state.get(key);
+
+      if (seen == null) { state.set(key, funded); continue; }   // first sight: take a baseline
+      if (funded <= seen) continue;
+
+      const amount = (funded - seen) / 1e8;
+      state.set(key, funded);
+      found.push({
+        txHash: 'btc:' + address + ':' + funded,
+        from: '', to: address, userId: userId,
+        coin: 'BTC', amount: amount,
+        usd: await usdValue('BTC', amount),
+        blockNumber: 0,
+      });
+    } catch (err) { /* try again next poll */ }
+  }
+  return found;
+}
+
+/* ---- solana: poll balances for a rise ---- */
+
+async function solDeposits(state) {
+  const found = [];
+  for (const [address, userId] of watched.sol) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(config.solRpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address] }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      const data = await res.json();
+      if (!data.result) continue;
+      const lamports = data.result.value || 0;
+      const key = 'sol:' + address;
+      const seen = state.get(key);
+
+      if (seen == null) { state.set(key, lamports); continue; }
+      if (lamports <= seen) { state.set(key, lamports); continue; }
+
+      const amount = (lamports - seen) / 1e9;
+      state.set(key, lamports);
+      found.push({
+        txHash: 'sol:' + address + ':' + lamports,
+        from: '', to: address, userId: userId,
+        coin: 'SOL', amount: amount,
+        usd: await usdValue('SOL', amount),
+        blockNumber: 0,
+      });
+    } catch (err) { /* try again next poll */ }
   }
   return found;
 }
@@ -167,16 +276,19 @@ async function verifyTx(txHash) {
   const latest = hexToInt(await rpc('eth_blockNumber', []));
   const confirmations = latest - hexToInt(receipt.blockNumber) + 1;
 
-  // token transfer into the house address, wherever it was routed from
+  // token transfer into one of our deposit addresses, wherever it was routed from
   for (const log of receipt.logs || []) {
     if (String(log.topics[0]).toLowerCase() !== TRANSFER_TOPIC) continue;
-    if (addrFromTopic(log.topics[2]) !== config.house) continue;
+    const to = addrFromTopic(log.topics[2]);
+    if (!watched.eth.has(to)) continue;
     const token = tokenByAddress(log.address);
     if (!token) continue;
     const amount = scaled(hexToBig(log.data), token.decimals);
     return {
       txHash: txHash.toLowerCase(),
       from: addrFromTopic(log.topics[1]),
+      to: to,
+      userId: watched.eth.get(to),
       coin: token.symbol,
       amount: amount,
       usd: await usdValue(token.symbol, amount),
@@ -187,11 +299,14 @@ async function verifyTx(txHash) {
   }
 
   const tx = await rpc('eth_getTransactionByHash', [txHash]);
-  if (tx && tx.to && tx.to.toLowerCase() === config.house && hexToBig(tx.value) > 0n) {
+  const to = tx && tx.to ? tx.to.toLowerCase() : '';
+  if (to && watched.eth.has(to) && hexToBig(tx.value) > 0n) {
     const amount = scaled(hexToBig(tx.value), 18);
     return {
       txHash: txHash.toLowerCase(),
       from: String(tx.from).toLowerCase(),
+      to: to,
+      userId: watched.eth.get(to),
       coin: 'ETH',
       amount: amount,
       usd: await usdValue('ETH', amount),
@@ -201,44 +316,59 @@ async function verifyTx(txHash) {
     };
   }
 
-  throw new Error('That transaction did not send ETH, USDT or USDC to our deposit address');
+  throw new Error('That transaction did not send ETH, USDT or USDC to a Dicey deposit address');
 }
 
 /**
  * Polls new blocks and hands every incoming deposit to onDeposit().
  * cursor.get() / cursor.set() let the caller persist the scan position.
  */
-function watch(cursor, onDeposit) {
+function watch(store, onDeposit) {
   let running = false;
+
+  async function report(list) {
+    for (const deposit of list) {
+      try { await onDeposit(deposit); } catch (err) { console.error('deposit handler:', err.message); }
+    }
+  }
+
+  async function ethereum() {
+    const latest = hexToInt(await rpc('eth_blockNumber', []));
+    const safeTip = latest - config.confirmations;
+    let from = store.block.get();
+
+    if (!from) { store.block.set(safeTip); return; }   // first run: start from now
+    if (safeTip <= from) return;                        // nothing new yet
+    if (safeTip - from > config.maxBlocksPerPoll) {
+      // public nodes refuse deep history; skip ahead rather than fail forever
+      from = safeTip - config.maxBlocksPerPoll;
+    }
+
+    const found = await tokenDeposits(from + 1, safeTip);
+    if (config.watchNative) found.push(...await nativeDeposits(from + 1, safeTip));
+    await report(found);
+    store.block.set(safeTip);
+  }
 
   async function tick() {
     if (running) return;
     running = true;
     try {
-      const latest = hexToInt(await rpc('eth_blockNumber', []));
-      const safeTip = latest - config.confirmations;
-      let from = cursor.get();
-
-      if (!from) { cursor.set(safeTip); return; }            // first run: start from now
-      if (safeTip <= from) return;                            // nothing new yet
-      if (safeTip - from > config.maxBlocksPerPoll) {
-        // public nodes refuse deep history; skip ahead rather than fail forever
-        from = safeTip - config.maxBlocksPerPoll;
-      }
-
-      const to = safeTip;
-      const found = await tokenDeposits(from + 1, to);
-      if (config.watchNative) found.push(...await nativeDeposits(from + 1, to));
-
-      for (const deposit of found) {
-        try { await onDeposit(deposit); } catch (err) { console.error('deposit handler:', err.message); }
-      }
-      cursor.set(to);
+      await ethereum();
     } catch (err) {
-      console.error('chain watcher:', err.message);
-    } finally {
-      running = false;
+      console.error('chain watcher (eth):', err.message);
     }
+    try {
+      if (config.watchBtc && watched.btc.size) await report(await btcDeposits(store.state));
+    } catch (err) {
+      console.error('chain watcher (btc):', err.message);
+    }
+    try {
+      if (config.watchSol && watched.sol.size) await report(await solDeposits(store.state));
+    } catch (err) {
+      console.error('chain watcher (sol):', err.message);
+    }
+    running = false;
   }
 
   tick();
@@ -250,18 +380,21 @@ function watch(cursor, onDeposit) {
 async function status() {
   try {
     const block = hexToInt(await rpc('eth_blockNumber', []));
-    return { online: true, block: block, house: config.house, confirmations: config.confirmations, ethUsd: await ethUsd() };
+    return { online: true, block: block, watching: watchCount(), confirmations: config.confirmations, ethUsd: await ethUsd() };
   } catch (err) {
-    return { online: false, error: err.message, house: config.house, confirmations: config.confirmations };
+    return { online: false, error: err.message, watching: watchCount(), confirmations: config.confirmations };
   }
 }
 
 module.exports = {
   config: config,
   tokens: TOKENS,
+  setWatchList: setWatchList,
+  watchCount: watchCount,
   verifyTx: verifyTx,
   watch: watch,
   status: status,
+  spotPrice: spotPrice,
   ethUsd: ethUsd,
   get online() { return online; },
   get lastError() { return lastError; },

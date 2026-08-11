@@ -118,11 +118,19 @@
 
     <div class="level-chip" id="levelChip">
       <div class="level-meta">
-        <span class="level-name">Gold</span>
-        <span class="level-pct" id="levelPct">64%</span>
+        <span class="level-name">Bronze</span>
+        <span class="level-pct" id="levelPct">0%</span>
       </div>
-      <div class="level-bar"><i id="levelFill" style="width:64%"></i></div>
+      <div class="level-bar"><i id="levelFill" style="width:0%"></i></div>
     </div>
+
+    <button class="rewards-btn" id="rewardsBtn" title="Rewards" aria-label="Rewards">
+      <svg viewBox="0 0 24 24">
+        <path d="M20 11.5V20H4v-8.5M2.5 7.5h19v4h-19zM12 7.5V20"/>
+        <path d="M12 7.5S10.8 3 7.9 3C5.7 3 5.2 7.5 12 7.5Zm0 0S13.2 3 16.1 3c2.2 0 2.7 4.5-4.1 4.5Z"/>
+      </svg>
+      <i class="rewards-dot" id="rewardsDot" hidden></i>
+    </button>
     <button class="avatar" id="topAvatar" data-nav="profile" aria-label="Profile">VS</button>
     <button class="icon-btn" id="notifBtn" aria-label="Notifications">
       <svg viewBox="0 0 24 24"><path d="M18 15V10a6 6 0 1 0-12 0v5l-1.5 2.5h15L18 15Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
@@ -439,21 +447,14 @@
         </div>
 
         <div id="depServer" hidden>
-          <div class="field">
-            <label for="depSender">Your sending wallet <em class="optional">so deposits credit automatically</em></label>
-            <div class="field-row">
-              <input type="text" id="depSender" placeholder="0x…" autocomplete="off" spellcheck="false">
-              <button class="btn btn-ghost" id="saveSender" type="button">Save</button>
-            </div>
-          </div>
-          <div class="field">
-            <label for="depTxHash">Already sent? Paste the transaction hash</label>
-            <div class="field-row">
-              <input type="text" id="depTxHash" placeholder="0x… (66 characters)" autocomplete="off" spellcheck="false">
-              <button class="btn btn-primary" id="claimDeposit" type="button">Credit</button>
-            </div>
-          </div>
           <p class="hint" id="depChainHint"></p>
+          <details class="dep-fallback">
+            <summary>Sent but not credited yet?</summary>
+            <div class="field-row">
+              <input type="text" id="depTxHash" placeholder="Paste the transaction hash" autocomplete="off" spellcheck="false">
+              <button class="btn btn-ghost" id="claimDeposit" type="button">Check</button>
+            </div>
+          </details>
         </div>
 
         <label class="field" id="depAmountField" hidden>
@@ -476,6 +477,22 @@
         <div class="tx-head"><span>Type</span><span>Amount</span><span>Asset</span><span>Status</span></div>
         <div class="tx-list" id="txList"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ REWARDS MODAL ============ -->
+<div class="overlay" id="rewardsModal" hidden>
+  <div class="modal modal-rewards" role="dialog" aria-modal="true" aria-label="Rewards">
+    <header class="modal-head">
+      <h2>Rewards</h2>
+      <button class="icon-btn close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div class="modal-body">
+      <div class="reward-list" id="rewardList"></div>
+      <p class="hint" id="rewardsHint">Bonuses build up as you play. The daily, weekly and monthly windows roll over at 02:00.</p>
     </div>
   </div>
 </div>
@@ -562,6 +579,7 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script src="assets/js/core.js"></script>
+<script src="assets/js/qr.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/game-modal.js"></script>
 <script src="assets/js/games/dice.js"></script>
@@ -577,6 +595,7 @@
 <script src="assets/js/app.js"></script>
 <script src="assets/js/vip.js"></script>
 <script src="assets/js/feed.js"></script>
+<script src="assets/js/rewards.js"></script>
 <script src="assets/js/admin.js"></script>
 <script src="assets/js/account.js"></script>
 </body>

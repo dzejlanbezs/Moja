@@ -154,6 +154,7 @@
           bets: data.stats.bets,
           wins: data.stats.wins,
         });
+        if (data.rewards && D.Rewards) D.Rewards.apply(data.rewards);
       })
       .catch((err) => {
         D.toast(err.message || 'Could not sync that round', 'lose');

@@ -183,7 +183,12 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .brand-mark svg { width: 100%; height: 100%; display: block; }
 .brand-text { font-size: 21px; font-weight: 800; letter-spacing: -.5px; }
 
-.topbar-center { margin: 0 auto; display: flex; align-items: center; gap: 10px; }
+/* pinned to the middle of the viewport, not the middle of the flex row */
+.topbar-center {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 10px;
+}
 
 .wallet {
   display: flex; align-items: center; gap: 9px;
@@ -659,6 +664,56 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .tx-row { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 13px; }
 .tx-row .amt { font-weight: 800; font-variant-numeric: tabular-nums; }
 
+/* ---------------- rewards ---------------- */
+.rewards-btn {
+  position: relative;
+  width: 36px; height: 36px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  color: #241800;
+  background: linear-gradient(180deg, #ffe27a, #e0a100);
+  border: 1px solid rgba(255, 226, 122, .6);
+  animation: rewardGlow 2.6s ease-in-out infinite;
+  transition: transform .18s var(--ease);
+}
+.rewards-btn:hover { transform: translateY(-1px) scale(1.04); }
+.rewards-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rewards-btn.ready { animation-duration: 1.4s; }
+.rewards-dot {
+  position: absolute; top: -3px; right: -3px;
+  width: 9px; height: 9px; border-radius: 99px;
+  background: var(--green); border: 2px solid var(--bg-2);
+}
+@keyframes rewardGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 204, 51, .45), 0 4px 14px rgba(255, 204, 51, .25); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 204, 51, 0), 0 6px 20px rgba(255, 204, 51, .45); }
+}
+
+.modal-rewards { max-width: 520px; max-height: 92vh; display: flex; flex-direction: column; }
+.modal-rewards .modal-body { overflow-y: auto; }
+.reward-list { display: flex; flex-direction: column; gap: 10px; }
+.reward-card {
+  display: flex; align-items: center; gap: 13px;
+  padding: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  transition: border-color .2s;
+}
+.reward-card.ready { border-color: rgba(255, 204, 51, .4); background: linear-gradient(120deg, rgba(255, 204, 51, .09), transparent 70%); }
+.reward-icon {
+  width: 40px; height: 40px; flex: 0 0 auto;
+  border-radius: 12px; display: grid; place-items: center;
+  background: rgba(255, 204, 51, .13); color: var(--gold);
+}
+.reward-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.reward-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.reward-main b { font-size: 14px; font-weight: 700; }
+.reward-rate { font-size: 11.5px; font-weight: 700; color: var(--gold); }
+.reward-note { font-size: 11.5px; color: var(--text-3); line-height: 1.4; }
+.reward-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: 0 0 auto; }
+.reward-amount { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.reward-side .btn { height: 30px; padding: 0 14px; font-size: 12px; }
+.reward-locked { font-size: 11px; color: var(--text-3); font-weight: 600; }
+
 /* ---------------- deposit bonus ---------------- */
 .bonus-card {
   border-radius: var(--r-md);
@@ -700,6 +755,17 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .field-row input:focus { border-color: rgba(0, 230, 118, .45); }
 .field-row .btn { height: 42px; }
 .field-inline.slim { height: 32px; min-width: 118px; font-size: 12px; }
+
+.dep-fallback { margin-top: 4px; }
+.dep-fallback summary {
+  cursor: pointer; font-size: 12px; color: var(--text-2); font-weight: 600;
+  padding: 6px 0; list-style: none;
+}
+.dep-fallback summary::-webkit-details-marker { display: none; }
+.dep-fallback summary::before { content: "＋ "; color: var(--text-3); }
+.dep-fallback[open] summary::before { content: "－ "; }
+.dep-fallback summary:hover { color: var(--text); }
+.dep-fallback .field-row { margin-top: 8px; }
 .pill-bonus {
   margin-left: 7px; font-size: 9.5px; font-weight: 800; text-transform: uppercase;
   padding: 3px 7px; border-radius: 5px;
@@ -865,7 +931,7 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
   .sidebar .rail-toggle { display: none; }
   .topbar { left: 0; padding: 0 12px; gap: 10px; }
   .only-mobile { display: inline-flex; }
-  .topbar-center { margin: 0 0 0 auto; }
+  .topbar-center { position: static; transform: none; margin: 0 0 0 auto; }
   #notifBtn { display: none; }
   .main { padding: calc(var(--top) + 16px) 14px 60px; }
   .brand-text { display: none; }

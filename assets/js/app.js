@@ -306,23 +306,13 @@
     );
   }
 
-  function fakeQr(seed) {
-    let svg = '<svg viewBox="0 0 25 25" shape-rendering="crispEdges"><rect width="25" height="25" fill="#fff"/>';
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    for (let y = 0; y < 25; y++) {
-      for (let x = 0; x < 25; x++) {
-        h = (h * 1103515245 + 12345) >>> 0;
-        const corner = (x < 8 && y < 8) || (x > 16 && y < 8) || (x < 8 && y > 16);
-        if (corner) continue;
-        if ((h >>> 16) % 100 < 45) svg += '<rect x="' + x + '" y="' + y + '" width="1" height="1" fill="#000"/>';
-      }
+  /** A genuine scannable QR of the address, or a placeholder if encoding fails. */
+  function addressQr(address) {
+    try {
+      return D.QR.svg(address, { quiet: 2 });
+    } catch (err) {
+      return '<svg viewBox="0 0 24 24"><rect width="24" height="24" fill="#fff"/></svg>';
     }
-    [[0, 0], [17, 0], [0, 17]].forEach((p) => {
-      svg += '<rect x="' + p[0] + '" y="' + p[1] + '" width="7" height="7" fill="none" stroke="#000" stroke-width="1"/>';
-      svg += '<rect x="' + (p[0] + 2) + '" y="' + (p[1] + 2) + '" width="3" height="3" fill="#000"/>';
-    });
-    return svg + '</svg>';
   }
 
   const TX_COLOR = { Confirmed: 'var(--green)', Completed: 'var(--green)', Pending: 'var(--gold)', Rejected: 'var(--red)' };
@@ -335,7 +325,7 @@
     D.$('#depositCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     D.$('#withdrawCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     D.$('#depositAddress').textContent = coin.addr;
-    D.$('#depositQr').innerHTML = fakeQr(coin.addr);
+    D.$('#depositQr').innerHTML = addressQr(coin.addr);
     const net = D.$('#depNetwork');
     net.textContent = coin.network || '';
     net.hidden = !coin.network;
@@ -411,18 +401,6 @@
     }).catch((err) => D.toast(err.message, 'lose'));
   });
 
-  function saveSender() {
-    const address = D.$('#depSender').value.trim();
-    D.Api.request('POST', '/api/wallet/sender', { address: address })
-      .then((data) => {
-        D.$('#depSender').value = data.walletAddress;
-        D.toast('Wallet saved — deposits from it credit automatically', 'win');
-      })
-      .catch((err) => D.toast(err.message, 'lose'));
-  }
-
-  D.$('#saveSender').addEventListener('click', saveSender);
-  D.$('#depSender').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveSender(); } });
   D.$('#depTxHash').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); D.$('#claimDeposit').click(); } });
 
   D.$('#claimDeposit').addEventListener('click', () => {

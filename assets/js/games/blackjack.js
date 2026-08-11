@@ -52,6 +52,7 @@
       let stake = 0;
       let round = 'idle'; // idle | player | done
       let hideHole = true;
+      let dealing = false;
 
       const hist = ctx.historyStrip();
       const table = D.h(
@@ -102,15 +103,30 @@
         );
       }
 
+      /** Only draws cards that are new or have just been flipped, so nothing re-animates. */
+      function renderHand(container, cards, faceDownIndex) {
+        while (container.children.length > cards.length) container.lastChild.remove();
+        cards.forEach((card, i) => {
+          const faceDown = faceDownIndex === i;
+          const key = faceDown ? 'back' : card.rank + card.suit;
+          const existing = container.children[i];
+          if (existing && existing.dataset.key === key) return;
+          const node = cardNode(card, faceDown);
+          node.dataset.key = key;
+          if (existing) container.replaceChild(node, existing);
+          else container.appendChild(node);
+        });
+      }
+
       function render() {
-        pHand.innerHTML = '';
-        player.forEach((c) => pHand.appendChild(cardNode(c, false)));
-        dHand.innerHTML = '';
-        dealer.forEach((c, i) => dHand.appendChild(cardNode(c, hideHole && i === 1)));
+        renderHand(pHand, player, -1);
+        renderHand(dHand, dealer, hideHole ? 1 : -1);
         pScore.textContent = player.length ? score(player) : '—';
         dScore.textContent = dealer.length ? (hideHole ? score(dealer.slice(0, 1)) + '+' : score(dealer)) : '—';
         shoeOut.set(shoe.length + ' / 312');
       }
+
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
       function setPhase(p) {
         round = p;
@@ -122,47 +138,90 @@
         dblBtn.disabled = !canDouble;
       }
 
+      /** Locks the controls while cards are sliding in. */
+      function setBusy(state) {
+        dealing = state;
+        [dealBtn, hitBtn, standBtn, dblBtn].forEach((btn) => { btn.disabled = state; });
+        if (!state) setPhase(round);
+      }
+
+      async function slide(hand, card, faceDown) {
+        hand.push(card);
+        render();
+        await wait(faceDown ? 260 : 460);
+      }
+
       function draw() {
         if (shoe.length < 20) { shoe = freshShoe(); D.toast('Shoe reshuffled', 'info'); }
         return shoe.pop();
       }
 
-      function deal() {
-        if (round === 'player') return; // never abandon a hand that still has money on it
+      async function deal() {
+        if (dealing || round === 'player') return; // never abandon a hand that still has money on it
         const bet = amount.get();
         if (!ctx.bet(bet)) return;
+
         stake = bet;
-        player = [draw(), draw()];
-        dealer = [draw(), draw()];
+        player = [];
+        dealer = [];
         hideHole = true;
         msg.className = 'bj-msg';
-        msg.textContent = 'Hit, stand or double';
+        msg.textContent = 'Dealing…';
         ctx.banner('');
         render();
         setPhase('player');
+        setBusy(true);
 
-        if (isBlackjack(player) || isBlackjack(dealer)) { hideHole = false; finish(); }
+        await wait(220);
+        await slide(player, draw(), false);
+        await slide(dealer, draw(), false);
+        await slide(player, draw(), false);
+        await slide(dealer, draw(), true);
+
+        if (isBlackjack(player) || isBlackjack(dealer)) {
+          await revealDealer();
+          return finish();
+        }
+        msg.textContent = 'Hit, stand or double';
+        setBusy(false);
       }
 
-      function hit() {
-        player.push(draw());
-        render();
-        setPhase('player');
-        if (score(player) > 21) { hideHole = false; finish(); }
+      async function hit() {
+        if (dealing) return;
+        setBusy(true);
+        await slide(player, draw(), false);
+        if (score(player) > 21) {
+          await revealDealer();
+          return finish();
+        }
+        setBusy(false);
       }
 
-      function double() {
+      async function double() {
+        if (dealing) return;
         if (!ctx.bet(stake)) return;
         stake = D.round2(stake * 2);
-        player.push(draw());
-        render();
-        stand();
+        setBusy(true);
+        await slide(player, draw(), false);
+        await stand(true);
       }
 
-      function stand() {
+      /** Flips the hole card over, then lets the dealer draw one card at a time. */
+      async function revealDealer() {
         hideHole = false;
-        while (score(dealer) < 17) dealer.push(draw());
         render();
+        await wait(420);
+        while (score(dealer) < 17) {
+          await slide(dealer, draw(), false);
+          await wait(180);
+        }
+      }
+
+      async function stand(alreadyBusy) {
+        if (dealing && !alreadyBusy) return;
+        setBusy(true);
+        msg.textContent = 'Dealer plays…';
+        await revealDealer();
         finish();
       }
 
@@ -188,14 +247,22 @@
         ctx.settle(stake, payout, payout ? D.round2(payout / stake) : 0);
         ctx.banner(text, kind === 'win' ? 'win' : kind === 'push' ? '' : 'lose');
         hist.push(kind === 'win' ? '+' + p : kind === 'push' ? 'push' : String(p), kind === 'win');
+        setBusy(false);
         setPhase('done');
       }
 
-      dealBtn.addEventListener('click', deal);
-      hitBtn.addEventListener('click', hit);
-      standBtn.addEventListener('click', stand);
-      dblBtn.addEventListener('click', double);
-      ctx.onClose = () => { if (round === 'player') { hideHole = false; stand(); } };
+      dealBtn.addEventListener('click', () => { deal(); });
+      hitBtn.addEventListener('click', () => { hit(); });
+      standBtn.addEventListener('click', () => { stand(); });
+      dblBtn.addEventListener('click', () => { double(); });
+
+      ctx.onClose = () => {
+        if (round !== 'player') return;
+        // settle the open hand straight away rather than leaving the stake in limbo
+        hideHole = false;
+        while (score(dealer) < 17) dealer.push(draw());
+        finish();
+      };
 
       render();
       setPhase('idle');
