@@ -91,6 +91,24 @@ the wagered part. The rates live in `REWARD_RATES` at the top of `server.js`.
 The 02:00 boundary follows `DICEY_TZ_OFFSET` (default `2`, i.e. Serbian summer time). Set
 it to your own UTC offset so the day rolls over at the right moment.
 
+## Weekly race
+
+$15,000 split between the ten biggest wagerers. The race runs Sunday 02:00 to Sunday
+02:00, every bet adds to the player's total live, and the server pays the prizes out on
+its own the moment the week rolls over — no button to press.
+
+| Place | Prize | | Place | Prize |
+| --- | --- | --- | --- | --- |
+| 1st | $6,000 | | 6th | $100 |
+| 2nd | $4,500 | | 7th | $100 |
+| 3rd | $2,500 | | 8th | $100 |
+| 4th | $1,000 | | 9th | $100 |
+| 5th | $500 | | 10th | $100 |
+
+Prizes land as a `race` transaction on the winner's balance and the finished board is kept
+as "Last race" on the Races page. The ladder lives in `RACE_PRIZES` in `server.js`; the
+02:00 boundary follows the same `DICEY_TZ_OFFSET` as the bonuses.
+
 ## Cashier
 
 ### Every player gets their own deposit addresses
@@ -109,17 +127,22 @@ variable. Without it the cashier falls back to the manual "report your deposit" 
 Index 1 goes to the first account created, and the QR code beside each address is a real
 scannable QR of that exact address.
 
-Because every address belongs to exactly one player, deposits need no extra information:
-`chain.js` watches all of them and credits the right balance by itself.
+Because every address belongs to exactly one player, a deposit needs nothing else: the
+player sees an address and a QR code, sends, and the balance moves on its own. There is no
+form to fill in and nothing for an admin to approve.
 
 * ERC-20 transfers and plain ETH transfers are picked up from Ethereum logs and blocks
 * BTC and SOL addresses are polled for a rise in total received
 * USDT and USDC credit 1:1; ETH, BTC and SOL convert at the live Coinbase spot price
-* nothing credits before `DICEY_CONFIRMATIONS` (default 3) confirmations, and a
-  transaction can only ever be credited once
-* a player can also paste a transaction hash under "Sent but not credited yet?" and the
-  server verifies it on-chain
-* anything that cannot be matched waits in the admin panel to be assigned by hand
+* anything worth at least `DICEY_MIN_DEPOSIT_USD` (default $10) is credited automatically
+  once it has `DICEY_CONFIRMATIONS` (default 3) confirmations; smaller dust is logged as
+  pending so you can decide what to do with it
+* a **reconciliation sweep** walks the addresses in the background and compares each
+  balance with what has already been credited, so a deposit that arrives while the server
+  is down, or during a hiccup at the node, is still picked up afterwards
+* a transaction can only ever be credited once, and an address that is watched for the
+  first time is only baselined — restoring a backup never re-credits old balances
+* anything that arrives at an address we do not recognise waits in the admin panel
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -128,9 +151,11 @@ Because every address belongs to exactly one player, deposits need no extra info
 | `DICEY_SOL_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana JSON-RPC endpoint |
 | `DICEY_BTC_API_URL` | `https://blockstream.info/api` | Bitcoin address API |
 | `DICEY_CONFIRMATIONS` | `3` | confirmations before crediting |
+| `DICEY_MIN_DEPOSIT_USD` | `10` | smallest deposit that credits by itself |
 | `DICEY_ETH_USD` | live price | fixed ETH price instead of the feed |
 | `DICEY_WATCH_ETH` / `_BTC` / `_SOL` | `1` | set any to `0` to stop watching that chain |
 | `DICEY_POLL_MS` | `20000` | how often to poll |
+| `DICEY_RECONCILE_BATCH` | `6` | addresses checked per sweep |
 
 ### The server never touches the money
 
@@ -216,6 +241,7 @@ assets/js/qr.js            QR encoder (byte mode, level M, versions 1–10)
 assets/js/vip.js           the VIP ladder and everything that displays it
 assets/js/feed.js          Live Wins / My Bets / High Rollers / Lucky Wins / Wager Race
 assets/js/rewards.js       the rewards popup
+assets/js/race.js          weekly race board and countdown
 assets/js/account.js       register / log in / log out and session UI
 assets/js/admin.js         admin dashboard
 ```
