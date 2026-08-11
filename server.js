@@ -27,6 +27,14 @@ const MAX_ROUNDS = 20000;
 // Hours east of UTC used for the 02:00 bonus reset (2 = Serbia in summer).
 const TZ_OFFSET = parseFloat(process.env.DICEY_TZ_OFFSET || '2');
 
+// Weekly wager race: $15,000 split between the top ten, paid out
+// automatically when the race closes on Sunday at 02:00.
+const RACE_PRIZES = [6000, 4500, 2500, 1000, 500, 100, 100, 100, 100, 100];
+const RACE_POOL = RACE_PRIZES.reduce((sum, prize) => sum + prize, 0);
+
+// Anything worth at least this much is credited on its own.
+const MIN_DEPOSIT_USD = parseFloat(process.env.DICEY_MIN_DEPOSIT_USD || '10');
+
 const REWARD_RATES = {
   rakeback: { wager: 0.0005, loss: 0 },
   daily: { wager: 0.001, loss: 0.01 },
@@ -198,6 +206,12 @@ function startOfRewardMonth(ts) {
   return fromUtcParts(d.getUTCFullYear(), d.getUTCMonth(), 1);
 }
 
+/** The race runs Sunday 02:00 to Sunday 02:00. */
+function startOfRaceWeek(ts) {
+  const sunday = rewardDate(ts).getUTCDay();
+  return startOfRewardDay(ts) - sunday * DAY;
+}
+
 const emptyWindow = (start) => ({ start: start, wagered: 0, net: 0, claimedAt: 0 });
 
 function ensureRewards(user, now) {
@@ -210,6 +224,7 @@ function ensureRewards(user, now) {
     };
   }
   const r = user.rewards;
+  if (!r.race) r.race = { start: startOfRaceWeek(now), wagered: 0 };
 
   if (r.daily.start !== startOfRewardDay(now)) r.daily = emptyWindow(startOfRewardDay(now));
   if (r.weekly.start !== startOfRewardWeek(now)) r.weekly = emptyWindow(startOfRewardWeek(now));
@@ -231,6 +246,73 @@ function addWager(user, bet, payout, now) {
     r[key].wagered = round2(r[key].wagered + bet);
     r[key].net = round2(r[key].net + net);
   });
+
+  // race entries only count inside the open race
+  const raceStart = startOfRaceWeek(now);
+  if (r.race.start !== raceStart) r.race = { start: raceStart, wagered: 0 };
+  r.race.wagered = round2(r.race.wagered + bet);
+}
+
+/* ------------------------------------------------------------------ weekly race */
+
+function raceEntries(start) {
+  return db.users
+    .filter((u) => !u.isAdmin && u.rewards && u.rewards.race && u.rewards.race.start === start && u.rewards.race.wagered > 0)
+    .sort((a, b) => b.rewards.race.wagered - a.rewards.race.wagered);
+}
+
+function raceBoard(start, limit) {
+  return raceEntries(start).slice(0, limit || 10).map((u, i) => ({
+    rank: i + 1,
+    userId: u.id,
+    user: maskEmail(u.email),
+    wagered: round2(u.rewards.race.wagered),
+    prize: RACE_PRIZES[i] || 0,
+  }));
+}
+
+/**
+ * Pays out the race the moment its week is over. Safe to call as often as
+ * you like — it only does anything once the window has actually rolled.
+ */
+function settleRaceIfDue() {
+  const current = startOfRaceWeek(now());
+  if (!db.meta.raceStart) { db.meta.raceStart = current; save(); return; }
+  if (db.meta.raceStart === current) return;
+
+  const finished = db.meta.raceStart;
+  const winners = raceBoard(finished, RACE_PRIZES.length);
+
+  winners.forEach((entry) => {
+    if (!entry.prize) return;
+    const user = findUser(entry.userId);
+    if (!user) return;
+    user.balance = round2(user.balance + entry.prize);
+    db.transactions.unshift({
+      id: id('tx'),
+      userId: user.id,
+      type: 'race',
+      coin: 'USD',
+      address: '',
+      amount: entry.prize,
+      status: 'confirmed',
+      note: 'Weekly race — rank #' + entry.rank + ' with ' + entry.wagered + ' wagered',
+      ip: '',
+      ts: now(),
+      resolvedAt: now(),
+    });
+  });
+
+  db.meta.lastRace = {
+    start: finished,
+    endedAt: current,
+    pool: RACE_POOL,
+    winners: winners.map((w) => ({ rank: w.rank, user: w.user, wagered: w.wagered, prize: w.prize })),
+  };
+  db.meta.raceStart = current;
+  save();
+
+  if (winners.length) console.log('Weekly race paid out to ' + winners.length + ' player(s)');
 }
 
 const bonusValue = (rate, wagered, net) => round2(wagered * rate.wager + Math.max(0, net) * rate.loss);
@@ -398,7 +480,7 @@ function userAggregates(user) {
  * Records an on-chain deposit. `user` may be null when we cannot tell who
  * sent it — those wait in the admin panel to be assigned by hand.
  */
-function creditDeposit(user, deposit, status) {
+function creditDeposit(user, deposit, status, note) {
   const eligible = !!(user && user.bonus && !user.bonus.used);
   const tx = {
     id: id('tx'),
@@ -412,7 +494,7 @@ function creditDeposit(user, deposit, status) {
     status: status,
     onChain: true,
     bonus: eligible ? (user.bonus.label || '100% Sports Bonus') : null,
-    note: deposit.usd ? '' : 'Needs a USD value',
+    note: note || '',
     ip: '',
     ts: now(),
   };
@@ -558,6 +640,7 @@ const ROUTES = {
         .map((coin) => Object.assign({}, coin, { address: addresses ? addresses[coin.sym] : '' }))
         .filter((coin) => coin.address),
       hdEnabled: !!hdSeed,
+      minDeposit: MIN_DEPOSIT_USD,
       confirmations: chain.config.confirmations,
       chainOnline: chain.online,
       bonus: user && user.bonus && !user.bonus.used ? user.bonus : null,
@@ -613,17 +696,46 @@ const ROUTES = {
     });
   },
 
+  'GET /api/race': (ctx) => {
+    settleRaceIfDue();
+    const start = db.meta.raceStart;
+    const board = raceBoard(start, 10)
+      .map((entry) => ({ rank: entry.rank, user: entry.user, wagered: entry.wagered, prize: entry.prize }));
+    const user = ctx.session ? ctx.session.user : null;
+
+    let me = null;
+    if (user) {
+      const all = raceEntries(start);
+      const index = all.findIndex((u) => u.id === user.id);
+      me = {
+        rank: index > -1 ? index + 1 : null,
+        wagered: user.rewards && user.rewards.race && user.rewards.race.start === start ? round2(user.rewards.race.wagered) : 0,
+        prize: index > -1 ? (RACE_PRIZES[index] || 0) : 0,
+        players: all.length,
+      };
+    }
+
+    return sendJson(ctx.res, 200, {
+      pool: RACE_POOL,
+      prizes: RACE_PRIZES,
+      startedAt: start,
+      endsAt: start + 7 * DAY,
+      players: raceEntries(start).length,
+      board: board,
+      me: me,
+      last: db.meta.lastRace || null,
+    });
+  },
+
   'GET /api/feed': (ctx) => {
     const tab = ctx.query.get('tab') || 'live';
     const limit = Math.min(50, Math.max(5, parseInt(ctx.query.get('limit'), 10) || 10));
 
     if (tab === 'race') {
-      const board = db.users
-        .filter((u) => !u.isAdmin && u.stats.wagered > 0)
-        .sort((a, b) => b.stats.wagered - a.stats.wagered)
-        .slice(0, limit)
-        .map((u, i) => ({ rank: i + 1, user: maskEmail(u.email), wagered: round2(u.stats.wagered), bets: u.stats.bets }));
-      return sendJson(ctx.res, 200, { tab: tab, race: board });
+      settleRaceIfDue();
+      const board = raceBoard(db.meta.raceStart, limit)
+        .map((entry) => ({ rank: entry.rank, user: entry.user, wagered: entry.wagered, prize: entry.prize }));
+      return sendJson(ctx.res, 200, { tab: tab, race: board, endsAt: db.meta.raceStart + 7 * DAY });
     }
 
     let rounds = db.rounds.slice();
@@ -1039,22 +1151,33 @@ function startWatcher() {
       if (db.meta.seenTx.indexOf(deposit.txHash) > -1) return;
       const owner = deposit.userId ? findUser(deposit.userId) : null;
 
-      if (owner && deposit.usd) {
-        creditDeposit(owner, deposit, 'confirmed');
-        console.log('Credited $' + deposit.usd + ' to ' + owner.email + ' (' + deposit.coin + ' ' + deposit.amount + ')');
-      } else if (owner) {
-        creditDeposit(owner, deposit, 'pending');
-        console.log('Deposit from ' + owner.email + ' needs a USD value: ' + deposit.coin + ' ' + deposit.amount);
-      } else {
+      if (!owner) {
         creditDeposit(null, deposit, 'unclaimed');
         console.log('Deposit to an unknown address: ' + deposit.coin + ' ' + deposit.amount);
+        return;
       }
+
+      // anything worth the minimum lands on the balance without anyone approving it
+      if (deposit.usd >= MIN_DEPOSIT_USD) {
+        creditDeposit(owner, deposit, 'confirmed');
+        console.log('Credited $' + deposit.usd + ' to ' + owner.email + ' (' + deposit.coin + ' ' + deposit.amount + ')');
+        return;
+      }
+
+      creditDeposit(owner, deposit, 'pending',
+        'Worth $' + deposit.usd + ' — under the $' + MIN_DEPOSIT_USD + ' minimum');
+      console.log('Held deposit from ' + owner.email + ': ' + deposit.coin + ' ' + deposit.amount + ' ($' + deposit.usd + ')');
     }
   );
 }
 
 hdSeed = loadSeed();
 bootstrapAdmin();
+settleRaceIfDue();
+
+// catches the Sunday 02:00 rollover even when nobody is browsing
+const raceTimer = setInterval(settleRaceIfDue, 60000);
+if (raceTimer.unref) raceTimer.unref();
 
 server.listen(PORT, () => {
   console.log('Dicey running on http://localhost:' + PORT);

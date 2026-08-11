@@ -164,9 +164,9 @@
     <div class="banners">
       <article class="banner banner-race">
         <div class="banner-body">
-          <span class="banner-kicker">Weekly Race · Top 75</span>
-          <h2 class="banner-amount">$35,000</h2>
-          <p class="banner-copy">Wager on any original and climb the leaderboard.</p>
+          <span class="banner-kicker">Weekly Race · Top 10</span>
+          <h2 class="banner-amount">$15,000</h2>
+          <p class="banner-copy" id="bannerRaceCopy">Wager on any original and climb the leaderboard.</p>
           <button class="btn btn-primary" data-nav="races">Enter Now</button>
         </div>
         <div class="banner-art art-race" aria-hidden="true">
@@ -277,12 +277,27 @@
   <section class="page" id="page-races">
     <div class="section-head">
       <h1>Weekly Race</h1>
-      <p>$35,000 shared between the top 75 players. Every wager counts.</p>
+      <p>$15,000 shared between the top ten. Every wager counts and the race pays out
+        automatically when it closes on Sunday at 02:00.</p>
     </div>
+
     <div class="race-top" id="raceTop"></div>
-    <div class="panel">
-      <div class="panel-head"><span class="dot-green"></span>Leaderboard</div>
-      <div class="lb" id="raceBoard"></div>
+
+    <div class="two-col race-cols">
+      <div class="panel">
+        <div class="panel-head"><span class="dot-green"></span>Leaderboard</div>
+        <div class="lb" id="raceBoard"></div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-head"><span class="dot-gold"></span>Prize ladder</div>
+          <div class="rows" id="racePrizes"></div>
+        </div>
+        <div class="panel" id="raceLastPanel" style="margin-top:16px" hidden>
+          <div class="panel-head"><span class="dot-blue"></span>Last race</div>
+          <div class="lb" id="raceLast"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -432,8 +447,13 @@
           </div>
         </div>
 
+        <div class="form-error" id="depNoSeed" hidden>
+          Deposit addresses are not set up yet. Put your BIP39 mnemonic in
+          <code>data/seed.txt</code> and restart the server.
+        </div>
+
         <div class="coins" id="depositCoins"></div>
-        <div class="addr-card">
+        <div class="addr-card" id="depAddrCard">
           <div class="addr-head">
             <span class="label">Your deposit address</span>
             <span class="net-pill" id="depNetwork" hidden></span>
@@ -448,13 +468,7 @@
 
         <div id="depServer" hidden>
           <p class="hint" id="depChainHint"></p>
-          <details class="dep-fallback">
-            <summary>Sent but not credited yet?</summary>
-            <div class="field-row">
-              <input type="text" id="depTxHash" placeholder="Paste the transaction hash" autocomplete="off" spellcheck="false">
-              <button class="btn btn-ghost" id="claimDeposit" type="button">Check</button>
-            </div>
-          </details>
+          <div class="dep-recent" id="depRecent"></div>
         </div>
 
         <label class="field" id="depAmountField" hidden>
@@ -596,6 +610,7 @@
 <script src="assets/js/vip.js"></script>
 <script src="assets/js/feed.js"></script>
 <script src="assets/js/rewards.js"></script>
+<script src="assets/js/race.js"></script>
 <script src="assets/js/admin.js"></script>
 <script src="assets/js/account.js"></script>
 </body>

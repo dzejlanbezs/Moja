@@ -69,6 +69,8 @@
     return rows;
   }
 
+  const RACE_PRIZES = [6000, 4500, 2500, 1000, 500, 100, 100, 100, 100, 100];
+
   function simulateRace(count) {
     const rows = [];
     for (let i = 0; i < count; i++) {
@@ -76,7 +78,7 @@
         rank: i + 1,
         user: NAMES[D.randInt(NAMES.length)],
         wagered: D.round2(200000 / (i + 1) + D.rand() * 5000),
-        bets: 200 + D.randInt(4000),
+        prize: RACE_PRIZES[i] || 0,
       });
     }
     return rows;
@@ -116,13 +118,13 @@
       return;
     }
     table.innerHTML =
-      '<thead><tr><th>Rank</th><th>User</th><th class="num">Wagered</th><th class="num">Bets</th></tr></thead><tbody>' +
+      '<thead><tr><th>Rank</th><th>User</th><th class="num">Wagered</th><th class="num">Prize</th></tr></thead><tbody>' +
       rows.map((r) =>
         '<tr>' +
           '<td class="feed-rank">#' + r.rank + '</td>' +
           '<td><span class="cell-flex">' + avatar(r.user) + '<span>' + esc(r.user) + '</span></span></td>' +
           '<td class="num">' + coin() + esc(D.fmt(r.wagered)) + '</td>' +
-          '<td class="num muted">' + esc(r.bets) + '</td>' +
+          '<td class="num green">' + (r.prize ? esc(D.fmt(r.prize)) : '—') + '</td>' +
         '</tr>'
       ).join('') + '</tbody>';
   }

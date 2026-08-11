@@ -23,6 +23,7 @@ const config = {
   confirmations: parseInt(process.env.DICEY_CONFIRMATIONS, 10) || 3,
   pollMs: parseInt(process.env.DICEY_POLL_MS, 10) || 20000,
   maxBlocksPerPoll: 12,
+  reconcileBatch: parseInt(process.env.DICEY_RECONCILE_BATCH, 10) || 6,
   watchNative: process.env.DICEY_WATCH_ETH !== '0',
   watchBtc: process.env.DICEY_WATCH_BTC !== '0',
   watchSol: process.env.DICEY_WATCH_SOL !== '0',
@@ -189,6 +190,81 @@ async function nativeDeposits(fromBlock, toBlock) {
   return found;
 }
 
+/* ---- safety net: compare what we credited with what the chain holds ---- */
+
+const BALANCE_OF = '0x70a08231';
+const expectedKey = (address, asset) => 'bal:' + address + ':' + asset;
+
+/** Records that `amount` of `asset` reached `address`, so reconciliation ignores it. */
+function noteCredited(state, address, asset, amount) {
+  const key = expectedKey(String(address).toLowerCase(), asset);
+  const seen = state.get(key);
+  if (seen === undefined) return;   // not baselined yet; the first sweep will set it
+  state.set(key, seen + amount);
+}
+
+async function ethBalance(address) {
+  return scaled(hexToBig(await rpc('eth_getBalance', [address, 'latest'])), 18);
+}
+
+async function tokenBalance(address, token) {
+  const data = BALANCE_OF + '000000000000000000000000' + address.slice(2);
+  const result = await rpc('eth_call', [{ to: token.address, data: data }, 'latest']);
+  return scaled(hexToBig(result), token.decimals);
+}
+
+/**
+ * Walks a slice of the watched Ethereum addresses and credits anything the
+ * live scan missed — a restart, a skipped block, a flaky node.
+ */
+async function reconcile(state, cursor) {
+  const addresses = Array.from(watched.eth.keys());
+  if (!addresses.length) return [];
+
+  const size = Math.min(config.reconcileBatch, addresses.length);
+  const start = cursor.index % addresses.length;
+  const slice = [];
+  for (let i = 0; i < size; i++) slice.push(addresses[(start + i) % addresses.length]);
+  cursor.index = (start + size) % addresses.length;
+
+  const found = [];
+  for (const address of slice) {
+    const userId = watched.eth.get(address);
+    const assets = [{ symbol: 'ETH', read: () => ethBalance(address) }];
+    Object.keys(TOKENS).forEach((sym) => {
+      assets.push({ symbol: sym, read: () => tokenBalance(address, TOKENS[sym]) });
+    });
+
+    for (const asset of assets) {
+      try {
+        const actual = await asset.read();
+        const key = expectedKey(address, asset.symbol);
+        const expected = state.get(key);
+
+        // first time we look at an address we only take a baseline, so a
+        // restored backup never re-credits balances that are already there
+        if (expected === undefined) { state.set(key, actual); continue; }
+
+        if (actual > expected + 1e-12) {
+          const amount = actual - expected;
+          state.set(key, actual);
+          found.push({
+            txHash: 'reconcile:' + address + ':' + asset.symbol + ':' + actual,
+            from: '', to: address, userId: userId,
+            coin: asset.symbol, amount: amount,
+            usd: await usdValue(asset.symbol, amount),
+            blockNumber: 0,
+            reconciled: true,
+          });
+        } else if (actual < expected) {
+          state.set(key, actual);   // funds were swept out
+        }
+      } catch (err) { /* try again on the next sweep */ }
+    }
+  }
+  return found;
+}
+
 /* ---- bitcoin: poll the address API for a rise in total received ---- */
 
 async function btcDeposits(state) {
@@ -325,9 +401,12 @@ async function verifyTx(txHash) {
  */
 function watch(store, onDeposit) {
   let running = false;
+  const reconcileCursor = { index: 0 };
 
   async function report(list) {
     for (const deposit of list) {
+      // keep the ledger in step so the safety net does not credit this twice
+      if (!deposit.reconciled && deposit.to) noteCredited(store.state, deposit.to, deposit.coin, deposit.amount);
       try { await onDeposit(deposit); } catch (err) { console.error('deposit handler:', err.message); }
     }
   }
@@ -367,6 +446,11 @@ function watch(store, onDeposit) {
       if (config.watchSol && watched.sol.size) await report(await solDeposits(store.state));
     } catch (err) {
       console.error('chain watcher (sol):', err.message);
+    }
+    try {
+      await report(await reconcile(store.state, reconcileCursor));
+    } catch (err) {
+      console.error('chain watcher (reconcile):', err.message);
     }
     running = false;
   }

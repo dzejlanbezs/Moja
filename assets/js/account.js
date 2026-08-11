@@ -173,6 +173,12 @@
     return Api.request('GET', '/api/config').then((cfg) => {
       D.setCoins(cfg.coins);
 
+      // without a seed there are no real addresses, so say so instead of showing filler
+      const missingSeed = user && !cfg.hdEnabled;
+      D.$('#depNoSeed').hidden = !missingSeed;
+      D.$('#depAddrCard').hidden = !!missingSeed;
+      D.$('#depositCoins').hidden = !!missingSeed;
+
       const banner = D.$('#bonusBanner');
       banner.hidden = !cfg.bonus;
       if (cfg.bonus) D.$('#bonusTitle').textContent = cfg.bonus.label;
@@ -189,8 +195,9 @@
 
       if (onChain) {
         D.$('#depChainHint').textContent =
-          'These addresses belong to your account only. Anything you send lands on your balance by itself after ' +
-          cfg.confirmations + ' confirmations — USDT and USDC count 1:1, ETH, BTC and SOL at the live rate.';
+          'This address is yours alone. Send any amount over $' + (cfg.minDeposit || 10) +
+          ' and it is credited automatically after ' + cfg.confirmations +
+          ' confirmations — USDT and USDC count 1:1, ETH, BTC and SOL at the live rate. Nothing else to do.';
       }
     }).catch(() => {});
   }

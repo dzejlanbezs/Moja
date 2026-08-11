@@ -757,16 +757,23 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .field-row .btn { height: 42px; }
 .field-inline.slim { height: 32px; min-width: 118px; font-size: 12px; }
 
-.dep-fallback { margin-top: 4px; }
-.dep-fallback summary {
-  cursor: pointer; font-size: 12px; color: var(--text-2); font-weight: 600;
-  padding: 6px 0; list-style: none;
+.dep-recent { margin-top: 4px; }
+.dep-recent-head {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 8px;
 }
-.dep-fallback summary::-webkit-details-marker { display: none; }
-.dep-fallback summary::before { content: "＋ "; color: var(--text-3); }
-.dep-fallback[open] summary::before { content: "－ "; }
-.dep-fallback summary:hover { color: var(--text); }
-.dep-fallback .field-row { margin-top: 8px; }
+.dep-recent-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 12px; margin-bottom: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 9px;
+  font-size: 12.5px; font-weight: 600;
+}
+.dep-recent-row .muted { font-weight: 500; }
+.dep-recent-empty { font-size: 12px; color: var(--text-3); line-height: 1.5; }
+
+.race-cols { align-items: start; }
+.lb-row.is-me { border-color: rgba(0, 230, 118, .45); background: rgba(0, 230, 118, .07); }
+.lb-user em { font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--green); text-transform: uppercase; letter-spacing: .5px; }
 .pill-bonus {
   margin-left: 7px; font-size: 9.5px; font-weight: 800; text-transform: uppercase;
   padding: 3px 7px; border-radius: 5px;

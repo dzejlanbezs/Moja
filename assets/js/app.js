@@ -334,9 +334,28 @@
     paintTransactions();
   }
 
+  /** Small "your deposits so far" list under the address, so arrivals are visible. */
+  function paintRecentDeposits(rows) {
+    const box = D.$('#depRecent');
+    if (!box || D.$('#depServer').hidden) return;
+    const deposits = rows.filter((tx) => tx.type === 'Deposit').slice(0, 4);
+    if (!deposits.length) {
+      box.innerHTML = '<div class="dep-recent-empty">No deposits yet. Send to the address above and it lands by itself.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="dep-recent-head">Recent deposits</div>' + deposits.map((tx) =>
+      '<div class="dep-recent-row">' +
+        '<span>' + D.fmt(tx.amount) + '</span>' +
+        '<span class="muted">' + tx.asset + ' · ' + D.timeAgo(tx.ts) + '</span>' +
+        '<span style="color:' + (TX_COLOR[tx.status] || 'var(--text-2)') + ';font-weight:700">' + tx.status + '</span>' +
+      '</div>'
+    ).join('');
+  }
+
   function paintTransactions() {
     const list = D.$('#txList');
     D.Wallet.transactions().then((rows) => {
+      paintRecentDeposits(rows);
       list.innerHTML = rows.length
         ? rows.map((tx) =>
             '<div class="tx-row" title="' + (tx.address ? 'To ' + tx.address : '') + '">' +
@@ -401,26 +420,6 @@
     }).catch((err) => D.toast(err.message, 'lose'));
   });
 
-  D.$('#depTxHash').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); D.$('#claimDeposit').click(); } });
-
-  D.$('#claimDeposit').addEventListener('click', () => {
-    const input = D.$('#depTxHash');
-    const txHash = input.value.trim();
-    if (!txHash) { D.toast('Paste the transaction hash', 'info'); return; }
-    const button = D.$('#claimDeposit');
-    button.disabled = true;
-    D.Api.request('POST', '/api/wallet/claim', { txHash: txHash })
-      .then((data) => {
-        if (data.pending) { D.toast(data.error || data.message, 'info'); return; }
-        D.Store.hydrate({ balance: data.balance });
-        input.value = '';
-        paintCashier();
-        D.toast('Credited ' + D.fmt(data.credited) + ' from ' + data.coin, 'win');
-      })
-      .catch((err) => D.toast(err.message, 'lose'))
-      .then(() => { button.disabled = false; });
-  });
-
   D.$('#wdSubmit').addEventListener('click', () => {
     const amount = D.round2(parseFloat(D.$('#wdAmount').value));
     const address = D.$('#wdAddress').value.trim();
@@ -480,29 +479,9 @@
     if (e.target.closest('.odd')) D.toast('Bet slip is not part of this demo', 'info');
   });
 
-  D.$('#raceTop').innerHTML = [
-    { v: '$35,000', l: 'Prize pool' },
-    { v: 'Top 75', l: 'Paid places' },
-    { v: '2d 14h', l: 'Time left' },
-    { v: '#128', l: 'Your position' },
-  ].map((c) => '<div class="race-card"><b>' + c.v + '</b><span>' + c.l + '</span></div>').join('');
-
-  D.$('#raceBoard').innerHTML = [
-    ['Crypto_King', 1284500, 7000], ['DiamondHands', 980300, 4200], ['Shadowplay', 764100, 2800],
-    ['MoonUp', 512900, 1600], ['GoldRush', 445200, 1200], ['NightOwl99', 388700, 950],
-    ['FastBet', 301500, 780], ['LuckyJoe', 254800, 640], ['Zeljko94', 198300, 520], ['VegasStar', 41500, 0],
-  ].map((r, i) =>
-    '<div class="lb-row' + (i < 3 ? ' top' + (i + 1) : '') + '">' +
-      '<span class="lb-rank">#' + (i === 9 ? 128 : i + 1) + '</span>' +
-      '<span class="lb-user">' + r[0] + '</span>' +
-      '<span class="lb-wager">' + D.fmt(r[1]) + ' wagered</span>' +
-      '<span class="lb-prize">' + (r[2] ? D.fmt(r[2]) : '—') + '</span>' +
-    '</div>'
-  ).join('');
-
   D.$('#promoGrid').innerHTML = [
     { tag: 'Daily', title: '10% Rakeback', copy: 'Collect a slice of every wager back, every single day.', color: '#00e676' },
-    { tag: 'Weekly', title: '$35,000 Race', copy: 'Top 75 wagerers split the pool every Monday.', color: '#4d8dff' },
+    { tag: 'Weekly', title: '$15,000 Race', copy: 'The ten biggest wagerers split the pool every Sunday.', color: '#4d8dff' },
     { tag: 'VIP', title: 'Status Match', copy: 'Bring your rank from another site and we match it.', color: '#ffcc33' },
     { tag: 'Originals', title: 'Multiplier Drops', copy: 'Hit 100× on any original and grab a bonus drop.', color: '#8b5cff' },
   ].map((p) =>
