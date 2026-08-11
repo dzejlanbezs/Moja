@@ -127,11 +127,24 @@ async function usdValue(coin, amount) {
 
 /* ------------------------------------------------------------------ scanning */
 
-/** Token transfers into any watched address inside a block range. */
-async function tokenDeposits(fromBlock, toBlock) {
-  if (!watched.eth.size) return [];
+/**
+ * Looks for signs of life on watched addresses inside a block range.
+ * It reports *which* addresses moved, never how much — the amount is always
+ * decided by checkEthAddress so a deposit can only ever be counted once.
+ */
+async function scanForActivity(fromBlock, toBlock) {
+  const touched = new Map();
+  if (!watched.eth.size) return touched;
+
+  const note = (address, txHash, from, asset) => {
+    const key = String(address).toLowerCase();
+    const entry = touched.get(key) || {};
+    entry[asset] = txHash;
+    if (from) entry.from = from;
+    touched.set(key, entry);
+  };
+
   const targets = Array.from(watched.eth.keys()).map((addr) => '0x000000000000000000000000' + addr.slice(2));
-  const found = [];
 
   // topic filters get unwieldy with many addresses, so query in chunks
   for (let i = 0; i < targets.length; i += 100) {
@@ -144,80 +157,93 @@ async function tokenDeposits(fromBlock, toBlock) {
 
     for (const log of logs || []) {
       const token = tokenByAddress(log.address);
-      if (!token) continue;
-      const to = addrFromTopic(log.topics[2]);
-      const amount = scaled(hexToBig(log.data), token.decimals);
-      found.push({
-        txHash: log.transactionHash,
-        from: addrFromTopic(log.topics[1]),
-        to: to,
-        userId: watched.eth.get(to) || null,
-        coin: token.symbol,
-        amount: amount,
-        usd: await usdValue(token.symbol, amount),
-        blockNumber: hexToInt(log.blockNumber),
-      });
+      if (token) note(addrFromTopic(log.topics[2]), log.transactionHash, addrFromTopic(log.topics[1]), token.symbol);
     }
   }
-  return found;
-}
 
-/** Plain ETH transfers into any watched address inside a block range. */
-async function nativeDeposits(fromBlock, toBlock) {
-  if (!watched.eth.size) return [];
-  const found = [];
-  for (let n = fromBlock; n <= toBlock; n++) {
-    const block = await rpc('eth_getBlockByNumber', ['0x' + n.toString(16), true]);
-    if (!block || !block.transactions) continue;
-    for (const tx of block.transactions) {
-      const to = tx.to ? tx.to.toLowerCase() : '';
-      if (!to || !watched.eth.has(to)) continue;
-      const value = hexToBig(tx.value);
-      if (value === 0n) continue;
-      const amount = scaled(value, 18);
-      found.push({
-        txHash: tx.hash,
-        from: String(tx.from).toLowerCase(),
-        to: to,
-        userId: watched.eth.get(to),
-        coin: 'ETH',
-        amount: amount,
-        usd: await usdValue('ETH', amount),
-        blockNumber: hexToInt(tx.blockNumber),
-      });
+  if (config.watchNative) {
+    for (let n = fromBlock; n <= toBlock; n++) {
+      const block = await rpc('eth_getBlockByNumber', ['0x' + n.toString(16), true]);
+      if (!block || !block.transactions) continue;
+      for (const tx of block.transactions) {
+        const to = tx.to ? tx.to.toLowerCase() : '';
+        if (!to || !watched.eth.has(to) || hexToBig(tx.value) === 0n) continue;
+        note(to, tx.hash, String(tx.from).toLowerCase(), 'ETH');
+      }
     }
   }
-  return found;
+
+  return touched;
 }
 
-/* ---- safety net: compare what we credited with what the chain holds ---- */
+/* ---- crediting: one source of truth per address ---- */
 
 const BALANCE_OF = '0x70a08231';
-const expectedKey = (address, asset) => 'bal:' + address + ':' + asset;
+const ledgerKey = (address, asset) => 'bal:' + address + ':' + asset;
 
-/** Records that `amount` of `asset` reached `address`, so reconciliation ignores it. */
-function noteCredited(state, address, asset, amount) {
-  const key = expectedKey(String(address).toLowerCase(), asset);
-  const seen = state.get(key);
-  if (seen === undefined) return;   // not baselined yet; the first sweep will set it
-  state.set(key, seen + amount);
+async function ethBalance(address, blockTag) {
+  return scaled(hexToBig(await rpc('eth_getBalance', [address, blockTag])), 18);
 }
 
-async function ethBalance(address) {
-  return scaled(hexToBig(await rpc('eth_getBalance', [address, 'latest'])), 18);
-}
-
-async function tokenBalance(address, token) {
+async function tokenBalance(address, token, blockTag) {
   const data = BALANCE_OF + '000000000000000000000000' + address.slice(2);
-  const result = await rpc('eth_call', [{ to: token.address, data: data }, 'latest']);
+  const result = await rpc('eth_call', [{ to: token.address, data: data }, blockTag]);
   return scaled(hexToBig(result), token.decimals);
 }
 
 /**
- * Walks a slice of the watched Ethereum addresses and credits anything the
- * live scan missed — a restart, a skipped block, a flaky node.
+ * The only place an Ethereum deposit is ever turned into a credit.
+ *
+ * Every detection path — a transfer log, a block scan, the periodic sweep —
+ * funnels through here, and the amount always comes from the difference
+ * between the confirmed on-chain balance and what has already been credited.
+ * That makes crediting idempotent: seeing the same deposit twice is a no-op.
  */
-async function reconcile(state, cursor) {
+async function checkEthAddress(state, address, blockTag, hints) {
+  const userId = watched.eth.get(address);
+  const found = [];
+
+  const assets = [{ symbol: 'ETH', read: () => ethBalance(address, blockTag) }];
+  Object.keys(TOKENS).forEach((sym) => {
+    assets.push({ symbol: sym, read: () => tokenBalance(address, TOKENS[sym], blockTag) });
+  });
+
+  for (const asset of assets) {
+    try {
+      const actual = await asset.read();
+      const key = ledgerKey(address, asset.symbol);
+      const credited = state.get(key);
+
+      // the first look at an address is only a baseline, so restoring a
+      // backup never re-credits balances that were already there
+      if (credited === undefined) { state.set(key, actual); continue; }
+
+      if (actual > credited + 1e-12) {
+        const amount = actual - credited;
+        state.set(key, actual);
+        found.push({
+          txHash: (hints && hints[asset.symbol]) || '',
+          from: (hints && hints.from) || '',
+          to: address,
+          userId: userId,
+          coin: asset.symbol,
+          amount: amount,
+          usd: await usdValue(asset.symbol, amount),
+          blockNumber: 0,
+        });
+      } else if (actual < credited) {
+        state.set(key, actual);   // funds were swept out
+      }
+    } catch (err) { /* try again on the next pass */ }
+  }
+  return found;
+}
+
+/**
+ * Walks a slice of the watched addresses so nothing is missed after a
+ * restart, a skipped block or a flaky node.
+ */
+async function sweepEth(state, cursor, blockTag) {
   const addresses = Array.from(watched.eth.keys());
   if (!addresses.length) return [];
 
@@ -228,40 +254,7 @@ async function reconcile(state, cursor) {
   cursor.index = (start + size) % addresses.length;
 
   const found = [];
-  for (const address of slice) {
-    const userId = watched.eth.get(address);
-    const assets = [{ symbol: 'ETH', read: () => ethBalance(address) }];
-    Object.keys(TOKENS).forEach((sym) => {
-      assets.push({ symbol: sym, read: () => tokenBalance(address, TOKENS[sym]) });
-    });
-
-    for (const asset of assets) {
-      try {
-        const actual = await asset.read();
-        const key = expectedKey(address, asset.symbol);
-        const expected = state.get(key);
-
-        // first time we look at an address we only take a baseline, so a
-        // restored backup never re-credits balances that are already there
-        if (expected === undefined) { state.set(key, actual); continue; }
-
-        if (actual > expected + 1e-12) {
-          const amount = actual - expected;
-          state.set(key, actual);
-          found.push({
-            txHash: 'reconcile:' + address + ':' + asset.symbol + ':' + actual,
-            from: '', to: address, userId: userId,
-            coin: asset.symbol, amount: amount,
-            usd: await usdValue(asset.symbol, amount),
-            blockNumber: 0,
-            reconciled: true,
-          });
-        } else if (actual < expected) {
-          state.set(key, actual);   // funds were swept out
-        }
-      } catch (err) { /* try again on the next sweep */ }
-    }
-  }
+  for (const address of slice) found.push(...await checkEthAddress(state, address, blockTag));
   return found;
 }
 
@@ -339,63 +332,6 @@ async function solDeposits(state) {
 /* ------------------------------------------------------------------ public api */
 
 /**
- * Verifies a single transaction hash a player pasted in.
- * Resolves with the deposit details or throws with a readable reason.
- */
-async function verifyTx(txHash) {
-  if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) throw new Error('That does not look like a transaction hash');
-
-  const receipt = await rpc('eth_getTransactionReceipt', [txHash]);
-  if (!receipt) throw new Error('Transaction not found yet — wait for it to be mined');
-  if (receipt.status && hexToInt(receipt.status) !== 1) throw new Error('That transaction failed on-chain');
-
-  const latest = hexToInt(await rpc('eth_blockNumber', []));
-  const confirmations = latest - hexToInt(receipt.blockNumber) + 1;
-
-  // token transfer into one of our deposit addresses, wherever it was routed from
-  for (const log of receipt.logs || []) {
-    if (String(log.topics[0]).toLowerCase() !== TRANSFER_TOPIC) continue;
-    const to = addrFromTopic(log.topics[2]);
-    if (!watched.eth.has(to)) continue;
-    const token = tokenByAddress(log.address);
-    if (!token) continue;
-    const amount = scaled(hexToBig(log.data), token.decimals);
-    return {
-      txHash: txHash.toLowerCase(),
-      from: addrFromTopic(log.topics[1]),
-      to: to,
-      userId: watched.eth.get(to),
-      coin: token.symbol,
-      amount: amount,
-      usd: await usdValue(token.symbol, amount),
-      blockNumber: hexToInt(receipt.blockNumber),
-      confirmations: confirmations,
-      enough: confirmations >= config.confirmations,
-    };
-  }
-
-  const tx = await rpc('eth_getTransactionByHash', [txHash]);
-  const to = tx && tx.to ? tx.to.toLowerCase() : '';
-  if (to && watched.eth.has(to) && hexToBig(tx.value) > 0n) {
-    const amount = scaled(hexToBig(tx.value), 18);
-    return {
-      txHash: txHash.toLowerCase(),
-      from: String(tx.from).toLowerCase(),
-      to: to,
-      userId: watched.eth.get(to),
-      coin: 'ETH',
-      amount: amount,
-      usd: await usdValue('ETH', amount),
-      blockNumber: hexToInt(receipt.blockNumber),
-      confirmations: confirmations,
-      enough: confirmations >= config.confirmations,
-    };
-  }
-
-  throw new Error('That transaction did not send ETH, USDT or USDC to a Dicey deposit address');
-}
-
-/**
  * Polls new blocks and hands every incoming deposit to onDeposit().
  * cursor.get() / cursor.set() let the caller persist the scan position.
  */
@@ -405,8 +341,6 @@ function watch(store, onDeposit) {
 
   async function report(list) {
     for (const deposit of list) {
-      // keep the ledger in step so the safety net does not credit this twice
-      if (!deposit.reconciled && deposit.to) noteCredited(store.state, deposit.to, deposit.coin, deposit.amount);
       try { await onDeposit(deposit); } catch (err) { console.error('deposit handler:', err.message); }
     }
   }
@@ -414,19 +348,24 @@ function watch(store, onDeposit) {
   async function ethereum() {
     const latest = hexToInt(await rpc('eth_blockNumber', []));
     const safeTip = latest - config.confirmations;
+    const blockTag = '0x' + Math.max(0, safeTip).toString(16);
     let from = store.block.get();
 
-    if (!from) { store.block.set(safeTip); return; }   // first run: start from now
-    if (safeTip <= from) return;                        // nothing new yet
-    if (safeTip - from > config.maxBlocksPerPoll) {
-      // public nodes refuse deep history; skip ahead rather than fail forever
-      from = safeTip - config.maxBlocksPerPoll;
+    if (!from) { store.block.set(safeTip); }            // first run: start from now
+    else if (safeTip > from) {
+      if (safeTip - from > config.maxBlocksPerPoll) {
+        // public nodes refuse deep history; the sweep below catches the rest
+        from = safeTip - config.maxBlocksPerPoll;
+      }
+      const touched = await scanForActivity(from + 1, safeTip);
+      for (const [address, hints] of touched) {
+        await report(await checkEthAddress(store.state, address, blockTag, hints));
+      }
+      store.block.set(safeTip);
     }
 
-    const found = await tokenDeposits(from + 1, safeTip);
-    if (config.watchNative) found.push(...await nativeDeposits(from + 1, safeTip));
-    await report(found);
-    store.block.set(safeTip);
+    // rolling sweep so a missed block or a restart cannot lose a deposit
+    await report(await sweepEth(store.state, reconcileCursor, blockTag));
   }
 
   async function tick() {
@@ -446,11 +385,6 @@ function watch(store, onDeposit) {
       if (config.watchSol && watched.sol.size) await report(await solDeposits(store.state));
     } catch (err) {
       console.error('chain watcher (sol):', err.message);
-    }
-    try {
-      await report(await reconcile(store.state, reconcileCursor));
-    } catch (err) {
-      console.error('chain watcher (reconcile):', err.message);
     }
     running = false;
   }
@@ -475,7 +409,6 @@ module.exports = {
   tokens: TOKENS,
   setWatchList: setWatchList,
   watchCount: watchCount,
-  verifyTx: verifyTx,
   watch: watch,
   status: status,
   spotPrice: spotPrice,

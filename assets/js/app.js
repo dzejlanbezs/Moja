@@ -383,11 +383,16 @@
     if (e.target === e.currentTarget || e.target.closest('[data-close]')) closeCashier();
   });
 
-  function openCashier() {
+  function openCashier(tab) {
     paintCashier();
+    if (typeof tab === 'string') {
+      const seg = D.$('.seg-btn[data-tab="' + tab + '"]');
+      if (seg) seg.click();
+    }
     D.$('#cashierModal').hidden = false;
     document.body.classList.add('modal-open');
   }
+  D.openCashier = openCashier;
   function closeCashier() {
     D.$('#cashierModal').hidden = true;
     if (D.$('#gameModal').hidden) document.body.classList.remove('modal-open');

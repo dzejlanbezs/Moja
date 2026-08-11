@@ -35,6 +35,9 @@ const RACE_POOL = RACE_PRIZES.reduce((sum, prize) => sum + prize, 0);
 // Anything worth at least this much is credited on its own.
 const MIN_DEPOSIT_USD = parseFloat(process.env.DICEY_MIN_DEPOSIT_USD || '10');
 
+// Promo signups get a free bet matching their first deposit; 0 means no cap.
+const FREEBET_MAX = parseFloat(process.env.DICEY_FREEBET_MAX || '0');
+
 const REWARD_RATES = {
   rakeback: { wager: 0.0005, loss: 0 },
   daily: { wager: 0.001, loss: 0.01 },
@@ -137,6 +140,7 @@ function publicUser(user) {
     referredBy: user.referredBy || null,
     promoCode: user.promoCode || null,
     bonus: user.bonus || null,
+    freeBet: user.freeBet || null,
     walletAddress: user.walletAddress || null,
     depositRef: user.depositRef || null,
     createdAt: user.createdAt,
@@ -333,32 +337,36 @@ function rewardState(user, now) {
   const isSunday = local.getUTCDay() === 0;
   const isFirst = local.getUTCDate() === 1;
 
+  // Only rakeback shows a figure. The timed bonuses stay sealed — the
+  // amounts never leave the server, so nobody can read them off the wire.
   return {
     rakeback: {
-      amount: rakeback, claimable: rakeback >= 0.01,
-      wagered: r.rakeback, rate: '0.05% of wagered',
-      note: 'Builds up with every bet and can be taken any time.',
+      amount: rakeback,
+      claimable: rakeback >= 0.01,
+      wagered: r.rakeback,
+      blurb: 'Earned on every bet',
+      note: 'Builds up as you play and can be taken any time.',
     },
     daily: {
-      amount: daily, claimable: daily >= 0.01 && r.daily.claimedAt < r.daily.start,
-      wagered: r.daily.wagered, loss: Math.max(0, r.daily.net), rate: '0.10% of wagered + 1% lossback',
+      hidden: true,
+      claimable: daily >= 0.01 && r.daily.claimedAt < r.daily.start,
+      blurb: 'Unlocks every day at 02:00',
       availableAt: r.daily.claimedAt >= r.daily.start ? nextDay : 0,
-      note: 'Resets every day at 02:00.',
+      note: 'Sealed until you open it.',
     },
     weekly: {
-      amount: weekly,
+      hidden: true,
       claimable: weekly >= 0.01 && isSunday && r.weekly.claimedAt < r.weekly.start,
-      wagered: r.weekly.wagered, loss: Math.max(0, r.weekly.net), rate: '0.20% of wagered + 3% lossback',
+      blurb: 'Unlocks Sunday at 02:00',
       availableAt: isSunday && r.weekly.claimedAt < r.weekly.start ? 0 : nextWeek - DAY,
-      note: 'Monday to Sunday. Collect on Sunday after 02:00.',
+      note: 'Grows through the week. Sealed until you open it.',
     },
     monthly: {
-      amount: monthly,
+      hidden: true,
       claimable: monthly >= 0.01 && isFirst && r.monthly.carry.month > 0 && r.monthly.carryClaimed !== r.monthly.carry.month,
-      wagered: r.monthly.carry.wagered, loss: Math.max(0, r.monthly.carry.net),
-      pendingWagered: r.monthly.wagered, rate: '1.00% of wagered + 15% lossback',
+      blurb: 'Unlocks on the 1st at 02:00',
       availableAt: isFirst ? 0 : nextMonth,
-      note: 'Last full month. Collect on the 1st after 02:00.',
+      note: 'Covers the whole month. Sealed until you open it.',
     },
   };
 }
@@ -500,15 +508,28 @@ function creditDeposit(user, deposit, status, note) {
   };
 
   db.transactions.unshift(tx);
-  db.meta.seenTx.unshift(deposit.txHash);
-  db.meta.seenTx = db.meta.seenTx.slice(0, 1000);
 
   if (user && status === 'confirmed') {
     user.balance = round2(user.balance + deposit.usd);
-    if (eligible) user.bonus.used = true;
+    if (eligible) grantFreeBet(user, deposit.usd);
   }
   save();
   return tx;
+}
+
+/** Turns the promo-code sports bonus into a free bet matching the first deposit. */
+function grantFreeBet(user, amount) {
+  if (!user.bonus || user.bonus.used) return null;
+  user.bonus.used = true;
+  user.freeBet = {
+    amount: round2(FREEBET_MAX ? Math.min(amount, FREEBET_MAX) : amount),
+    minOdds: 1.5,
+    maxOdds: 5,
+    grantedAt: now(),
+    used: false,
+    seen: false,
+  };
+  return user.freeBet;
 }
 
 const ROUTES = {
@@ -776,37 +797,6 @@ const ROUTES = {
     return sendJson(ctx.res, 200, { walletAddress: address });
   },
 
-  /** Player pastes a transaction hash; we check it on-chain and credit it. */
-  'POST /api/wallet/claim': async (ctx) => {
-    const user = ctx.requireUser();
-    if (!user) return;
-    const body = await ctx.body();
-    const txHash = String(body.txHash || '').trim().toLowerCase();
-
-    if (db.meta.seenTx.indexOf(txHash) > -1) return sendJson(ctx.res, 409, { error: 'That transaction was already credited' });
-
-    let deposit;
-    try {
-      deposit = await chain.verifyTx(txHash);
-    } catch (err) {
-      return sendJson(ctx.res, 400, { error: err.message });
-    }
-    if (!deposit.enough) {
-      return sendJson(ctx.res, 202, {
-        pending: true,
-        error: 'Seen on-chain with ' + deposit.confirmations + ' confirmation(s). Try again at ' + chain.config.confirmations + '.',
-      });
-    }
-    if (!deposit.usd) {
-      creditDeposit(user, deposit, 'pending');
-      return sendJson(ctx.res, 200, { pending: true, message: 'Deposit found — an admin will set its USD value shortly.' });
-    }
-
-    if (!user.walletAddress) user.walletAddress = deposit.from;
-    creditDeposit(user, deposit, 'confirmed');
-    return sendJson(ctx.res, 200, { balance: round2(user.balance), credited: deposit.usd, coin: deposit.coin });
-  },
-
   'POST /api/wallet/deposit': async (ctx) => {
     const user = ctx.requireUser();
     if (!user) return;
@@ -856,6 +846,31 @@ const ROUTES = {
     db.transactions.unshift(tx);
     save();
     return sendJson(ctx.res, 200, { transaction: tx, balance: user.balance });
+  },
+
+  /** Cheap poll the client uses to notice a deposit landing. */
+  'GET /api/wallet/news': (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    const since = parseInt(ctx.query.get('since'), 10) || 0;
+    const deposits = db.transactions
+      .filter((t) => t.userId === user.id && t.type === 'deposit' && t.status === 'confirmed' && t.ts > since)
+      .slice(0, 5)
+      .map((t) => ({ id: t.id, coin: t.coin, amount: t.amount, crypto: t.crypto, ts: t.ts }));
+
+    return sendJson(ctx.res, 200, {
+      deposits: deposits,
+      balance: round2(user.balance),
+      freeBet: user.freeBet || null,
+      now: now(),
+    });
+  },
+
+  'POST /api/wallet/freebet-seen': (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    if (user.freeBet) { user.freeBet.seen = true; save(); }
+    return sendJson(ctx.res, 200, { ok: true });
   },
 
   'GET /api/wallet/transactions': (ctx) => {
@@ -996,7 +1011,7 @@ const ROUTES = {
     tx.resolvedAt = now();
     tx.resolvedBy = admin.email;
     user.balance = round2(user.balance + amount);
-    if (user.bonus && !user.bonus.used) { user.bonus.used = true; tx.bonus = user.bonus.label; }
+    if (user.bonus && !user.bonus.used) { tx.bonus = user.bonus.label; grantFreeBet(user, amount); }
     if (!user.walletAddress && tx.address) user.walletAddress = tx.address;
     save();
     return sendJson(ctx.res, 200, { transaction: tx, balance: user.balance });
@@ -1147,8 +1162,9 @@ function startWatcher() {
       block: { get: () => db.meta.lastBlock, set: (block) => { db.meta.lastBlock = block; save(); } },
       state: state,
     },
+    // chain.js only ever reports the difference between the chain and what we
+    // have already credited, so every deposit reaching this point is new
     async (deposit) => {
-      if (db.meta.seenTx.indexOf(deposit.txHash) > -1) return;
       const owner = deposit.userId ? findUser(deposit.userId) : null;
 
       if (!owner) {

@@ -126,6 +126,7 @@
       D.$('#profileEmail').textContent = '—';
       D.$('#profileReferral').textContent = '—';
       D.$('#profileReferredBy').textContent = '—';
+      if (D.Deposits) D.Deposits.stop();
       if (D.$('#page-admin').classList.contains('active')) D.navigate('casino');
       return Promise.resolve();
     }
@@ -151,6 +152,7 @@
     });
 
     if (D.Rewards) D.Rewards.refresh();
+    if (D.Deposits) D.Deposits.start();
 
     return Api.myBets()
       .then((data) => {

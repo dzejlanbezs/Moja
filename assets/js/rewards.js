@@ -22,6 +22,9 @@
     monthly: '<path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.4 9.4l6-.8L12 3Z"/>',
   };
 
+  const LOCK = '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2"/>' +
+    '<path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/><circle cx="12" cy="15.2" r="1.2"/></svg>';
+
   const TITLES = {
     rakeback: 'Rakeback',
     daily: 'Daily Bonus',
@@ -49,23 +52,27 @@
 
     list.innerHTML = ORDER.map((key) => {
       const reward = state[key];
-      const parts = [];
-      if (reward.wagered != null) parts.push(D.fmt(reward.wagered) + ' wagered');
-      if (reward.loss) parts.push(D.fmt(reward.loss) + ' lossback');
+      const detail = reward.wagered != null ? D.fmt(reward.wagered) + ' wagered — ' : '';
+
+      // timed bonuses stay sealed: the player sees a lock, never the figure
+      const side = reward.hidden
+        ? (reward.claimable
+            ? '<button class="btn btn-primary" data-claim="' + key + '">Open</button>'
+            : '<span class="reward-lock" title="Locked">' + LOCK + '</span>' +
+              '<span class="reward-locked">' + (reward.availableAt ? countdown(reward.availableAt) : 'locked') + '</span>')
+        : '<b class="reward-amount">' + D.fmt(reward.amount) + '</b>' +
+          (reward.claimable
+            ? '<button class="btn btn-primary" data-claim="' + key + '">Claim</button>'
+            : '<span class="reward-locked">keep playing</span>');
 
       return '<div class="reward-card' + (reward.claimable ? ' ready' : '') + '">' +
         '<span class="reward-icon"><svg viewBox="0 0 24 24">' + ICONS[key] + '</svg></span>' +
         '<div class="reward-main">' +
           '<b>' + TITLES[key] + '</b>' +
-          '<span class="reward-rate">' + reward.rate + '</span>' +
-          '<span class="reward-note">' + (parts.length ? parts.join(' · ') + ' — ' : '') + reward.note + '</span>' +
+          '<span class="reward-rate">' + reward.blurb + '</span>' +
+          '<span class="reward-note">' + detail + reward.note + '</span>' +
         '</div>' +
-        '<div class="reward-side">' +
-          '<b class="reward-amount">' + D.fmt(reward.amount) + '</b>' +
-          (reward.claimable
-            ? '<button class="btn btn-primary" data-claim="' + key + '">Claim</button>'
-            : '<span class="reward-locked">' + (reward.availableAt ? countdown(reward.availableAt) : 'keep playing') + '</span>') +
-        '</div>' +
+        '<div class="reward-side">' + side + '</div>' +
       '</div>';
     }).join('');
   }

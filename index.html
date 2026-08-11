@@ -124,6 +124,11 @@
       <div class="level-bar"><i id="levelFill" style="width:0%"></i></div>
     </div>
 
+    <button class="deposit-alert" id="depositAlert" hidden title="Deposit credited">
+      <span class="deposit-alert-coin" id="depositAlertCoin">$</span>
+      <span class="deposit-alert-text"><b id="depositAlertAmount">$0.00</b><span>Deposit credited</span></span>
+    </button>
+
     <button class="rewards-btn" id="rewardsBtn" title="Rewards" aria-label="Rewards">
       <svg viewBox="0 0 24 24">
         <path d="M20 11.5V20H4v-8.5M2.5 7.5h19v4h-19zM12 7.5V20"/>
@@ -495,6 +500,39 @@
   </div>
 </div>
 
+<!-- ============ FREE BET MODAL ============ -->
+<div class="overlay" id="freeBetModal" hidden>
+  <div class="modal modal-freebet" role="dialog" aria-modal="true" aria-label="Free bet">
+    <header class="modal-head">
+      <h2>Your Free Bet</h2>
+      <button class="icon-btn close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div class="modal-body">
+      <div class="freebet-hero">
+        <span class="freebet-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9.2"/>
+            <path d="M12 7.4l3.3 2.4-1.3 3.9h-4L8.7 9.8 12 7.4Z" class="fill"/>
+            <path d="M12 2.9v4.5M4.4 10.1l4.3-.3M19.6 10.1l-4.3-.3M7.7 20.1l2.3-6.4M16.3 20.1L14 13.7"/>
+          </svg>
+        </span>
+        <b class="freebet-amount" id="freeBetAmount">$0.00</b>
+        <span class="freebet-sub">100% of your first deposit, as a free sports bet</span>
+      </div>
+      <div class="rows freebet-terms">
+        <div class="row"><span>Free bet</span><b class="gold" id="freeBetAmount2">$0.00</b></div>
+        <div class="row"><span>Allowed odds</span><b>1.50 – 5.00</b></div>
+        <div class="row"><span>Wager requirement</span><b class="green">None</b></div>
+        <div class="row"><span>Status</span><b class="green" id="freeBetStatus">Ready to use</b></div>
+      </div>
+      <p class="hint">Pick any match at odds between 1.50 and 5.00 and place it as your free bet.
+        Winnings are yours to withdraw with nothing to roll over.</p>
+    </div>
+  </div>
+</div>
+
 <!-- ============ REWARDS MODAL ============ -->
 <div class="overlay" id="rewardsModal" hidden>
   <div class="modal modal-rewards" role="dialog" aria-modal="true" aria-label="Rewards">
@@ -611,6 +649,7 @@
 <script src="assets/js/feed.js"></script>
 <script src="assets/js/rewards.js"></script>
 <script src="assets/js/race.js"></script>
+<script src="assets/js/deposits.js"></script>
 <script src="assets/js/admin.js"></script>
 <script src="assets/js/account.js"></script>
 </body>
