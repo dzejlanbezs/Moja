@@ -297,7 +297,12 @@ button svg.bomb-ico { fill: var(--red); stroke: rgba(0, 0, 0, .35); stroke-width
   animation: dealIn .3s var(--ease);
   flex: 0 0 auto;
 }
-@keyframes dealIn { from { opacity: 0; transform: translateY(-22px) rotate(-6deg); } to { opacity: 1; transform: none; } }
+.card { animation-duration: .42s; }
+@keyframes dealIn {
+  from { opacity: 0; transform: translate(90px, -70px) rotate(14deg) scale(.9); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}
 
 .card .corner {
   position: absolute;

@@ -148,7 +148,7 @@
       async function slide(hand, card, faceDown) {
         hand.push(card);
         render();
-        await wait(faceDown ? 260 : 460);
+        await wait(faceDown ? 340 : 520);
       }
 
       function draw() {
@@ -210,10 +210,10 @@
       async function revealDealer() {
         hideHole = false;
         render();
-        await wait(420);
+        await wait(520);
         while (score(dealer) < 17) {
           await slide(dealer, draw(), false);
-          await wait(180);
+          await wait(220);
         }
       }
 
