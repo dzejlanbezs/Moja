@@ -39,7 +39,11 @@ Passwords are stored as scrypt hashes with a per-user salt, never in plain text.
 
 Register asks for an email, a password (8+ characters) and an optional code. That one
 field takes either another player's **referral code** or one of **your promo codes**.
-New accounts start at **$0.00**. Sessions are HttpOnly cookies that last 30 days.
+New accounts start at **$0.00**.
+
+Accounts are permanent: the record, the balance, the bet history and the login all stay in
+`data/db.json` until you delete them, and the session cookie is good for ten years, so a
+returning player is still signed in.
 
 ### Promo codes and the deposit bonus
 
@@ -69,40 +73,77 @@ progress bar, the topbar chip, the profile badge and the admin table all read fr
 
 Cashback and perks are advertising copy — nothing pays them out automatically.
 
+## Rewards
+
+A gold gift button in the topbar opens the bonus panel. Everything accrues on the server
+as bets are placed, so nothing has to be recalculated from the bet log.
+
+| Bonus | Formula | When it can be collected |
+| --- | --- | --- |
+| Rakeback | 0.05% of wagered | any time |
+| Daily | 0.10% of wagered + 1% lossback | once per day, window runs 02:00 → 02:00 |
+| Weekly | 0.20% of wagered + 3% lossback | Sundays after 02:00, window runs Monday → Sunday |
+| Monthly | 1.00% of wagered + 15% lossback | on the 1st after 02:00, for the month that just ended |
+
+"Lossback" is the net loss inside that window, so a player who came out ahead only gets
+the wagered part. The rates live in `REWARD_RATES` at the top of `server.js`.
+
+The 02:00 boundary follows `DICEY_TZ_OFFSET` (default `2`, i.e. Serbian summer time). Set
+it to your own UTC offset so the day rolls over at the right moment.
+
 ## Cashier
 
-### Deposits are watched on-chain
+### Every player gets their own deposit addresses
 
-Players send **ETH, USDT or USDC on Ethereum** straight to your address, so the money is
-yours the moment it lands — there is nothing to forward. `chain.js` polls the network and
-credits the account by itself:
+One BIP39 mnemonic gives each account its own address on every chain, derived with
+standard paths so any wallet can recover them:
 
-* it watches your address for incoming ERC-20 transfers and plain ETH transfers
-* a deposit is matched to a player by the **sending wallet** they saved in the cashier
-* a player who did not save one can paste the **transaction hash** instead, and the server
-  checks it on-chain before crediting
-* USDT and USDC credit 1:1; ETH is converted at the live Coinbase spot price
-* anything it cannot match shows up in the admin panel as an unidentified deposit, where
-  you assign it to a player (and set the USD value) with one click
+| Coin | Path | Address type |
+| --- | --- | --- |
+| ETH, USDT, USDC | `m/44'/60'/0'/0/<index>` | one Ethereum address for all three |
+| BTC | `m/84'/0'/0'/0/<index>` | native segwit (`bc1…`) |
+| SOL | `m/44'/501'/<index>'/0'` | Solana |
 
-Nothing is credited before `DICEY_CONFIRMATIONS` (default 3) confirmations, and each
-transaction hash can only ever be credited once.
+Put the mnemonic in **`data/seed.txt`** (git-ignored) or the `DICEY_MNEMONIC` environment
+variable. Without it the cashier falls back to the manual "report your deposit" flow.
+Index 1 goes to the first account created, and the QR code beside each address is a real
+scannable QR of that exact address.
+
+Because every address belongs to exactly one player, deposits need no extra information:
+`chain.js` watches all of them and credits the right balance by itself.
+
+* ERC-20 transfers and plain ETH transfers are picked up from Ethereum logs and blocks
+* BTC and SOL addresses are polled for a rise in total received
+* USDT and USDC credit 1:1; ETH, BTC and SOL convert at the live Coinbase spot price
+* nothing credits before `DICEY_CONFIRMATIONS` (default 3) confirmations, and a
+  transaction can only ever be credited once
+* a player can also paste a transaction hash under "Sent but not credited yet?" and the
+  server verifies it on-chain
+* anything that cannot be matched waits in the admin panel to be assigned by hand
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `DICEY_HOUSE_ADDRESS` | `0xd124…c3f6` | the address players deposit to |
+| `DICEY_MNEMONIC` | `data/seed.txt` | the BIP39 mnemonic addresses are derived from |
 | `DICEY_RPC_URL` | `https://ethereum-rpc.publicnode.com` | Ethereum JSON-RPC endpoint |
+| `DICEY_SOL_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana JSON-RPC endpoint |
+| `DICEY_BTC_API_URL` | `https://blockstream.info/api` | Bitcoin address API |
 | `DICEY_CONFIRMATIONS` | `3` | confirmations before crediting |
 | `DICEY_ETH_USD` | live price | fixed ETH price instead of the feed |
-| `DICEY_WATCH_ETH` | `1` | set to `0` to watch only stablecoins |
-| `DICEY_POLL_MS` | `20000` | how often to poll for new blocks |
+| `DICEY_WATCH_ETH` / `_BTC` / `_SOL` | `1` | set any to `0` to stop watching that chain |
+| `DICEY_POLL_MS` | `20000` | how often to poll |
 
-If the RPC is unreachable the cashier falls back to the manual flow: the player reports
-what they sent and you confirm it.
+### The server never touches the money
 
-**On purpose: the server holds no keys.** It never generates per-player wallets and never
-signs or sends a transaction, so a bug here cannot move your funds. That is also why
-there is one shared deposit address rather than one address per player.
+`hd.js` derives addresses and nothing else: no private key is stored, and there is no code
+anywhere in this project that can sign or broadcast a transaction. Deposits therefore stay
+on the address they landed on until **you** move them, by importing the same mnemonic into
+a wallet you control (any BIP39 wallet with the standard paths above will show every
+balance). That is deliberate — an automatic sweeper needs live keys and gas on every
+address, and a bug in one would cost real money.
+
+**Treat the mnemonic like the money itself.** Anyone who reads it owns every coin on every
+derived address. Keep it out of screenshots, chats and git, and if it has ever been
+exposed, move the funds and start from a fresh phrase.
 
 ### Withdrawals are manual
 
@@ -159,8 +200,10 @@ This is a working demo, not a hardened casino. At minimum you would need to:
 
 ```
 index.html                 page shell (sidebar, topbar, pages, modals)
-server.js                  accounts, wallet, admin API + static file server
-chain.js                   read-only Ethereum deposit watching
+server.js                  accounts, wallet, rewards, admin API + static file server
+chain.js                   read-only deposit watching for Ethereum, Bitcoin and Solana
+hd.js                      BIP39/BIP32 address derivation (keccak, bech32, base58)
+data/seed.txt              your mnemonic, git-ignored
 data/db.json               created at runtime, git-ignored
 assets/css/app.css         shell, auth, feed and admin styling
 assets/css/games.css       game modal + per-game styling
@@ -169,8 +212,10 @@ assets/js/api.js           backend client, mode detection, balance sync
 assets/js/game-modal.js    game registry, modal, shared bet-panel widgets
 assets/js/games/*.js       one file per game
 assets/js/app.js           lobby, navigation, cashier, page data
+assets/js/qr.js            QR encoder (byte mode, level M, versions 1–10)
 assets/js/vip.js           the VIP ladder and everything that displays it
 assets/js/feed.js          Live Wins / My Bets / High Rollers / Lucky Wins / Wager Race
+assets/js/rewards.js       the rewards popup
 assets/js/account.js       register / log in / log out and session UI
 assets/js/admin.js         admin dashboard
 ```
