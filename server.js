@@ -15,6 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const chain = require('./chain');
 const hd = require('./hd');
+const sports = require('./sports');
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
@@ -61,7 +62,7 @@ const COINS = [
 /* ------------------------------------------------------------------ storage */
 
 const EMPTY_DB = {
-  users: [], sessions: {}, rounds: [], transactions: [],
+  users: [], sessions: {}, rounds: [], transactions: [], sportsBets: [],
   meta: { lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} },
 };
 
@@ -76,6 +77,7 @@ function loadDb() {
 
 const db = loadDb();
 db.meta = Object.assign({ lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} }, db.meta);
+db.sportsBets = db.sportsBets || [];
 let saveTimer = null;
 
 function save() {
@@ -783,6 +785,142 @@ const ROUTES = {
     });
   },
 
+  /* ---- sportsbook ---- */
+  'GET /api/sports/catalog': (ctx) => sendJson(ctx.res, 200, {
+    enabled: sports.enabled(),
+    sports: sports.sports,
+  }),
+
+  'GET /api/sports/events': async (ctx) => {
+    const sportId = parseInt(ctx.query.get('sport_id'), 10) || 1;
+    const page = Math.max(1, Math.min(20, parseInt(ctx.query.get('page'), 10) || 1));
+    try {
+      const list = await sports.upcoming(sportId, page);
+      await sports.withMainOdds(list);
+      return sendJson(ctx.res, 200, list);
+    } catch (err) {
+      return sendJson(ctx.res, 502, { error: err.message || 'Feed unavailable' });
+    }
+  },
+
+  'GET /api/sports/event': async (ctx) => {
+    const fi = String(ctx.query.get('FI') || '').replace(/[^0-9]/g, '');
+    if (!fi) return sendJson(ctx.res, 400, { error: 'Missing event id' });
+    const hint = {
+      home: ctx.query.get('home') || 'Home',
+      away: ctx.query.get('away') || 'Away',
+      league: ctx.query.get('league') || '',
+      time: parseInt(ctx.query.get('time'), 10) || 0,
+    };
+    try {
+      return sendJson(ctx.res, 200, await sports.eventDetail(fi, hint));
+    } catch (err) {
+      return sendJson(ctx.res, 502, { error: err.message || 'Odds unavailable' });
+    }
+  },
+
+  'GET /api/sports/bets': (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    const status = ctx.query.get('status') || 'all';
+    const mine = db.sportsBets
+      .filter((b) => b.userId === user.id && (status === 'all' || b.status === status))
+      .slice(0, 60);
+    return sendJson(ctx.res, 200, { bets: mine });
+  },
+
+  'POST /api/sports/bet': async (ctx) => {
+    const user = ctx.requireUser();
+    if (!user) return;
+    const body = await ctx.body();
+    const picks = Array.isArray(body.picks) ? body.picks.slice(0, 12) : [];
+    if (!picks.length) return sendJson(ctx.res, 400, { error: 'Your slip is empty' });
+
+    const useFreeBet = !!body.freeBet;
+    const freeBet = user.freeBet && !user.freeBet.used ? user.freeBet : null;
+    let stake = round2(body.stake);
+
+    if (useFreeBet) {
+      if (!freeBet) return sendJson(ctx.res, 400, { error: 'No free bet available' });
+      if (picks.length !== 1) return sendJson(ctx.res, 400, { error: 'The free bet has to be a single' });
+      stake = round2(freeBet.amount);
+    } else {
+      if (!(stake > 0)) return sendJson(ctx.res, 400, { error: 'Enter a stake' });
+      if (stake > user.balance + 1e-9) return sendJson(ctx.res, 400, { error: 'Not enough balance' });
+    }
+
+    // never trust the price the browser sent: read it back from the feed
+    const verified = [];
+    for (const pick of picks) {
+      let live = null;
+      try {
+        live = await sports.verifySelection(String(pick.fi || '').replace(/[^0-9]/g, ''), pick.selectionId);
+      } catch (err) {
+        return sendJson(ctx.res, 502, { error: 'Could not check the odds, try again' });
+      }
+      if (!live) return sendJson(ctx.res, 409, { error: 'A pick is no longer available', selectionId: pick.selectionId });
+      if (Math.abs(live.odds - parseFloat(pick.odds)) > 0.001) {
+        return sendJson(ctx.res, 409, { error: 'Odds moved on ' + (pick.label || 'a pick'), selectionId: pick.selectionId, odds: live.odds });
+      }
+      verified.push({
+        fi: String(pick.fi),
+        selectionId: String(pick.selectionId),
+        odds: live.odds,
+        market: String(pick.market || live.market).slice(0, 60),
+        label: String(pick.label || '').slice(0, 80),
+        home: String(pick.home || '').slice(0, 60),
+        away: String(pick.away || '').slice(0, 60),
+        league: String(pick.league || '').slice(0, 80),
+        sportId: parseInt(pick.sportId, 10) || 0,
+        sport: String(pick.sport || '').slice(0, 30),
+        time: parseInt(pick.time, 10) || 0,
+      });
+    }
+
+    if (useFreeBet) {
+      const odds = verified[0].odds;
+      if (odds < freeBet.minOdds || odds > freeBet.maxOdds) {
+        return sendJson(ctx.res, 400, {
+          error: 'The free bet needs odds between ' + freeBet.minOdds.toFixed(2) + ' and ' + freeBet.maxOdds.toFixed(2),
+        });
+      }
+    }
+
+    const combined = round2(verified.reduce((total, p) => total * p.odds, 1));
+    const potential = round2(stake * combined);
+
+    if (!useFreeBet) {
+      user.balance = round2(user.balance - stake);
+    } else {
+      user.freeBet.used = true;
+    }
+
+    // sports stakes count as wagering for VIP, rakeback and the race
+    user.stats.wagered = round2(user.stats.wagered + stake);
+    user.stats.bets += 1;
+    addWager(user, stake, 0, now());
+    user.lastSeenAt = now();
+    user.lastIp = clientIp(ctx.req);
+
+    const bet = {
+      id: id('sb'),
+      userId: user.id,
+      ts: now(),
+      type: verified.length > 1 ? 'combo' : 'single',
+      stake: stake,
+      freeBet: useFreeBet,
+      odds: combined,
+      potential: potential,
+      status: 'pending',
+      picks: verified,
+    };
+    db.sportsBets.unshift(bet);
+    if (db.sportsBets.length > 5000) db.sportsBets.length = 5000;
+    save();
+
+    return sendJson(ctx.res, 200, { bet: bet, balance: round2(user.balance), freeBet: user.freeBet || null });
+  },
+
   /* ---- wallet ---- */
   'POST /api/wallet/sender': async (ctx) => {
     const user = ctx.requireUser();
@@ -1015,6 +1153,70 @@ const ROUTES = {
     if (!user.walletAddress && tx.address) user.walletAddress = tx.address;
     save();
     return sendJson(ctx.res, 200, { transaction: tx, balance: user.balance });
+  },
+
+  /** Sports bets settle by hand for now: won pays out, void refunds. */
+  'POST /api/admin/sports/settle': async (ctx) => {
+    const admin = ctx.requireAdmin();
+    if (!admin) return;
+    const body = await ctx.body();
+    const bet = db.sportsBets.filter((b) => b.id === body.id)[0];
+    if (!bet) return sendJson(ctx.res, 404, { error: 'No such bet' });
+    if (bet.status !== 'pending') return sendJson(ctx.res, 400, { error: 'Already settled' });
+
+    const result = ['won', 'lost', 'void'].indexOf(body.result) > -1 ? body.result : 'lost';
+    const user = findUser(bet.userId);
+    let paid = 0;
+
+    if (user) {
+      if (result === 'won') paid = bet.potential;
+      if (result === 'void') paid = bet.freeBet ? 0 : bet.stake;
+      if (paid) {
+        user.balance = round2(user.balance + paid);
+        user.stats.won = round2(user.stats.won + paid);
+        if (result === 'won') user.stats.wins += 1;
+        const rewards = ensureRewards(user, now());
+        ['daily', 'weekly', 'monthly'].forEach((key) => { rewards[key].net = round2(rewards[key].net - paid); });
+      }
+      if (result === 'void' && bet.freeBet && user.freeBet) user.freeBet.used = false;
+    }
+
+    bet.status = result;
+    bet.settledAt = now();
+    bet.paid = paid;
+    bet.settledBy = admin.email;
+
+    if (paid && user) {
+      db.transactions.unshift({
+        id: id('tx'),
+        userId: user.id,
+        type: 'sports',
+        coin: 'USD',
+        address: '',
+        amount: paid,
+        status: 'confirmed',
+        note: (result === 'won' ? 'Sports bet won at ' : 'Sports bet voided — ') + bet.odds + 'x',
+        ip: '',
+        ts: now(),
+        resolvedAt: now(),
+      });
+    }
+    save();
+    return sendJson(ctx.res, 200, { bet: bet, balance: user ? round2(user.balance) : 0 });
+  },
+
+  'GET /api/admin/sports/bets': (ctx) => {
+    const admin = ctx.requireAdmin();
+    if (!admin) return;
+    const status = ctx.query.get('status') || 'pending';
+    const emails = {};
+    db.users.forEach((u) => { emails[u.id] = u.email; });
+    return sendJson(ctx.res, 200, {
+      bets: db.sportsBets
+        .filter((b) => status === 'all' || b.status === status)
+        .slice(0, 80)
+        .map((b) => Object.assign({ email: emails[b.userId] }, b)),
+    });
   },
 
   'POST /api/admin/block': async (ctx) => {

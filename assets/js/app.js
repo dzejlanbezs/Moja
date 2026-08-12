@@ -455,35 +455,6 @@
   });
 
   /* ---------------- static page data ---------------- */
-  const MATCHES = [
-    { league: 'Premier League', live: true, a: 'Arsenal', b: 'Chelsea', sa: 2, sb: 1, odds: [1.72, 3.9, 4.4] },
-    { league: 'La Liga', live: true, a: 'Real Madrid', b: 'Sevilla', sa: 0, sb: 0, odds: [1.45, 4.2, 6.8] },
-    { league: 'Serie A', live: false, a: 'Inter', b: 'Napoli', sa: '-', sb: '-', odds: [2.1, 3.3, 3.4] },
-    { league: 'NBA', live: true, a: 'Lakers', b: 'Celtics', sa: 88, sb: 91, odds: [2.4, null, 1.6] },
-    { league: 'Bundesliga', live: false, a: 'Bayern', b: 'Dortmund', sa: '-', sb: '-', odds: [1.55, 4.5, 5.2] },
-    { league: 'CS2 Major', live: true, a: 'NAVI', b: 'FaZe', sa: 1, sb: 1, odds: [1.85, null, 1.95] },
-  ];
-
-  D.$('#sportsGrid').innerHTML = MATCHES.map((m) =>
-    '<div class="match">' +
-      '<div class="match-top"><span>' + m.league + '</span>' +
-      (m.live ? '<span class="match-live"><i></i>Live</span>' : '<span>Today 20:45</span>') + '</div>' +
-      '<div class="match-teams">' +
-        '<div class="match-team"><span>' + m.a + '</span><b>' + m.sa + '</b></div>' +
-        '<div class="match-team"><span>' + m.b + '</span><b>' + m.sb + '</b></div>' +
-      '</div>' +
-      '<div class="odds">' +
-        '<button class="odd"><span>1</span><b>' + m.odds[0].toFixed(2) + '</b></button>' +
-        (m.odds[1] ? '<button class="odd"><span>X</span><b>' + m.odds[1].toFixed(2) + '</b></button>' : '<button class="odd" disabled><span>X</span><b>—</b></button>') +
-        '<button class="odd"><span>2</span><b>' + m.odds[2].toFixed(2) + '</b></button>' +
-      '</div>' +
-    '</div>'
-  ).join('');
-
-  D.$('#sportsGrid').addEventListener('click', (e) => {
-    if (e.target.closest('.odd')) D.toast('Bet slip is not part of this demo', 'info');
-  });
-
   D.$('#promoGrid').innerHTML = [
     { tag: 'Daily', title: '10% Rakeback', copy: 'Collect a slice of every wager back, every single day.', color: '#00e676' },
     { tag: 'Weekly', title: '$15,000 Race', copy: 'The ten biggest wagerers split the pool every Sunday.', color: '#4d8dff' },

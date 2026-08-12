@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="stylesheet" href="assets/css/games.css">
+<link rel="stylesheet" href="assets/css/sports.css">
 </head>
 <body>
 
@@ -268,13 +269,40 @@
 
   <!-- ===== SPORTS ===== -->
   <section class="page" id="page-sports">
-    <div class="section-head">
-      <h1>Sportsbook</h1>
-      <p>Live odds on the biggest matches of the day.</p>
-    </div>
-    <div class="sports-grid" id="sportsGrid"></div>
-    <div class="note-card">
-      This sportsbook view is a static preview. Odds and matches are sample data.
+    <div class="sb">
+      <div class="sb-main">
+        <div class="sb-sports" id="sbSports"></div>
+
+        <div class="sb-head">
+          <div>
+            <h1 id="sbTitle">Sportsbook</h1>
+            <p id="sbSub">Upcoming matches</p>
+          </div>
+          <button class="btn btn-ghost" id="sbRefresh">Refresh</button>
+        </div>
+
+        <div class="sb-events" id="sbEvents"></div>
+        <div class="sb-foot">
+          <button class="btn btn-ghost" id="sbMore" hidden>Load more matches</button>
+        </div>
+      </div>
+
+      <aside class="slip" id="slip">
+        <div class="slip-tabs">
+          <button class="slip-tab active" data-slip="slip">
+            <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 9h16M8 5v14"/></svg>
+            Slip <span id="slipCount">(0)</span>
+          </button>
+          <button class="slip-tab" data-slip="bets">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13" width="7" height="7" rx="1.5"/><path d="M13.5 7h7M13.5 17h7"/></svg>
+            Bets <span id="betsCount"></span>
+          </button>
+          <button class="slip-collapse" id="slipCollapse" title="Hide slip">
+            <svg viewBox="0 0 24 24"><path d="M15 5l-6 7 6 7M20 5v14"/></svg>
+          </button>
+        </div>
+        <div class="slip-body" id="slipBody"></div>
+      </aside>
     </div>
   </section>
 
@@ -650,6 +678,7 @@
 <script src="assets/js/rewards.js"></script>
 <script src="assets/js/race.js"></script>
 <script src="assets/js/deposits.js"></script>
+<script src="assets/js/sports.js"></script>
 <script src="assets/js/admin.js"></script>
 <script src="assets/js/account.js"></script>
 </body>
