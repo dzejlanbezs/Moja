@@ -286,31 +286,32 @@
       });
     });
 
-    Object.keys(map).forEach((id) => {
-      const incoming = map[id];
-      if (!incoming.main) return;
-      incoming.main.selections.forEach((s) => { state.prices[s.id] = s.odds; });
-    });
-
     if (structural) renderEvents();
-    else refreshMoreButtons();
+    else patchRows();
   }
 
-  function refreshMoreButtons() {
+  /** Fills in prices and crests that arrived after the row was drawn. */
+  function patchRows() {
+    let needsRedraw = false;
+
     state.events.forEach((event) => {
-      const button = eventsEl.querySelector('[data-open="' + event.id + '"]');
-      if (button && event.marketCount) button.textContent = '+' + event.marketCount;
       const row = eventsEl.querySelector('.sb-event[data-event="' + event.id + '"]');
       if (!row) return;
+
+      const button = row.querySelector('[data-open]');
+      if (button && event.marketCount) button.textContent = '+' + event.marketCount;
+
       const odds = row.querySelector('.sb-odds');
-      if (odds && odds.querySelector('.sk') && event.main) {
-        odds.innerHTML = event.main.selections.map((s) => oddsButton(event, event.main.name, s)).join('');
-      } else if (odds && odds.querySelector('.sk') && event.oddsLoaded && !event.main) {
-        odds.innerHTML = '<span class="sb-noodds">No prices yet</span>';
+      if (odds && odds.querySelector('.sk')) {
+        if (event.main) odds.innerHTML = event.main.selections.map((s) => oddsButton(event, event.main.name, s)).join('');
+        else if (event.oddsLoaded) odds.innerHTML = '<span class="sb-noodds">No prices yet</span>';
       }
-      const badges = row.querySelectorAll('.sb-badge:not(.has-logo)');
-      if (badges.length && (event.homeLogo || event.awayLogo)) renderEvents();
+
+      const missingCrest = row.querySelector('.sb-badge:not(.has-logo)');
+      if (missingCrest && (event.homeLogo || event.awayLogo)) needsRedraw = true;
     });
+
+    if (needsRedraw) renderEvents();
   }
 
   /** Green with an up arrow when a price rises, red with a down arrow when it drops. */
@@ -918,5 +919,5 @@
   }
   syncSlip();
 
-  D.Sportsbook = { start: start, state: state, reloadBets: loadBets, openEvent: openEvent };
+  D.Sportsbook = { start: start, state: state, reloadBets: loadBets, openEvent: openEvent, flash: flash };
 })(window.Dicey);

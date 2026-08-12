@@ -826,6 +826,18 @@ const ROUTES = {
     }
   },
 
+  /** Team crests, proxied so the browser only ever talks to us. */
+  'GET /api/sports/logo': async (ctx) => {
+    const image = await sports.logoImage(ctx.query.get('id'));
+    if (!image) return sendJson(ctx.res, 404, { error: 'No crest' });
+    ctx.res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Content-Length': image.length,
+      'Cache-Control': 'public, max-age=604800',
+    });
+    return ctx.res.end(image);
+  },
+
   'GET /api/sports/search': async (ctx) => {
     const sportId = parseInt(ctx.query.get('sport_id'), 10) || 1;
     const query = String(ctx.query.get('q') || '').slice(0, 60);

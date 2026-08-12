@@ -438,10 +438,38 @@ async function usableImage(imageId) {
   }
 }
 
+// served through our own host so the browser never needs the upstream CDN
 const logoFor = (sportId, name) => {
   const image = teamImages[teamKey(sportId, name)];
-  return image ? IMAGE_BASE + image + '.png' : '';
+  return image ? '/api/sports/logo?id=' + image : '';
 };
+
+/* ---- crest proxy ---- */
+
+const logoBytes = new Map();
+
+/** Fetches a crest once and keeps the bytes around to serve again. */
+async function logoImage(imageId) {
+  const id = String(imageId).replace(/[^0-9]/g, '');
+  if (!id) return null;
+  if (logoBytes.has(id)) return logoBytes.get(id);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(IMAGE_BASE + id + '.png', { signal: controller.signal });
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length < 200) return null;
+    if (logoBytes.size > 600) logoBytes.clear();
+    logoBytes.set(id, buffer);
+    return buffer;
+  } catch (err) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Attaches whatever crests are already known — never waits on the network. */
 function attachLogos(events) {
@@ -584,6 +612,7 @@ module.exports = {
   prefetchOdds: prefetchOdds,
   attachLogos: attachLogos,
   resolveLogos: resolveLogos,
+  logoImage: logoImage,
   search: search,
   verifySelection: verifySelection,
 };
