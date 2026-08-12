@@ -113,18 +113,21 @@
     });
   }
 
-  /** Stand-in artwork so the strip looks finished before the real files land. */
+  /**
+   * Stand-in artwork so the strip looks finished before the real files land.
+   * The pa- prefix keeps these clear of class names the games already use.
+   */
   function promoArt(theme) {
     if (theme === 'gold') {
-      return '<i class="blob b1"></i><i class="blob b2"></i>' +
-        '<i class="wheel"></i><i class="chip c1"></i><i class="chip c2"></i>';
+      return '<i class="pa-blob pa-b1"></i><i class="pa-blob pa-b2"></i>' +
+        '<i class="pa-wheel"></i><i class="pa-chip pa-c1"></i><i class="pa-chip pa-c2"></i>';
     }
     if (theme === 'purple') {
-      return '<i class="blob b1"></i><i class="cup"></i>' +
-        '<i class="ball s1"></i><i class="ball s2"></i><i class="ball s3"></i>';
+      return '<i class="pa-blob pa-b1"></i><i class="pa-cup"></i>' +
+        '<i class="pa-ball pa-s1"></i><i class="pa-ball pa-s2"></i><i class="pa-ball pa-s3"></i>';
     }
-    return '<i class="blob b1"></i><i class="blob b2"></i>' +
-      '<i class="gem g1"></i><i class="gem g2"></i><i class="gem g3"></i>';
+    return '<i class="pa-blob pa-b1"></i><i class="pa-blob pa-b2"></i>' +
+      '<i class="pa-gem pa-g1"></i><i class="pa-gem pa-g2"></i><i class="pa-gem pa-g3"></i>';
   }
 
   promosEl.addEventListener('click', (e) => {
