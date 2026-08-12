@@ -1,7 +1,8 @@
 # Dicey — casino front-end + accounts backend
 
-A dependency-free casino site: lobby, VIP club, races, promotions, sportsbook preview,
-cashier, ten playable in-browser originals, real player accounts and an admin dashboard.
+A dependency-free casino site: lobby, VIP club, races, promotions, a live prematch
+sportsbook, cashier, ten playable in-browser originals, real player accounts and an
+admin dashboard.
 
 It runs in two modes.
 
@@ -102,6 +103,46 @@ their **first deposit** the moment it credits. The Sports icon in the rail start
 gold, and clicking it explains the offer: the amount, allowed odds of 1.50–5.00 and no
 wager requirement. Cap it with `DICEY_FREEBET_MAX` if you want an upper limit. Settling
 the bet is manual, since the sportsbook is still a preview.
+
+## Sportsbook
+
+Prematch fixtures and odds come live from the bet365 feed via
+[b365api](https://b365api.com). Put your token in **`data/b365-token.txt`** (git-ignored)
+or the `DICEY_B365_TOKEN` environment variable; without it the Sports page says so plainly
+instead of showing filler.
+
+* 28 sports, `sport_id`s as published by the provider
+* `/v1/bet365/upcoming` gives the fixture list, `/v4/bet365/prematch` the markets
+* `sports.js` flattens bet365's nested payload (`main`, `goals`, `half`, `asian_lines`,
+  `others`, per-period groups, plus the reduced `schedule` shape) into plain markets with
+  readable selections — "Feyenoord (W) -1.0" rather than `header: 1, handicap: -1.0`
+* markets that pack Spread / Money Line / Total together are split apart, duplicates
+  across groups are dropped, and simulated leagues (e-soccer and friends) sort last
+* everything is cached — fixtures 90s, odds 45s — and only the first dozen fixtures on a
+  page get their headline market fetched, which keeps the request count sane
+
+### Betting
+
+The slip does singles and combos, with a stake per pick or one shared stake. Two picks from
+the same match cannot be combined. A promo free bet can be applied to a single inside its
+odds range. The gear toggle decides whether a moved price is accepted automatically.
+
+**Prices are re-read on the server before a bet is accepted.** Whatever the browser sends
+is checked against the live feed; if the selection is gone or the price moved, the bet is
+rejected with the new price rather than taken at a stale one.
+
+Bets are settled by hand for now: `POST /api/admin/sports/settle` with `won`, `lost` or
+`void` (won pays the potential, void refunds). Sports stakes count towards wagering, so
+they feed VIP progress, rakeback and the weekly race.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `DICEY_B365_TOKEN` | `data/b365-token.txt` | feed token |
+| `DICEY_SPORTS_LIST_TTL` | `90000` | fixture cache, ms |
+| `DICEY_SPORTS_ODDS_TTL` | `45000` | odds cache, ms |
+| `DICEY_SPORTS_ODDS_PER_PAGE` | `12` | fixtures per page that get headline odds |
+
+In-play is not wired up yet — this is the prematch feed only.
 
 ## Weekly race
 
@@ -252,7 +293,9 @@ index.html                 page shell (sidebar, topbar, pages, modals)
 server.js                  accounts, wallet, rewards, admin API + static file server
 chain.js                   read-only deposit watching for Ethereum, Bitcoin and Solana
 hd.js                      BIP39/BIP32 address derivation (keccak, bech32, base58)
+sports.js                  bet365 prematch feed: fetch, cache and flatten markets
 data/seed.txt              your mnemonic, git-ignored
+data/b365-token.txt        your sportsbook token, git-ignored
 data/db.json               created at runtime, git-ignored
 assets/css/app.css         shell, auth, feed and admin styling
 assets/css/games.css       game modal + per-game styling
@@ -267,6 +310,7 @@ assets/js/feed.js          Live Wins / My Bets / High Rollers / Lucky Wins / Wag
 assets/js/rewards.js       the rewards popup
 assets/js/race.js          weekly race board and countdown
 assets/js/deposits.js      deposit alerts and the sports free bet
+assets/js/sports.js        sportsbook page, markets and the bet slip
 assets/js/account.js       register / log in / log out and session UI
 assets/js/admin.js         admin dashboard
 ```

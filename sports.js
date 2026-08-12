@@ -282,15 +282,26 @@ function normaliseEvent(raw) {
   };
 }
 
+// simulated leagues run every few minutes and would bury the real fixtures
+const VIRTUAL = /(^|\b)(e|v)(soccer|basketball|tennis|cricket|hockey|fighting)|\bmins play\b|\bsimulat/i;
+const isVirtual = (event) => VIRTUAL.test(event.league);
+
 function upcoming(sportId, page) {
   const key = 'up:' + sportId + ':' + (page || 1);
   return cached(key, config.upcomingTtl, async () => {
     const data = await apiGet('/v1/bet365/upcoming', { sport_id: sportId, page: page || 1 });
+    const events = (data.results || [])
+      .filter((e) => e.time_status === '0')
+      .map(normaliseEvent)
+      .map((e) => Object.assign(e, { virtual: isVirtual(e) }));
+
+    events.sort((a, b) => (a.virtual ? 1 : 0) - (b.virtual ? 1 : 0) || a.time - b.time || a.league.localeCompare(b.league));
+
     return {
-      total: (data.pager && data.pager.total) || (data.results || []).length,
+      total: (data.pager && data.pager.total) || events.length,
       page: (data.pager && data.pager.page) || 1,
       perPage: (data.pager && data.pager.per_page) || 50,
-      events: (data.results || []).filter((e) => e.time_status === '0').map(normaliseEvent),
+      events: events,
     };
   });
 }
