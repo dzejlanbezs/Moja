@@ -2,8 +2,11 @@
    Dicey — sportsbook: fixtures, markets and the bet slip
    ============================================================ */
 
-.sb { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }
+.sb { display: block; }
 .sb-main { min-width: 0; }
+
+/* the slip is a fixed rail, so the sportsbook pages leave room for it */
+body.sports-mode .main { padding-right: 372px; }
 
 .sb-sports {
   display: flex; gap: 6px; overflow-x: auto; padding: 4px;
@@ -12,16 +15,32 @@
 }
 .sb-sports::-webkit-scrollbar { height: 0; }
 .sb-sport {
-  height: 34px; padding: 0 14px; border-radius: 9px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 13px; border-radius: 9px; white-space: nowrap;
   font-size: 13px; font-weight: 600; color: var(--text-2);
   transition: background .18s, color .18s;
 }
 .sb-sport:hover { background: var(--surface-2); color: var(--text); }
 .sb-sport.active { background: var(--green-soft); color: var(--green); }
+.sb-ico {
+  width: 17px; height: 17px; flex: 0 0 auto;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
 
-.sb-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.sb-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
 .sb-head h1 { font-size: 25px; font-weight: 800; letter-spacing: -.4px; }
 .sb-head p { color: var(--text-2); font-size: 13.5px; margin-top: 4px; }
+
+.sb-search {
+  display: flex; align-items: center; gap: 9px;
+  height: 40px; min-width: 250px; padding: 0 13px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 11px;
+  color: var(--text-3);
+}
+.sb-search:focus-within { border-color: rgba(0, 230, 118, .4); }
+.sb-search svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.sb-search input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-size: 13.5px; color: var(--text); }
+.sb-search input::placeholder { color: var(--text-3); }
 
 .sb-league {
   font-size: 11px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase;
@@ -47,10 +66,13 @@
 
 .sb-badge {
   width: 22px; height: 22px; flex: 0 0 auto; border-radius: 99px;
-  display: grid; place-items: center;
+  display: grid; place-items: center; overflow: hidden;
   font-size: 10.5px; font-weight: 800; color: #04150c;
   background: linear-gradient(140deg, #79f2b4, #14a75f);
 }
+.sb-badge.has-logo { background: var(--surface-2); border: 1px solid var(--line); }
+.sb-badge img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.sb-badge.big { width: 54px; height: 54px; font-size: 20px; }
 .sb-when { font-size: 11.5px; color: var(--text-3); white-space: nowrap; font-weight: 600; }
 
 .sb-odds { display: flex; gap: 6px; justify-content: flex-end; }
@@ -66,6 +88,38 @@
 .sb-odd:hover { background: var(--surface-3); border-color: var(--line-strong); }
 .sb-odd:active { transform: translateY(1px); }
 .sb-odd.active { background: var(--green-soft); border-color: rgba(0, 230, 118, .5); }
+
+/* price movement: a tint plus an arrow that slides in the direction it moved */
+.sb-arrow { position: absolute; top: 4px; right: 5px; width: 0; height: 0; opacity: 0; }
+.sb-odd { position: relative; }
+.sb-odd.moved-up { border-color: rgba(0, 230, 118, .65); background: rgba(0, 230, 118, .14); animation: priceUp 2.6s ease-out; }
+.sb-odd.moved-down { border-color: rgba(255, 71, 87, .65); background: rgba(255, 71, 87, .12); animation: priceDown 2.6s ease-out; }
+.sb-odd.moved-up .sb-odd-price { color: var(--green); }
+.sb-odd.moved-down .sb-odd-price { color: var(--red); }
+.sb-odd.moved-up .sb-arrow {
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-bottom: 6px solid var(--green);
+  animation: arrowUp 2.6s ease-out;
+}
+.sb-odd.moved-down .sb-arrow {
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 6px solid var(--red);
+  animation: arrowDown 2.6s ease-out;
+}
+@keyframes priceUp { 0% { background: rgba(0, 230, 118, .35); } 100% { background: var(--surface-2); border-color: var(--line); } }
+@keyframes priceDown { 0% { background: rgba(255, 71, 87, .3); } 100% { background: var(--surface-2); border-color: var(--line); } }
+@keyframes arrowUp { 0% { opacity: 0; transform: translateY(5px); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-4px); } }
+@keyframes arrowDown { 0% { opacity: 0; transform: translateY(-5px); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(4px); } }
+
+/* skeletons while prices are on the way */
+.sk { display: block; border-radius: 7px; background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.3s infinite; }
+.sk-badge { width: 22px; height: 22px; border-radius: 99px; }
+.sk-line { width: 130px; height: 12px; }
+.sk-small { width: 74px; height: 11px; }
+.sk-odd { width: 100%; max-width: 130px; height: 42px; flex: 1; }
+.sk-more { width: 46px; height: 32px; }
+.sb-event.skeleton { pointer-events: none; }
+@keyframes shimmer { to { background-position: -200% 0; } }
 .sb-odd-label {
   font-size: 10.5px; color: var(--text-3); font-weight: 600;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -92,16 +146,71 @@
 .sb-empty code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; }
 .sb-foot { display: flex; justify-content: center; padding: 18px 0 4px; }
 
+/* ---------------- single match page ---------------- */
+
+.ev-crumbs { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-3); margin-bottom: 12px; flex-wrap: wrap; }
+.ev-crumbs a { color: var(--text-2); text-decoration: underline; cursor: pointer; }
+.ev-crumbs a:hover { color: var(--text); }
+.ev-crumbs b { color: var(--text); font-weight: 600; }
+
+.ev-hero { margin-bottom: 16px; }
+.ev-hero-card {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: center;
+  padding: 22px 20px; border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(70% 130% at 0% 50%, rgba(0, 230, 118, .12), transparent 60%),
+    radial-gradient(70% 130% at 100% 50%, rgba(77, 141, 255, .12), transparent 60%),
+    var(--surface);
+}
+.ev-hero-card.loading { display: block; text-align: center; color: var(--text-3); font-size: 13.5px; }
+.ev-side { display: flex; flex-direction: column; align-items: center; gap: 9px; text-align: center; min-width: 0; }
+.ev-side b { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ev-mid { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.ev-kick { font-size: 12px; font-weight: 700; color: var(--green); }
+.ev-vs { font-family: Rajdhani, Inter, sans-serif; font-size: 24px; font-weight: 700; color: var(--text-3); }
+.ev-league { font-size: 11px; color: var(--text-3); text-align: center; max-width: 180px; }
+
+.ev-filters { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.ev-find {
+  display: flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 12px; min-width: 200px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; color: var(--text-3);
+}
+.ev-find svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.ev-find input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-size: 13px; color: var(--text); }
+.ev-chip {
+  height: 38px; padding: 0 16px; border-radius: 10px;
+  font-size: 13px; font-weight: 700; color: var(--text-2);
+  background: var(--surface); border: 1px solid var(--line);
+}
+.ev-chip:hover { color: var(--text); }
+.ev-chip.active { color: var(--green); border-color: rgba(0, 230, 118, .45); background: var(--green-soft); }
+
+.ev-markets { display: flex; flex-direction: column; gap: 10px; }
+.ev-market { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; }
+.ev-market-name { font-size: 12.5px; font-weight: 800; color: var(--text-2); margin-bottom: 10px; }
+.ev-market-odds { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ev-market-odds .sb-odd { max-width: none; flex-direction: row; justify-content: space-between; padding: 12px 14px; }
+.ev-market-odds .sb-odd-label { font-size: 12.5px; color: var(--text); }
+
+.ev-lines { display: flex; flex-direction: column; gap: 8px; }
+.ev-line { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: center; }
+.ev-line-side { font-size: 12.5px; font-weight: 700; color: var(--text-2); }
+.ev-line-odds { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
+.ev-line-odds .sb-odd { max-width: none; }
+
 /* ---------------- bet slip ---------------- */
 
 .slip {
-  position: sticky; top: calc(var(--top) + 20px);
+  position: fixed; right: 22px; top: calc(var(--top) + 20px); z-index: 40;
+  width: 330px;
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: var(--r-lg); overflow: hidden;
   display: flex; flex-direction: column;
   max-height: calc(100vh - var(--top) - 40px);
 }
-.slip.collapsed .slip-body { display: none; }
+.slip[hidden] { display: none; }
 
 .slip-tabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); }
 .slip-tab {
@@ -276,8 +385,24 @@
 /* ---------------- responsive ---------------- */
 
 @media (max-width: 1180px) {
-  .sb { grid-template-columns: 1fr; }
-  .slip { position: static; max-height: none; }
+  body.sports-mode .main { padding-right: 22px; padding-bottom: 90px; }
+
+  /* the slip lives at the bottom of the screen and slides up when tapped */
+  .slip {
+    right: 0; left: 0; top: auto; bottom: 0; width: auto;
+    border-radius: 16px 16px 0 0;
+    border-left: none; border-right: none; border-bottom: none;
+    max-height: 80vh;
+    transform: translateY(calc(100% - 62px));
+    transition: transform .26s var(--ease);
+    box-shadow: 0 -14px 40px rgba(0, 0, 0, .5);
+    z-index: 70;
+  }
+  .slip.open { transform: none; }
+  .slip-tabs { padding: 12px 10px; }
+  .slip-body { max-height: calc(80vh - 62px); }
+  .slip-collapse svg { transform: rotate(90deg); }
+
   .sb-event-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'teams when' 'odds odds'; }
   .sb-teams { grid-area: teams; }
   .sb-when { grid-area: when; }
@@ -288,5 +413,9 @@
 
 @media (max-width: 620px) {
   .sb-odd { max-width: none; }
-  .sb-market-odds { grid-template-columns: 1fr 1fr; }
+  .sb-market-odds, .ev-market-odds { grid-template-columns: 1fr 1fr; }
+  .ev-hero-card { grid-template-columns: 1fr auto 1fr; gap: 8px; padding: 16px 10px; }
+  .ev-side b { font-size: 12.5px; }
+  .sb-badge.big { width: 40px; height: 40px; }
+  .ev-line { grid-template-columns: 52px minmax(0, 1fr); }
 }

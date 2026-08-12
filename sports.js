@@ -17,10 +17,15 @@ const path = require('path');
 const TOKEN_FILE = path.join(__dirname, 'data', 'b365-token.txt');
 const BASE = 'https://api.b365api.com';
 
+const TEAMS_FILE = path.join(__dirname, 'data', 'teams.json');
+const IMAGE_BASE = 'https://assets.b365api.com/images/team/s/';
+
 const config = {
   upcomingTtl: parseInt(process.env.DICEY_SPORTS_LIST_TTL, 10) || 90000,
-  oddsTtl: parseInt(process.env.DICEY_SPORTS_ODDS_TTL, 10) || 45000,
-  oddsPerPage: parseInt(process.env.DICEY_SPORTS_ODDS_PER_PAGE, 10) || 12,
+  oddsTtl: parseInt(process.env.DICEY_SPORTS_ODDS_TTL, 10) || 25000,
+  oddsPerPage: parseInt(process.env.DICEY_SPORTS_ODDS_PER_PAGE, 10) || 20,
+  oddsBatch: 10,            // the feed accepts ten FI values per request
+  logoConcurrency: 6,
   maxSelections: 40,
   timeoutMs: 15000,
 };
@@ -92,6 +97,27 @@ function cached(key, ttl, loader) {
   inflight.set(key, run);
   return run;
 }
+
+/** Runs a job over a list with a small concurrency cap. */
+async function pool(size, items, job) {
+  const queue = items.slice();
+  const workers = [];
+  for (let i = 0; i < Math.min(size, queue.length); i++) {
+    workers.push((async () => {
+      while (queue.length) {
+        const item = queue.shift();
+        try { await job(item); } catch (err) { /* one failure must not stop the rest */ }
+      }
+    })());
+  }
+  await Promise.all(workers);
+}
+
+const chunk = (list, size) => {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+};
 
 async function apiGet(pathname, params) {
   if (!enabled()) throw new Error('Sportsbook is not configured');
@@ -273,6 +299,7 @@ function normaliseMarkets(result, event) {
 function normaliseEvent(raw) {
   return {
     id: String(raw.id),
+    ourEventId: raw.our_event_id ? String(raw.our_event_id) : '',
     sportId: parseInt(raw.sport_id, 10),
     sport: (SPORT_BY_ID[parseInt(raw.sport_id, 10)] || {}).name || 'Sport',
     time: parseInt(raw.time, 10) * 1000,
@@ -296,6 +323,7 @@ function upcoming(sportId, page) {
       .map((e) => Object.assign(e, { virtual: isVirtual(e) }));
 
     events.sort((a, b) => (a.virtual ? 1 : 0) - (b.virtual ? 1 : 0) || a.time - b.time || a.league.localeCompare(b.league));
+    rememberHints(events);
 
     return {
       total: (data.pager && data.pager.total) || events.length,
@@ -306,51 +334,230 @@ function upcoming(sportId, page) {
   });
 }
 
-function eventOdds(fi) {
-  const key = 'odds:' + fi;
-  return cached(key, config.oddsTtl, async () => {
-    const data = await apiGet('/v4/bet365/prematch', { FI: fi });
-    const result = (data.results || [])[0];
-    if (!result) throw new Error('No odds for that event');
-    return result;
+/* ---- odds: one request covers ten events, so cache them individually ---- */
+
+const oddsCache = new Map();
+const oddsInflight = new Map();
+
+async function loadOddsChunk(ids) {
+  const key = ids.join(',');
+  if (oddsInflight.has(key)) return oddsInflight.get(key);
+
+  const run = apiGet('/v4/bet365/prematch', { FI: key })
+    .then((data) => {
+      (data.results || []).forEach((result) => {
+        if (result && result.FI) oddsCache.set(String(result.FI), { at: Date.now(), result: result });
+      });
+      // remember the blanks too, so a market-less event is not re-requested in a loop
+      ids.forEach((fi) => { if (!oddsCache.has(fi)) oddsCache.set(fi, { at: Date.now(), result: null }); });
+      oddsInflight.delete(key);
+    })
+    .catch((err) => {
+      oddsInflight.delete(key);
+      throw err;
+    });
+
+  oddsInflight.set(key, run);
+  return run;
+}
+
+/** Fresh odds for a list of events, fetched ten at a time in parallel. */
+async function loadOdds(fis) {
+  const now = Date.now();
+  const missing = fis.filter((fi) => {
+    const hit = oddsCache.get(fi);
+    return !hit || now - hit.at > config.oddsTtl;
   });
+
+  if (missing.length) {
+    await Promise.all(chunk(missing, config.oddsBatch).map((group) => loadOddsChunk(group).catch(() => {})));
+  }
+
+  const out = new Map();
+  fis.forEach((fi) => {
+    const hit = oddsCache.get(fi);
+    if (hit && hit.result) out.set(fi, hit.result);
+  });
+  return out;
+}
+
+async function eventOdds(fi) {
+  const found = await loadOdds([String(fi)]);
+  const result = found.get(String(fi));
+  if (!result) throw new Error('No odds published for that event');
+  return result;
+}
+
+// event id -> team names, so odds requests never need to re-read a fixture list
+const hints = new Map();
+
+function rememberHints(events) {
+  events.forEach((event) => {
+    hints.set(String(event.id), {
+      home: event.home, away: event.away, league: event.league,
+      sportId: event.sportId, sport: event.sport, time: event.time,
+    });
+  });
+  if (hints.size > 4000) {
+    Array.from(hints.keys()).slice(0, 1500).forEach((key) => hints.delete(key));
+  }
+}
+
+const hintFor = (id) => hints.get(String(id)) || null;
+
+/* ---- team badges ---- */
+
+let teamImages = {};
+try { teamImages = JSON.parse(fs.readFileSync(TEAMS_FILE, 'utf8')); } catch (err) { teamImages = {}; }
+let teamsDirty = false;
+
+function saveTeams() {
+  if (!teamsDirty) return;
+  teamsDirty = false;
+  try {
+    fs.mkdirSync(path.dirname(TEAMS_FILE), { recursive: true });
+    fs.writeFileSync(TEAMS_FILE, JSON.stringify(teamImages));
+  } catch (err) { /* the cache is a nicety, not a requirement */ }
+}
+
+const teamKey = (sportId, name) => sportId + '|' + String(name || '').trim().toLowerCase();
+
+/** The feed serves a 43-byte placeholder when a club has no crest. */
+async function usableImage(imageId) {
+  if (!imageId) return '';
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(IMAGE_BASE + imageId + '.png', { method: 'HEAD', signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return '';
+    const size = parseInt(res.headers.get('content-length') || '0', 10);
+    return size >= 200 ? String(imageId) : '';
+  } catch (err) {
+    return '';
+  }
+}
+
+const logoFor = (sportId, name) => {
+  const image = teamImages[teamKey(sportId, name)];
+  return image ? IMAGE_BASE + image + '.png' : '';
+};
+
+/** Attaches whatever crests are already known — never waits on the network. */
+function attachLogos(events) {
+  events.forEach((event) => {
+    event.homeLogo = logoFor(event.sportId, event.home);
+    event.awayLogo = logoFor(event.sportId, event.away);
+  });
+  return events;
+}
+
+/**
+ * Looks up the crests we have not seen before, in the background. The
+ * provider's event view carries both image ids, so one request covers a whole
+ * fixture, and results are kept on disk keyed by team name — a recurring team
+ * never costs a request again.
+ */
+function resolveLogos(events, limit) {
+  const unknown = events.filter((event) =>
+    event.ourEventId &&
+    (!(teamKey(event.sportId, event.home) in teamImages) || !(teamKey(event.sportId, event.away) in teamImages))
+  ).slice(0, limit || 24);
+  if (!unknown.length) return;
+
+  pool(config.logoConcurrency, unknown, async (event) => {
+    const data = await apiGet('/v1/event/view', { event_id: event.ourEventId });
+    const result = (data.results || [])[0];
+    if (!result) return;
+
+    for (const side of ['home', 'away']) {
+      const team = result[side];
+      if (!team) continue;
+      const image = await usableImage(team.image_id);
+      // store under both spellings: the provider's and bet365's
+      teamImages[teamKey(event.sportId, team.name)] = image;
+      teamImages[teamKey(event.sportId, event[side])] = image;
+      teamsDirty = true;
+    }
+  }).then(saveTeams).catch(() => {});
 }
 
 /** Full market list for one event, ready to render. */
 async function eventDetail(fi, hint) {
   const result = await eventOdds(fi);
+  const known = hintFor(fi) || {};
+  const pick = (field, fallback) => (hint && hint[field]) || known[field] || fallback;
   const event = {
     id: String(fi),
     sportId: parseInt(result.sport_id, 10),
-    home: (hint && hint.home) || 'Home',
-    away: (hint && hint.away) || 'Away',
-    league: (hint && hint.league) || '',
-    time: (hint && hint.time) || 0,
+    home: pick('home', 'Home'),
+    away: pick('away', 'Away'),
+    league: pick('league', ''),
+    time: pick('time', 0),
   };
   return Object.assign({}, event, {
     sport: (SPORT_BY_ID[event.sportId] || {}).name || 'Sport',
+    homeLogo: logoFor(event.sportId, event.home),
+    awayLogo: logoFor(event.sportId, event.away),
     markets: normaliseMarkets(result, event),
   });
 }
 
-/** Adds the headline market to the first events on a page, cheaply and in parallel. */
+/** Headline market for a list of events (or bare ids), in batched requests. */
+async function mainOdds(input) {
+  const events = input.map((item) => {
+    const event = typeof item === 'object' ? Object.assign({}, item) : { id: String(item) };
+    if (!event.home || event.home === 'Home') Object.assign(event, hintFor(event.id) || {});
+    return event;
+  });
+
+  const found = await loadOdds(events.map((e) => String(e.id)));
+  events.forEach((event) => {
+    const result = found.get(String(event.id));
+    if (!result) { event.main = null; return; }
+    const markets = normaliseMarkets(result, event);
+    const main = markets[0];
+    event.main = main ? { name: main.name, selections: main.selections.slice(0, 3) } : null;
+    event.marketCount = markets.length;
+    event.homeLogo = logoFor(event.sportId, event.home);
+    event.awayLogo = logoFor(event.sportId, event.away);
+  });
+  return events;
+}
+
+/** Warms the odds cache without anyone waiting on it. */
+function prefetchOdds(ids) {
+  loadOdds(ids.map(String)).catch(() => {});
+}
+
+/** Adds the headline market to the first events on a page. */
 async function withMainOdds(list, limit) {
   const take = Math.min(limit || config.oddsPerPage, list.events.length);
-  const slice = list.events.slice(0, take);
-
-  await Promise.all(slice.map(async (event) => {
-    try {
-      const result = await eventOdds(event.id);
-      const markets = normaliseMarkets(result, event);
-      const main = markets[0];
-      if (main) event.main = { name: main.name, selections: main.selections.slice(0, 3) };
-      event.marketCount = markets.length;
-    } catch (err) {
-      event.main = null;
-    }
-  }));
-
+  await mainOdds(list.events.slice(0, take));
   return list;
+}
+
+/** Filters the first few pages of a sport by team or league name. */
+async function search(sportId, query, pages) {
+  const needle = String(query || '').trim().toLowerCase();
+  if (needle.length < 2) return [];
+
+  const lists = await Promise.all(
+    Array.from({ length: pages || 3 }, (_, i) => upcoming(sportId, i + 1).catch(() => ({ events: [] })))
+  );
+
+  const matches = [];
+  const seen = new Set();
+  lists.forEach((list) => {
+    list.events.forEach((event) => {
+      if (seen.has(event.id)) return;
+      const haystack = (event.home + ' ' + event.away + ' ' + event.league).toLowerCase();
+      if (haystack.indexOf(needle) === -1) return;
+      seen.add(event.id);
+      matches.push(event);
+    });
+  });
+  return matches.slice(0, 40);
 }
 
 /** Confirms a selection still exists at the price the player clicked. */
@@ -373,5 +580,10 @@ module.exports = {
   upcoming: upcoming,
   eventDetail: eventDetail,
   withMainOdds: withMainOdds,
+  mainOdds: mainOdds,
+  prefetchOdds: prefetchOdds,
+  attachLogos: attachLogos,
+  resolveLogos: resolveLogos,
+  search: search,
   verifySelection: verifySelection,
 };

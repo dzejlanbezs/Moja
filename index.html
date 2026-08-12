@@ -278,7 +278,10 @@
             <h1 id="sbTitle">Sportsbook</h1>
             <p id="sbSub">Upcoming matches</p>
           </div>
-          <button class="btn btn-ghost" id="sbRefresh">Refresh</button>
+          <label class="sb-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+            <input type="search" id="sbSearch" placeholder="Search teams or leagues" autocomplete="off">
+          </label>
         </div>
 
         <div class="sb-events" id="sbEvents"></div>
@@ -286,23 +289,16 @@
           <button class="btn btn-ghost" id="sbMore" hidden>Load more matches</button>
         </div>
       </div>
+    </div>
+  </section>
 
-      <aside class="slip" id="slip">
-        <div class="slip-tabs">
-          <button class="slip-tab active" data-slip="slip">
-            <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 9h16M8 5v14"/></svg>
-            Slip <span id="slipCount">(0)</span>
-          </button>
-          <button class="slip-tab" data-slip="bets">
-            <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13" width="7" height="7" rx="1.5"/><path d="M13.5 7h7M13.5 17h7"/></svg>
-            Bets <span id="betsCount"></span>
-          </button>
-          <button class="slip-collapse" id="slipCollapse" title="Hide slip">
-            <svg viewBox="0 0 24 24"><path d="M15 5l-6 7 6 7M20 5v14"/></svg>
-          </button>
-        </div>
-        <div class="slip-body" id="slipBody"></div>
-      </aside>
+  <!-- ===== SINGLE MATCH ===== -->
+  <section class="page" id="page-event">
+    <div class="sb-main">
+      <nav class="ev-crumbs" id="evCrumbs"></nav>
+      <div class="ev-hero" id="evHero"></div>
+      <div class="ev-filters" id="evFilters"></div>
+      <div class="ev-markets" id="evMarkets"></div>
     </div>
   </section>
 
@@ -393,6 +389,24 @@
       </div>
     </div>
   </section>
+
+  <!-- ===== BET SLIP (shared by the sportsbook pages) ===== -->
+  <aside class="slip" id="slip" hidden>
+    <div class="slip-tabs">
+      <button class="slip-tab active" data-slip="slip">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 9h16M8 5v14"/></svg>
+        Slip <span id="slipCount">(0)</span>
+      </button>
+      <button class="slip-tab" data-slip="bets">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13" width="7" height="7" rx="1.5"/><path d="M13.5 7h7M13.5 17h7"/></svg>
+        Bets <span id="betsCount"></span>
+      </button>
+      <button class="slip-collapse" id="slipCollapse" title="Hide slip">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-6 7 6 7M20 5v14"/></svg>
+      </button>
+    </div>
+    <div class="slip-body" id="slipBody"></div>
+  </aside>
 
   <!-- ===== PROFILE ===== -->
   <section class="page" id="page-profile">

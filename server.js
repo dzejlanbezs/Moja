@@ -791,15 +791,52 @@ const ROUTES = {
     sports: sports.sports,
   }),
 
+  /** Fixtures come back immediately; odds are asked for separately so the page paints fast. */
   'GET /api/sports/events': async (ctx) => {
     const sportId = parseInt(ctx.query.get('sport_id'), 10) || 1;
     const page = Math.max(1, Math.min(20, parseInt(ctx.query.get('page'), 10) || 1));
+    const withOdds = ctx.query.get('odds') === '1';
     try {
       const list = await sports.upcoming(sportId, page);
-      await sports.withMainOdds(list);
-      return sendJson(ctx.res, 200, list);
+      const events = list.events.map((e) => Object.assign({}, e));
+      sports.attachLogos(events);
+      // crests and odds are filled in behind the scenes so the list paints at once
+      sports.resolveLogos(events);
+      if (withOdds) await sports.withMainOdds({ events: events });
+      else sports.prefetchOdds(events.slice(0, sports.config.oddsPerPage).map((e) => e.id));
+      return sendJson(ctx.res, 200, Object.assign({}, list, { events: events }));
     } catch (err) {
       return sendJson(ctx.res, 502, { error: err.message || 'Feed unavailable' });
+    }
+  },
+
+  /** Headline odds for the rows on screen — used for the first paint and the 30s refresh. */
+  'GET /api/sports/odds': async (ctx) => {
+    const ids = String(ctx.query.get('ids') || '').split(',').map((s) => s.replace(/[^0-9]/g, '')).filter(Boolean).slice(0, 30);
+    if (!ids.length) return sendJson(ctx.res, 200, { odds: {} });
+    try {
+      const events = await sports.mainOdds(ids);
+      const odds = {};
+      events.forEach((e) => {
+        odds[e.id] = { main: e.main, marketCount: e.marketCount || 0, homeLogo: e.homeLogo || '', awayLogo: e.awayLogo || '' };
+      });
+      return sendJson(ctx.res, 200, { odds: odds });
+    } catch (err) {
+      return sendJson(ctx.res, 502, { error: err.message || 'Odds unavailable' });
+    }
+  },
+
+  'GET /api/sports/search': async (ctx) => {
+    const sportId = parseInt(ctx.query.get('sport_id'), 10) || 1;
+    const query = String(ctx.query.get('q') || '').slice(0, 60);
+    try {
+      const events = await sports.search(sportId, query);
+      sports.attachLogos(events);
+      sports.resolveLogos(events, 12);
+      await sports.mainOdds(events.slice(0, 20));
+      return sendJson(ctx.res, 200, { events: events, total: events.length, page: 1 });
+    } catch (err) {
+      return sendJson(ctx.res, 502, { error: err.message || 'Search unavailable' });
     }
   },
 
