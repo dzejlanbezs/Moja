@@ -515,6 +515,7 @@
         </div>
 
         <div class="coins" id="depositCoins"></div>
+        <div class="nets" id="depNetworks" hidden></div>
         <div class="addr-card" id="depAddrCard">
           <div class="addr-head">
             <span class="label">Your deposit address</span>
@@ -525,6 +526,7 @@
             <code id="depositAddress"></code>
             <button class="btn btn-primary" id="copyAddress">Copy</button>
           </div>
+          <div class="addr-warn" id="depWarn" hidden></div>
           <div class="addr-ref" id="depRefRow" hidden>Reference <b id="depRef"></b></div>
         </div>
 
@@ -543,7 +545,9 @@
 
       <div class="tab" id="tab-withdraw">
         <div class="coins" id="withdrawCoins"></div>
+        <div class="nets" id="wdNetworks" hidden></div>
         <label class="field"><span>Wallet address</span><input type="text" id="wdAddress" placeholder="bc1q…"></label>
+        <p class="hint" id="wdNetHint" hidden></p>
         <label class="field"><span>Amount (USD)</span><input type="number" id="wdAmount" placeholder="Minimum $20.00" min="20" step="0.01"></label>
         <p class="hint">Available <b id="wdAvailable">$0.00</b> · min $20 · processed in ~30 min</p>
         <button class="btn btn-primary btn-block" id="wdSubmit">Request withdrawal</button>

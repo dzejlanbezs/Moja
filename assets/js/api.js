@@ -73,8 +73,12 @@
 
     myBets() { return Api.request('GET', '/api/me/bets'); },
     myTransactions() { return Api.request('GET', '/api/wallet/transactions'); },
-    requestDeposit(coin, amount, address) { return Api.request('POST', '/api/wallet/deposit', { coin: coin, amount: amount, address: address }); },
-    requestWithdraw(coin, address, amount) { return Api.request('POST', '/api/wallet/withdraw', { coin: coin, address: address, amount: amount }); },
+    requestDeposit(coin, amount, address, network) {
+      return Api.request('POST', '/api/wallet/deposit', { coin: coin, amount: amount, address: address, network: network });
+    },
+    requestWithdraw(coin, address, amount, network) {
+      return Api.request('POST', '/api/wallet/withdraw', { coin: coin, address: address, amount: amount, network: network });
+    },
 
     adminOverview() { return Api.request('GET', '/api/admin/overview'); },
     adminUser(userId) { return Api.request('GET', '/api/admin/user?id=' + encodeURIComponent(userId)); },
@@ -89,20 +93,20 @@
     isServer() { return Api.mode === 'server'; },
     isSignedIn() { return Api.mode !== 'server' || !!Api.user; },
 
-    deposit(coin, amount, address) {
+    deposit(coin, amount, address, network) {
       if (!Wallet.isServer()) {
         D.Store.deposit(amount || 500);
         return Promise.resolve({ local: true });
       }
-      return Api.requestDeposit(coin, amount, address);
+      return Api.requestDeposit(coin, amount, address, network);
     },
 
-    withdraw(coin, address, amount) {
+    withdraw(coin, address, amount, network) {
       if (!Wallet.isServer()) {
         if (!D.Store.withdraw(amount)) return Promise.reject(new Error('Not enough balance'));
         return Promise.resolve({ local: true });
       }
-      return Api.requestWithdraw(coin, address, amount).then((data) => {
+      return Api.requestWithdraw(coin, address, amount, network).then((data) => {
         D.Store.hydrate({ balance: data.balance });
         return data;
       });
@@ -120,6 +124,7 @@
         type: tx.type.charAt(0).toUpperCase() + tx.type.slice(1),
         amount: tx.type === 'withdraw' ? -tx.amount : tx.amount,
         asset: tx.coin,
+        network: tx.network || '',
         status: tx.status.charAt(0).toUpperCase() + tx.status.slice(1),
         address: tx.address,
         note: tx.note,

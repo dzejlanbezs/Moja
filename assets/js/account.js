@@ -199,7 +199,8 @@
         D.$('#depChainHint').textContent =
           'This address is yours alone. Send any amount over $' + (cfg.minDeposit || 10) +
           ' and it is credited automatically after ' + cfg.confirmations +
-          ' confirmations — USDT and USDC count 1:1, ETH, BTC and SOL at the live rate. Nothing else to do.';
+          ' confirmations — USDT and USDC count 1:1 on Ethereum, Solana or Tron, while ETH, BTC, SOL' +
+          ' and TRX convert at the live rate. Nothing else to do.';
       }
     }).catch(() => {});
   }

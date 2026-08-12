@@ -67,6 +67,7 @@
       const unclaimed = tx.status === 'unclaimed';
       const detail = [
         tx.coin + (tx.crypto ? ' ' + tx.crypto : ''),
+        tx.network || '',
         tx.address ? (tx.type === 'withdraw' ? '→ ' : 'from ') + short(tx.address, 24) : '',
         tx.txHash ? 'tx ' + short(tx.txHash, 14) : '',
         when(tx.ts),
@@ -235,7 +236,8 @@
               '<div class="admin-row">' +
                 '<span class="tag-' + (tx.type === 'withdraw' ? 'out' : 'in') + '">' + esc(tx.type) + '</span>' +
                 '<div class="admin-row-main"><b>' + esc(D.fmt(tx.amount)) + ' ' + esc(tx.coin) + '</b>' +
-                  '<span class="muted">' + esc(tx.address ? short(tx.address, 34) + ' · ' : '') + esc(when(tx.ts)) +
+                  '<span class="muted">' + esc(tx.network ? tx.network + ' · ' : '') +
+                  esc(tx.address ? short(tx.address, 34) + ' · ' : '') + esc(when(tx.ts)) +
                   (tx.note ? ' · ' + esc(tx.note) : '') + '</span></div>' +
                 '<span class="' + (STATUS_CLASS[tx.status] || '') + '"><b>' + esc(tx.status) + '</b></span>' +
                 (tx.status === 'pending'

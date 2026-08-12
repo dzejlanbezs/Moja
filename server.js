@@ -51,13 +51,35 @@ const REWARD_RATES = {
 const PROMO_CODES = (process.env.DICEY_PROMO_CODES || 'DXDXDA,FGASDK')
   .split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
 
-const COINS = [
-  { sym: 'USDT', name: 'Tether', network: 'Ethereum · ERC-20', color: '#26a17b' },
-  { sym: 'USDC', name: 'USD Coin', network: 'Ethereum · ERC-20', color: '#2775ca' },
-  { sym: 'ETH', name: 'Ethereum', network: 'Ethereum · mainnet', color: '#627eea' },
-  { sym: 'BTC', name: 'Bitcoin', network: 'Bitcoin · native segwit', color: '#f7931a' },
-  { sym: 'SOL', name: 'Solana', network: 'Solana · mainnet', color: '#9945ff' },
+/*
+ * Every network a coin can arrive on. `chain` decides which derived address the
+ * player is shown, so USDT sent as TRC-20 goes to their Tron address while the
+ * same USDT sent as ERC-20 goes to their Ethereum one.
+ */
+const STABLE_NETWORKS = [
+  { id: 'erc20', chain: 'ETH', name: 'Ethereum', tag: 'ERC-20' },
+  { id: 'spl', chain: 'SOL', name: 'Solana', tag: 'SPL' },
+  { id: 'trc20', chain: 'TRX', name: 'Tron', tag: 'TRC-20' },
 ];
+
+const COINS = [
+  { sym: 'USDT', name: 'Tether', color: '#26a17b', networks: STABLE_NETWORKS },
+  { sym: 'USDC', name: 'USD Coin', color: '#2775ca', networks: STABLE_NETWORKS },
+  { sym: 'ETH', name: 'Ethereum', color: '#627eea', networks: [{ id: 'ethereum', chain: 'ETH', name: 'Ethereum', tag: 'mainnet' }] },
+  { sym: 'BTC', name: 'Bitcoin', color: '#f7931a', networks: [{ id: 'bitcoin', chain: 'BTC', name: 'Bitcoin', tag: 'native segwit' }] },
+  { sym: 'SOL', name: 'Solana', color: '#9945ff', networks: [{ id: 'solana', chain: 'SOL', name: 'Solana', tag: 'mainnet' }] },
+  { sym: 'TRX', name: 'Tron', color: '#ff060a', networks: [{ id: 'tron', chain: 'TRX', name: 'Tron', tag: 'mainnet' }] },
+];
+
+const networkLabel = (network) => network.name + ' · ' + network.tag;
+
+/** Looks up a coin and one of its networks, falling back to the coin's first network. */
+function coinNetwork(sym, networkId) {
+  const coin = COINS.filter((c) => c.sym === String(sym || '').toUpperCase())[0];
+  if (!coin) return null;
+  const network = networkId ? coin.networks.filter((n) => n.id === networkId)[0] : coin.networks[0];
+  return network ? { coin: coin, network: network } : null;
+}
 
 /* ------------------------------------------------------------------ storage */
 
@@ -175,7 +197,10 @@ function loadSeed() {
   return hd.mnemonicToSeed(mnemonic, process.env.DICEY_MNEMONIC_PASSPHRASE || '');
 }
 
-/** Derives (and caches) this player's own deposit address for every coin. */
+// bumped whenever a chain is added, so cached addresses are derived again
+const ADDRESS_VERSION = 2;
+
+/** Derives (and caches) this player's own deposit address on every chain. */
 function addressesFor(user) {
   if (!hdSeed) return null;
   if (!user.walletIndex) {
@@ -183,8 +208,12 @@ function addressesFor(user) {
     user.walletIndex = db.meta.nextWalletIndex;
     save();
   }
-  if (!user.addresses || user.addresses.index !== user.walletIndex) {
-    user.addresses = Object.assign({ index: user.walletIndex }, hd.addressesFor(hdSeed, user.walletIndex));
+  const cached = user.addresses;
+  if (!cached || cached.index !== user.walletIndex || cached.v !== ADDRESS_VERSION) {
+    user.addresses = Object.assign(
+      { index: user.walletIndex, v: ADDRESS_VERSION },
+      hd.addressesFor(hdSeed, user.walletIndex)
+    );
     save();
   }
   return user.addresses;
@@ -532,6 +561,7 @@ function creditDeposit(user, deposit, status, note) {
     userId: user ? user.id : null,
     type: 'deposit',
     coin: deposit.coin,
+    network: deposit.network || '',
     address: deposit.from,
     txHash: deposit.txHash,
     crypto: deposit.amount,
@@ -693,10 +723,24 @@ const ROUTES = {
     const user = ctx.session ? ctx.session.user : null;
     const addresses = user ? addressesFor(user) : null;
 
+    // a coin is only offered on the networks we can hand out an address for
+    const coins = COINS.map((coin) => ({
+      sym: coin.sym,
+      name: coin.name,
+      color: coin.color,
+      networks: coin.networks
+        .map((network) => ({
+          id: network.id,
+          name: network.name,
+          tag: network.tag,
+          label: networkLabel(network),
+          address: addresses ? addresses[network.chain] || '' : '',
+        }))
+        .filter((network) => network.address),
+    })).filter((coin) => coin.networks.length);
+
     return sendJson(ctx.res, 200, {
-      coins: COINS
-        .map((coin) => Object.assign({}, coin, { address: addresses ? addresses[coin.sym] : '' }))
-        .filter((coin) => coin.address),
+      coins: coins,
       hdEnabled: !!hdSeed,
       minDeposit: MIN_DEPOSIT_USD,
       confirmations: chain.config.confirmations,
@@ -1047,11 +1091,13 @@ const ROUTES = {
     const body = await ctx.body();
     const amount = round2(body.amount);
     if (!(amount > 0)) return sendJson(ctx.res, 400, { error: 'Enter an amount' });
+    const pick = coinNetwork(body.coin, String(body.network || ''));
     const tx = {
       id: id('tx'),
       userId: user.id,
       type: 'deposit',
       coin: String(body.coin || 'BTC').toUpperCase().slice(0, 8),
+      network: pick ? networkLabel(pick.network) : '',
       address: String(body.address || '').slice(0, 120),
       amount: amount,
       status: 'pending',
@@ -1071,6 +1117,15 @@ const ROUTES = {
     const amount = round2(body.amount);
     const address = String(body.address || '').trim();
     if (!address) return sendJson(ctx.res, 400, { error: 'Enter a wallet address' });
+
+    // a payout is sent by hand, so catching a wrong-chain address here saves the money
+    const pick = coinNetwork(body.coin, String(body.network || ''));
+    if (pick && !hd.validAddress(pick.network.chain, address)) {
+      return sendJson(ctx.res, 400, {
+        error: 'That is not a valid ' + pick.network.name + ' address for ' + pick.coin.sym,
+      });
+    }
+
     if (!(amount >= 20)) return sendJson(ctx.res, 400, { error: 'Minimum withdrawal is $20' });
     if (amount > user.balance + 1e-9) return sendJson(ctx.res, 400, { error: 'Not enough balance' });
 
@@ -1080,6 +1135,7 @@ const ROUTES = {
       userId: user.id,
       type: 'withdraw',
       coin: String(body.coin || 'BTC').toUpperCase().slice(0, 8),
+      network: pick ? networkLabel(pick.network) : '',
       address: address.slice(0, 120),
       amount: amount,
       status: 'pending',
@@ -1467,7 +1523,8 @@ function startWatcher() {
   }
   refreshWatchList();
   const counts = chain.watchCount();
-  console.log('Watching ' + counts.eth + ' ETH, ' + counts.btc + ' BTC and ' + counts.sol + ' SOL deposit addresses');
+  console.log('Watching ' + counts.eth + ' ETH, ' + counts.btc + ' BTC, ' + counts.sol +
+    ' SOL and ' + counts.tron + ' TRX deposit addresses');
 
   const state = {
     get: (key) => db.meta.chainState[key],

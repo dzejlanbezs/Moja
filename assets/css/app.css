@@ -673,6 +673,24 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .coin-name { font-size: 12px; font-weight: 700; }
 .coin-sym { font-size: 10px; color: var(--text-3); }
 
+/* network picker, only present for coins that live on more than one chain */
+.nets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -6px 0 16px; }
+.nets-label {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .8px;
+  text-transform: uppercase; color: var(--text-3);
+}
+.net-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px; border-radius: 99px;
+  font-size: 12px; font-weight: 700; color: var(--text-2);
+  background: var(--surface); border: 1px solid var(--line);
+  transition: all .18s;
+}
+.net-btn:hover { border-color: var(--line-strong); color: var(--text); }
+.net-btn.active { border-color: rgba(0, 230, 118, .45); background: var(--green-soft); color: var(--text); }
+.net-tag { font-size: 10px; font-weight: 700; color: var(--text-3); }
+.net-btn.active .net-tag { color: var(--green); }
+
 .addr-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; }
 .addr-card .label { font-size: 10.5px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: var(--text-3); }
 /* big enough that a phone camera locks on straight away */
@@ -844,6 +862,12 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
   font-size: 10.5px; font-weight: 700; color: var(--text-2);
   background: var(--surface-2); border: 1px solid var(--line);
   padding: 4px 9px; border-radius: 99px; white-space: nowrap;
+}
+/* the one thing worth shouting about: coins on the wrong chain never arrive */
+.addr-warn {
+  margin-top: 10px; padding: 8px 11px; border-radius: 9px;
+  background: rgba(255, 196, 0, .09); border: 1px solid rgba(255, 196, 0, .28);
+  font-size: 11.5px; font-weight: 600; color: var(--gold); line-height: 1.45;
 }
 .addr-ref { margin-top: 10px; font-size: 11.5px; color: var(--text-3); }
 .addr-ref b { color: var(--text-2); font-family: ui-monospace, Menlo, monospace; }

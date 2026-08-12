@@ -1,10 +1,15 @@
 /* ============================================================
-   Dicey — Ethereum deposit watching
+   Dicey — deposit watching
 
-   Read-only on purpose. Players send straight to the house
-   address, so nothing here ever holds a private key, signs a
-   transaction or moves funds. All it does is notice incoming
-   ETH / USDT / USDC and report them so they can be credited.
+   Read-only on purpose. Players send to an address that is
+   theirs alone, so nothing here ever holds a private key, signs
+   a transaction or moves funds. All it does is notice incoming
+   coins and report them so they can be credited:
+
+     Ethereum   ETH, USDT / USDC as ERC-20
+     Bitcoin    BTC
+     Solana     SOL, USDT / USDC as SPL
+     Tron       TRX, USDT / USDC as TRC-20
    ============================================================ */
 
 'use strict';
@@ -16,37 +21,60 @@ const TOKENS = {
   USDC: { address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', decimals: 6, stable: true },
 };
 
+// SPL mints on Solana, both six decimals
+const SPL_TOKENS = {
+  USDT: { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', decimals: 6 },
+  USDC: { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 },
+};
+
+// TRC-20 contracts on Tron, both six decimals
+const TRC20_TOKENS = {
+  USDT: { contract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6 },
+  USDC: { contract: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8', decimals: 6 },
+};
+
 const config = {
   rpcUrl: process.env.DICEY_RPC_URL || 'https://ethereum-rpc.publicnode.com',
   solRpcUrl: process.env.DICEY_SOL_RPC_URL || 'https://api.mainnet-beta.solana.com',
   btcApiUrl: process.env.DICEY_BTC_API_URL || 'https://blockstream.info/api',
+  tronApiUrl: process.env.DICEY_TRON_API_URL || 'https://api.trongrid.io',
+  tronApiKey: process.env.DICEY_TRON_API_KEY || '',
   confirmations: parseInt(process.env.DICEY_CONFIRMATIONS, 10) || 3,
   pollMs: parseInt(process.env.DICEY_POLL_MS, 10) || 20000,
   maxBlocksPerPoll: 12,
   reconcileBatch: parseInt(process.env.DICEY_RECONCILE_BATCH, 10) || 6,
+  solBatch: parseInt(process.env.DICEY_SOL_BATCH, 10) || 8,
+  tronBatch: parseInt(process.env.DICEY_TRON_BATCH, 10) || 5,
+  // TronGrid allows one account lookup per second without an API key
+  tronGapMs: parseInt(process.env.DICEY_TRON_GAP_MS, 10) || 1200,
   watchNative: process.env.DICEY_WATCH_ETH !== '0',
   watchBtc: process.env.DICEY_WATCH_BTC !== '0',
   watchSol: process.env.DICEY_WATCH_SOL !== '0',
+  watchTron: process.env.DICEY_WATCH_TRON !== '0',
   ethUsdOverride: parseFloat(process.env.DICEY_ETH_USD) || 0,
   priceUrl: 'https://api.coinbase.com/v2/prices/',
 };
 
-// { eth: Map(address -> userId), btc: Map(...), sol: Map(...) }
-const watched = { eth: new Map(), btc: new Map(), sol: new Map() };
+// { eth: Map(address -> userId), btc: Map(...), sol: Map(...), tron: Map(...) }
+const watched = { eth: new Map(), btc: new Map(), sol: new Map(), tron: new Map() };
 
 /** Replaces the set of addresses being watched. Called whenever a player is added. */
 function setWatchList(entries) {
   watched.eth.clear();
   watched.btc.clear();
   watched.sol.clear();
+  watched.tron.clear();
   entries.forEach((entry) => {
     if (entry.ETH) watched.eth.set(String(entry.ETH).toLowerCase(), entry.userId);
     if (entry.BTC) watched.btc.set(entry.BTC, entry.userId);
     if (entry.SOL) watched.sol.set(entry.SOL, entry.userId);
+    if (entry.TRX) watched.tron.set(entry.TRX, entry.userId);
   });
 }
 
-const watchCount = () => ({ eth: watched.eth.size, btc: watched.btc.size, sol: watched.sol.size });
+const watchCount = () => ({
+  eth: watched.eth.size, btc: watched.btc.size, sol: watched.sol.size, tron: watched.tron.size,
+});
 
 let rpcId = 0;
 let online = false;
@@ -227,6 +255,7 @@ async function checkEthAddress(state, address, blockTag, hints) {
           to: address,
           userId: userId,
           coin: asset.symbol,
+          network: 'Ethereum · ' + (asset.symbol === 'ETH' ? 'mainnet' : 'ERC-20'),
           amount: amount,
           usd: await usdValue(asset.symbol, amount),
           blockNumber: 0,
@@ -244,18 +273,53 @@ async function checkEthAddress(state, address, blockTag, hints) {
  * restart, a skipped block or a flaky node.
  */
 async function sweepEth(state, cursor, blockTag) {
-  const addresses = Array.from(watched.eth.keys());
-  if (!addresses.length) return [];
-
-  const size = Math.min(config.reconcileBatch, addresses.length);
-  const start = cursor.index % addresses.length;
-  const slice = [];
-  for (let i = 0; i < size; i++) slice.push(addresses[(start + i) % addresses.length]);
-  cursor.index = (start + size) % addresses.length;
-
+  const slice = nextSlice(watched.eth, cursor, config.reconcileBatch);
   const found = [];
-  for (const address of slice) found.push(...await checkEthAddress(state, address, blockTag));
+  for (const [address] of slice) found.push(...await checkEthAddress(state, address, blockTag));
   return found;
+}
+
+/* ---- polled chains: bitcoin, solana, tron ---- */
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Takes the next few watched addresses, remembering where it stopped, so a
+ * long watch list is worked through over several polls instead of hammering
+ * a public API with every address at once.
+ */
+function nextSlice(map, cursor, size) {
+  const entries = Array.from(map.entries());
+  if (!entries.length) return [];
+  const take = Math.min(size, entries.length);
+  const start = cursor.index % entries.length;
+  const slice = [];
+  for (let i = 0; i < take; i++) slice.push(entries[(start + i) % entries.length]);
+  cursor.index = (start + take) % entries.length;
+  return slice;
+}
+
+/**
+ * Turns a polled balance into a credit, in the same idempotent way as the
+ * Ethereum path: the amount is the rise since the last reading, the first
+ * reading is only a baseline, and raw units are stored so nothing is lost to
+ * rounding. `scale` is the raw units per coin (1e8 for satoshis and so on).
+ */
+async function fromBalance(state, key, raw, scale, info) {
+  const seen = state.get(key);
+  if (seen == null) { state.set(key, raw); return null; }        // first sight: baseline only
+  if (raw <= seen) {
+    if (raw < seen) state.set(key, raw);                         // funds were swept out
+    return null;
+  }
+  const amount = (raw - seen) / scale;
+  state.set(key, raw);
+  return {
+    txHash: '', from: '', to: info.address, userId: info.userId,
+    coin: info.coin, network: info.network, amount: amount,
+    usd: await usdValue(info.coin, amount),
+    blockNumber: 0,
+  };
 }
 
 /* ---- bitcoin: poll the address API for a rise in total received ---- */
@@ -271,60 +335,135 @@ async function btcDeposits(state) {
       if (!res.ok) continue;
       const data = await res.json();
       const funded = (data.chain_stats && data.chain_stats.funded_txo_sum) || 0;
-      const key = 'btc:' + address;
-      const seen = state.get(key);
-
-      if (seen == null) { state.set(key, funded); continue; }   // first sight: take a baseline
-      if (funded <= seen) continue;
-
-      const amount = (funded - seen) / 1e8;
-      state.set(key, funded);
-      found.push({
-        txHash: 'btc:' + address + ':' + funded,
-        from: '', to: address, userId: userId,
-        coin: 'BTC', amount: amount,
-        usd: await usdValue('BTC', amount),
-        blockNumber: 0,
+      const deposit = await fromBalance(state, 'btc:' + address, funded, 1e8, {
+        address: address, userId: userId, coin: 'BTC', network: 'Bitcoin · native segwit',
       });
+      if (deposit) found.push(deposit);
     } catch (err) { /* try again next poll */ }
   }
   return found;
 }
 
-/* ---- solana: poll balances for a rise ---- */
+/* ---- solana: SOL plus USDT / USDC held as SPL tokens ---- */
 
-async function solDeposits(state) {
+async function solRpc(method, params) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(config.solRpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method: method, params: params || [] }),
+      signal: controller.signal,
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || 'Solana RPC error');
+    return data.result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Total of every finalized token account the player's wallet owns for one mint.
+ * Senders create the associated token account themselves, so all the player
+ * ever needs to hand out is their plain Solana address.
+ */
+async function splBalance(owner, mint) {
+  const result = await solRpc('getTokenAccountsByOwner', [
+    owner, { mint: mint }, { encoding: 'jsonParsed', commitment: 'finalized' },
+  ]);
+  let raw = 0;
+  for (const account of (result && result.value) || []) {
+    const info = account.account.data.parsed.info;
+    raw += parseInt(info.tokenAmount.amount, 10) || 0;
+  }
+  return raw;
+}
+
+async function solDeposits(state, cursor) {
   const found = [];
-  for (const [address, userId] of watched.sol) {
+  for (const [address, userId] of nextSlice(watched.sol, cursor, config.solBatch)) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
-      const res = await fetch(config.solRpcUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address] }),
-        signal: controller.signal,
+      const balance = await solRpc('getBalance', [address, { commitment: 'finalized' }]);
+      const lamports = (balance && balance.value) || 0;
+      const deposit = await fromBalance(state, 'sol:' + address, lamports, 1e9, {
+        address: address, userId: userId, coin: 'SOL', network: 'Solana · mainnet',
       });
-      clearTimeout(timer);
-      const data = await res.json();
-      if (!data.result) continue;
-      const lamports = data.result.value || 0;
-      const key = 'sol:' + address;
-      const seen = state.get(key);
-
-      if (seen == null) { state.set(key, lamports); continue; }
-      if (lamports <= seen) { state.set(key, lamports); continue; }
-
-      const amount = (lamports - seen) / 1e9;
-      state.set(key, lamports);
-      found.push({
-        txHash: 'sol:' + address + ':' + lamports,
-        from: '', to: address, userId: userId,
-        coin: 'SOL', amount: amount,
-        usd: await usdValue('SOL', amount),
-        blockNumber: 0,
-      });
+      if (deposit) found.push(deposit);
     } catch (err) { /* try again next poll */ }
+
+    for (const symbol of Object.keys(SPL_TOKENS)) {
+      try {
+        const token = SPL_TOKENS[symbol];
+        const raw = await splBalance(address, token.mint);
+        const deposit = await fromBalance(state, 'spl:' + address + ':' + symbol, raw, 10 ** token.decimals, {
+          address: address, userId: userId, coin: symbol, network: 'Solana · SPL',
+        });
+        if (deposit) found.push(deposit);
+      } catch (err) { /* try again next poll */ }
+    }
+  }
+  return found;
+}
+
+/* ---- tron: TRX plus USDT / USDC held as TRC-20 ---- */
+
+/** One confirmed account snapshot from TronGrid: TRX balance and every TRC-20 balance. */
+async function tronAccount(address) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const headers = config.tronApiKey ? { 'TRON-PRO-API-KEY': config.tronApiKey } : {};
+    const res = await fetch(
+      config.tronApiUrl + '/v1/accounts/' + address + '?only_confirmed=true',
+      { headers: headers, signal: controller.signal }
+    );
+    if (!res.ok) throw new Error('TronGrid HTTP ' + res.status);
+    const data = await res.json();
+    if (data.Error) throw new Error(String(data.Error).slice(0, 120));
+
+    // an address nobody has ever sent to does not exist on Tron yet
+    const account = (data.data || [])[0] || {};
+    const tokens = {};
+    for (const entry of account.trc20 || []) {
+      for (const contract of Object.keys(entry)) tokens[contract] = entry[contract];
+    }
+    return { trx: account.balance || 0, tokens: tokens };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function tronDeposits(state, cursor) {
+  const found = [];
+  const slice = nextSlice(watched.tron, cursor, config.tronBatch);
+
+  for (let i = 0; i < slice.length; i++) {
+    const [address, userId] = slice[i];
+    if (i) await sleep(config.tronGapMs);      // stay inside TronGrid's rate limit
+    let account;
+    try {
+      account = await tronAccount(address);
+    } catch (err) {
+      continue;                                 // try again next poll
+    }
+
+    const trx = await fromBalance(state, 'trx:' + address, account.trx, 1e6, {
+      address: address, userId: userId, coin: 'TRX', network: 'Tron · mainnet',
+    });
+    if (trx) found.push(trx);
+
+    for (const symbol of Object.keys(TRC20_TOKENS)) {
+      const token = TRC20_TOKENS[symbol];
+      // TRC-20 amounts arrive as decimal strings that overflow a 32-bit int
+      const raw = Number(account.tokens[token.contract] || 0);
+      if (!Number.isFinite(raw)) continue;
+      const deposit = await fromBalance(state, 'trc:' + address + ':' + symbol, raw, 10 ** token.decimals, {
+        address: address, userId: userId, coin: symbol, network: 'Tron · TRC-20',
+      });
+      if (deposit) found.push(deposit);
+    }
   }
   return found;
 }
@@ -338,6 +477,8 @@ async function solDeposits(state) {
 function watch(store, onDeposit) {
   let running = false;
   const reconcileCursor = { index: 0 };
+  const solCursor = { index: 0 };
+  const tronCursor = { index: 0 };
 
   async function report(list) {
     for (const deposit of list) {
@@ -382,9 +523,14 @@ function watch(store, onDeposit) {
       console.error('chain watcher (btc):', err.message);
     }
     try {
-      if (config.watchSol && watched.sol.size) await report(await solDeposits(store.state));
+      if (config.watchSol && watched.sol.size) await report(await solDeposits(store.state, solCursor));
     } catch (err) {
       console.error('chain watcher (sol):', err.message);
+    }
+    try {
+      if (config.watchTron && watched.tron.size) await report(await tronDeposits(store.state, tronCursor));
+    } catch (err) {
+      console.error('chain watcher (tron):', err.message);
     }
     running = false;
   }
@@ -407,6 +553,8 @@ async function status() {
 module.exports = {
   config: config,
   tokens: TOKENS,
+  splTokens: SPL_TOKENS,
+  trc20Tokens: TRC20_TOKENS,
   setWatchList: setWatchList,
   watchCount: watchCount,
   watch: watch,

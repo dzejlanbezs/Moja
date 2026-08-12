@@ -319,20 +319,25 @@
 
   /* ---------------- cashier ---------------- */
   // Demo defaults; server mode replaces these with the real deposit wallets.
+  const net = (id, name, tag, address) => ({ id: id, name: name, tag: tag, label: name + ' · ' + tag, address: address });
+
   const COINS = [
-    { id: 'btc', name: 'Bitcoin', sym: 'BTC', color: '#f7931a', addr: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
-    { id: 'eth', name: 'Ethereum', sym: 'ETH', color: '#627eea', addr: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F' },
-    { id: 'usdt', name: 'Tether', sym: 'USDT', color: '#26a17b', addr: 'TRX9NMDJKQb8bLFQe9oiGmBrGEtHHwHCCz' },
-    { id: 'ltc', name: 'Litecoin', sym: 'LTC', color: '#a6a9aa', addr: 'ltc1q0wz5a5dp4w8vvhkxf75k6c7wkfqd0yfwkcxtmx' },
-    { id: 'sol', name: 'Solana', sym: 'SOL', color: '#9945ff', addr: '7KYq3U8DsK82FmxZaBQ1uJUGKMrHFYhz6D3V2vqtApWQ' },
+    { id: 'btc', name: 'Bitcoin', sym: 'BTC', color: '#f7931a', networks: [net('bitcoin', 'Bitcoin', 'native segwit', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh')] },
+    { id: 'eth', name: 'Ethereum', sym: 'ETH', color: '#627eea', networks: [net('ethereum', 'Ethereum', 'mainnet', '0x71C7656EC7ab88b098defB751B7401B5f6d8976F')] },
+    { id: 'usdt', name: 'Tether', sym: 'USDT', color: '#26a17b', networks: [
+      net('erc20', 'Ethereum', 'ERC-20', '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'),
+      net('trc20', 'Tron', 'TRC-20', 'TRX9NMDJKQb8bLFQe9oiGmBrGEtHHwHCCz'),
+    ] },
+    { id: 'sol', name: 'Solana', sym: 'SOL', color: '#9945ff', networks: [net('solana', 'Solana', 'mainnet', '7KYq3U8DsK82FmxZaBQ1uJUGKMrHFYhz6D3V2vqtApWQ')] },
+    { id: 'trx', name: 'Tron', sym: 'TRX', color: '#ff060a', networks: [net('tron', 'Tron', 'mainnet', 'TRX9NMDJKQb8bLFQe9oiGmBrGEtHHwHCCz')] },
   ];
 
   D.setCoins = (list) => {
     if (!list || !list.length) return;
     COINS.length = 0;
     list.forEach((c) => COINS.push({
-      id: c.sym.toLowerCase(), name: c.name, sym: c.sym,
-      color: c.color, addr: c.address, network: c.network,
+      id: c.sym.toLowerCase(), name: c.name, sym: c.sym, color: c.color,
+      networks: (c.networks || []).map((n) => net(n.id, n.name, n.tag, n.address)),
     }));
     coinId = COINS[0].id;
     paintCashier();
@@ -346,6 +351,24 @@
         '<span><span class="coin-name">' + esc(coin.name) + '</span><br><span class="coin-sym">' + esc(coin.sym) + '</span></span>' +
       '</button>'
     );
+  }
+
+  /** Network picker, shown only for coins that live on more than one chain. */
+  function netsHtml(coin, current) {
+    const nets = coin.networks || [];
+    if (nets.length < 2) return '';
+    return '<span class="nets-label">Network</span>' + nets.map((n) =>
+      '<button class="net-btn' + (n.id === current.id ? ' active' : '') + '" data-net="' + esc(n.id) + '">' +
+        esc(n.name) + '<span class="net-tag">' + esc(n.tag) + '</span>' +
+      '</button>'
+    ).join('');
+  }
+
+  function fillNets(box, coin, current) {
+    if (!box) return;
+    const html = netsHtml(coin, current);
+    box.innerHTML = html;
+    box.hidden = !html;
   }
 
   /** Coin icons can be replaced with files in assets/img/coins. */
@@ -365,19 +388,43 @@
   const TX_COLOR = { Confirmed: 'var(--green)', Completed: 'var(--green)', Pending: 'var(--gold)', Rejected: 'var(--red)' };
 
   let coinId = 'btc';
+  // the chosen network per coin, so switching coins and back keeps the pick
+  const netByCoin = {};
   const currentCoin = () => COINS.filter((c) => c.id === coinId)[0] || COINS[0];
+
+  function currentNet() {
+    const coin = currentCoin();
+    const nets = coin.networks || [];
+    return nets.filter((n) => n.id === netByCoin[coin.id])[0] || nets[0] || { id: '', name: '', tag: '', label: '', address: '' };
+  }
 
   function paintCashier() {
     const coin = currentCoin();
+    const chain = currentNet();
     D.$('#depositCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     D.$('#withdrawCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     applyCoinArt();
-    D.$('#depositAddress').textContent = coin.addr;
-    D.$('#depositQr').innerHTML = addressQr(coin.addr);
-    const net = D.$('#depNetwork');
-    net.textContent = coin.network || '';
-    net.hidden = !coin.network;
-    D.$('#wdAddress').placeholder = coin.addr.slice(0, 6) + '…';
+    fillNets(D.$('#depNetworks'), coin, chain);
+    fillNets(D.$('#wdNetworks'), coin, chain);
+
+    D.$('#depositAddress').textContent = chain.address;
+    D.$('#depositQr').innerHTML = addressQr(chain.address);
+    const pill = D.$('#depNetwork');
+    pill.textContent = chain.label || '';
+    pill.hidden = !chain.label;
+
+    // one address per chain, so the wrong chain means the coins are gone
+    const warn = D.$('#depWarn');
+    warn.textContent = chain.name
+      ? 'Send only ' + coin.sym + ' on ' + chain.name + ' (' + chain.tag + ') to this address.'
+      : '';
+    warn.hidden = !chain.name;
+
+    const wdHint = D.$('#wdNetHint');
+    wdHint.textContent = chain.name ? 'Paid out on ' + chain.name + ' (' + chain.tag + ')' : '';
+    wdHint.hidden = !chain.name;
+
+    D.$('#wdAddress').placeholder = chain.address ? chain.address.slice(0, 6) + '…' : 'Wallet address';
     D.$('#wdAvailable').textContent = D.fmt(D.Store.balance);
     paintTransactions();
   }
@@ -406,7 +453,7 @@
       paintRecentDeposits(rows);
       list.innerHTML = rows.length
         ? rows.map((tx) =>
-            '<div class="tx-row" title="' + (tx.address ? 'To ' + tx.address : '') + '">' +
+            '<div class="tx-row" title="' + esc([tx.network, tx.address ? 'To ' + tx.address : ''].filter(Boolean).join(' · ')) + '">' +
             '<span class="muted">' + tx.type + '</span>' +
             '<span class="amt ' + (tx.amount >= 0 ? 'green' : 'red') + '">' + (tx.amount > 0 ? '+' : '') + D.fmt(tx.amount) + '</span>' +
             '<span>' + tx.asset + '</span>' +
@@ -421,6 +468,8 @@
   D.$('#cashierModal').addEventListener('click', (e) => {
     const coin = e.target.closest('[data-coin]');
     if (coin) { coinId = coin.dataset.coin; paintCashier(); }
+    const chain = e.target.closest('[data-net]');
+    if (chain) { netByCoin[coinId] = chain.dataset.net; paintCashier(); }
     const seg = e.target.closest('.seg-btn');
     if (seg) {
       D.$$('.seg-btn').forEach((b) => b.classList.remove('active'));
@@ -466,7 +515,8 @@
     }
     const amount = D.round2(parseFloat(D.$('#depAmount').value));
     if (!(amount > 0)) { D.toast('Enter the amount you sent', 'info'); return; }
-    D.Wallet.deposit(coin.sym, amount, coin.addr).then(() => {
+    const chain = currentNet();
+    D.Wallet.deposit(coin.sym, amount, chain.address, chain.id).then(() => {
       D.$('#depAmount').value = '';
       paintTransactions();
       D.toast('Deposit submitted — waiting for confirmation', 'info');
@@ -478,7 +528,7 @@
     const address = D.$('#wdAddress').value.trim();
     if (!address) { D.toast('Enter a wallet address', 'info'); return; }
     if (!(amount >= 20)) { D.toast('Minimum withdrawal is $20', 'info'); return; }
-    D.Wallet.withdraw(currentCoin().sym, address, amount).then(() => {
+    D.Wallet.withdraw(currentCoin().sym, address, amount, currentNet().id).then(() => {
       D.$('#wdAmount').value = '';
       paintCashier();
       D.toast('Withdrawal requested — pending review', 'win');

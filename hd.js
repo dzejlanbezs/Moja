@@ -2,11 +2,12 @@
    Dicey — HD wallet address derivation
 
    Turns one BIP39 mnemonic into a fresh deposit address per
-   player per coin:
+   player per chain:
 
-     ETH / USDT / USDC   m/44'/60'/0'/0/<index>
+     ETH (also ERC-20)   m/44'/60'/0'/0/<index>
      BTC (native segwit) m/84'/0'/0'/0/<index>
-     SOL                 m/44'/501'/<index>'/0'
+     SOL (also SPL)      m/44'/501'/<index>'/0'
+     TRX (also TRC-20)   m/44'/195'/0'/0/<index>
 
    Only public addresses ever leave this file. Private keys are
    derived to compute them and are never stored or exported, and
@@ -100,7 +101,34 @@ function base58(buf) {
   return out || '1';
 }
 
+function base58Decode(text) {
+  let value = 0n;
+  for (const ch of text) {
+    const digit = B58.indexOf(ch);
+    if (digit < 0) return null;
+    value = value * 58n + BigInt(digit);
+  }
+  let hex = value.toString(16);
+  if (hex.length % 2) hex = '0' + hex;
+  const body = value === 0n ? Buffer.alloc(0) : Buffer.from(hex, 'hex');
+  let zeros = 0;
+  for (const ch of text) {
+    if (ch !== '1') break;
+    zeros++;
+  }
+  return Buffer.concat([Buffer.alloc(zeros), body]);
+}
+
 const base58check = (payload) => base58(Buffer.concat([payload, sha256(sha256(payload)).slice(0, 4)]));
+
+/** Decodes a base58check string and returns the payload, or null if the checksum is wrong. */
+function base58checkDecode(text) {
+  const raw = base58Decode(text);
+  if (!raw || raw.length < 5) return null;
+  const payload = raw.slice(0, -4);
+  const want = sha256(sha256(payload)).slice(0, 4);
+  return want.equals(raw.slice(-4)) ? payload : null;
+}
 
 const BECH32 = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
@@ -143,6 +171,22 @@ function bech32(hrp, data) {
   const checksum = [];
   for (let i = 0; i < 6; i++) checksum.push((mod >> (5 * (5 - i))) & 31);
   return hrp + '1' + data.concat(checksum).map((v) => BECH32[v]).join('');
+}
+
+/** True when text is a bech32 (or bech32m) string with the given prefix and a sound checksum. */
+function bech32Valid(hrp, text) {
+  const lower = text.toLowerCase();
+  if (text !== lower && text !== text.toUpperCase()) return false;
+  if (lower.indexOf(hrp + '1') !== 0) return false;
+  const data = [];
+  for (const ch of lower.slice(hrp.length + 1)) {
+    const value = BECH32.indexOf(ch);
+    if (value < 0) return false;
+    data.push(value);
+  }
+  if (data.length < 6) return false;
+  const mod = polymod(hrpExpand(hrp).concat(data));
+  return mod === 1 || mod === 0x2bc830a3;   // bech32 or bech32m (taproot)
 }
 
 /* ------------------------------------------------------------------ secp256k1 / bip32 */
@@ -256,18 +300,65 @@ function solAddress(seed, index) {
 }
 
 /**
- * Every deposit address for one player.
- * ETH, USDT and USDC share the same Ethereum address.
+ * Tron shares Ethereum's secp256k1 key and keccak hash, so the address is the
+ * same 20 bytes wearing a different coat: prefix 0x41, then base58check.
+ */
+function tronAddress(seed, index) {
+  const node = derive(seed, "m/44'/195'/0'/0/" + index);
+  const pub = pubkey(node.key, false).slice(1);
+  return base58check(Buffer.concat([Buffer.from([0x41]), keccak256(pub).slice(-20)]));
+}
+
+/**
+ * One address per chain for one player. Tokens ride the chain they live on:
+ * USDT and USDC on Ethereum use the ETH address, on Solana the SOL address
+ * and on Tron the TRX address.
  */
 function addressesFor(seed, index) {
-  const eth = ethAddress(seed, index);
   return {
-    ETH: eth,
-    USDT: eth,
-    USDC: eth,
+    ETH: ethAddress(seed, index),
     BTC: btcAddress(seed, index),
     SOL: solAddress(seed, index),
+    TRX: tronAddress(seed, index),
   };
+}
+
+/* ------------------------------------------------------------------ validation */
+
+/**
+ * Does this look like a real address on that chain? Checksums are verified, so a
+ * withdrawal cannot be sent to a mistyped address that only *looks* plausible.
+ */
+function validAddress(chain, address) {
+  const text = String(address || '').trim();
+  if (!text) return false;
+
+  if (chain === 'ETH') {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(text)) return false;
+    const body = text.slice(2);
+    if (body === body.toLowerCase() || body === body.toUpperCase()) return true;
+    return ethChecksum(body.toLowerCase()) === text;   // mixed case means EIP-55
+  }
+
+  if (chain === 'TRX') {
+    if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(text)) return false;
+    const payload = base58checkDecode(text);
+    return !!payload && payload.length === 21 && payload[0] === 0x41;
+  }
+
+  if (chain === 'SOL') {
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(text)) return false;
+    const raw = base58Decode(text);
+    return !!raw && raw.length === 32;
+  }
+
+  if (chain === 'BTC') {
+    if (/^(bc1|BC1)/.test(text)) return bech32Valid('bc', text);
+    const payload = base58checkDecode(text);
+    return !!payload && payload.length === 21 && (payload[0] === 0x00 || payload[0] === 0x05);
+  }
+
+  return true;   // an unknown chain is not ours to judge
 }
 
 module.exports = {
@@ -278,7 +369,10 @@ module.exports = {
   btcAddress: btcAddress,
   btcLegacyAddress: btcLegacyAddress,
   solAddress: solAddress,
+  tronAddress: tronAddress,
+  validAddress: validAddress,
   base58: base58,
+  base58Decode: base58Decode,
   bech32: bech32,
   convertBits: convertBits,
 };
