@@ -475,7 +475,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins'];
 const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
 // friendlier names people are likely to save files under
-const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportsbonus: 'sports-bonus', sportslogo: 'logo' };
+const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportslogo: 'logo', levelup: 'levelup' };
 
 const artKey = (name) => {
   const base = name.replace(ART_EXT, '').toLowerCase().replace(/[^a-z0-9]/g, '');

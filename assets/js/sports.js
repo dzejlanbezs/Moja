@@ -63,21 +63,21 @@
 
   /* ---------------- promo banners ---------------- */
 
-  // Drop the real artwork in assets/img/promo/ under these names and it takes
-  // over automatically; until then each banner draws itself.
+  // Artwork dropped into assets/img/promo/ takes over automatically (see the
+  // README there for names); until then each banner draws itself.
   const PROMOS = [
     {
-      id: 'sports-bonus', theme: 'gold', art: 'assets/img/promo/sports-bonus.jpg',
+      id: 'sports-bonus', theme: 'gold',
       badge: 'Brand New!', title: '100% Sports Bonus',
       sub: 'Get 100% Sports Bonus on First Deposit!', action: 'deposit',
     },
     {
-      id: 'sportsbook-live', theme: 'purple', art: 'assets/img/promo/sportsbook-live.jpg',
+      id: 'sportsbook-live', theme: 'purple',
       badge: 'Sportbook!', title: 'Sportsbook is Live Now!',
       sub: '28 sports, thousands of matches, prices that move live.', action: 'browse',
     },
     {
-      id: 'level-up', theme: 'sunset', art: 'assets/img/promo/level-up.jpg',
+      id: 'level-up', theme: 'sunset',
       badge: 'Refreshed!', title: 'Boost Your Level Up!',
       sub: 'Earn 3x more XP while playing sports!', action: 'vip',
     },
@@ -100,16 +100,9 @@
       '</button>'
     ).join('');
 
-    // swap in the real artwork the moment it is available
+    // swap in the operator's artwork when a file for it exists
     PROMOS.forEach((promo) => {
-      const probe = new Image();
-      probe.onload = () => {
-        const card = promosEl.querySelector('[data-promo="' + promo.id + '"]');
-        if (!card) return;
-        card.classList.add('has-art');
-        card.style.backgroundImage = 'url("' + promo.art + '")';
-      };
-      probe.src = promo.art;
+      D.Art.apply(promosEl.querySelector('[data-promo="' + promo.id + '"]'), 'promo', promo.id);
     });
   }
 

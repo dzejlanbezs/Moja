@@ -164,9 +164,15 @@ odds range. The gear toggle decides whether a moved price is accepted automatica
 is checked against the live feed; if the selection is gone or the price moved, the bet is
 rejected with the new price rather than taken at a stale one.
 
-Bets are settled by hand for now: `POST /api/admin/sports/settle` with `won`, `lost` or
-`void` (won pays the potential, void refunds). Sports stakes count towards wagering, so
-they feed VIP progress, rakeback and the weekly race.
+Bets are settled by hand from the admin dashboard. The **Sports bets** panel lists every
+bet with the player, stake, odds, potential return and the picks, filtered by status, and
+each pending bet has **Win / Loss / Void**: win pays the potential return, void refunds the
+stake, loss pays nothing. The same buttons appear inside a player's detail panel. Sports
+stakes count towards wagering, so they feed VIP progress, rakeback and the weekly race.
+
+Team crests follow a bet all the way through — the slip, the placed-bet card and the bets
+list show the crest of the team the selection names. Match pages request the larger crest
+variant (`/images/team/b/`) so the header badges stay sharp.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -299,6 +305,7 @@ means the built-in artwork stays — nothing to configure and nothing breaks.
 | `banners/` | `race`, `vip` | background of the two lobby banners |
 | `games/` | `blackholes`, `blackjack`, `coinflip`, `dice`, `digdig`, `keno`, `limbo`, `mines`, `plinko`, `wheel` | game tile backgrounds, and the thumbnail wherever that game appears in a feed |
 | `sports/` | `logo` | thumbnail for sportsbook bets in the feeds |
+| `coins/` | `usdt`, `usdc`, `eth`, `btc`, `sol` | currency icons in the cashier, deposit and withdraw |
 | `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
 
 `.jpg .jpeg .png .webp .avif` all work and names are matched loosely, so
