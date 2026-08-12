@@ -424,12 +424,12 @@ async function tronAccount(address) {
     if (data.Error) throw new Error(String(data.Error).slice(0, 120));
 
     // an address nobody has ever sent to does not exist on Tron yet
-    const account = (data.data || [])[0] || {};
+    const account = (data.data || [])[0];
     const tokens = {};
-    for (const entry of account.trc20 || []) {
+    for (const entry of (account && account.trc20) || []) {
       for (const contract of Object.keys(entry)) tokens[contract] = entry[contract];
     }
-    return { trx: account.balance || 0, tokens: tokens };
+    return { exists: !!account, trx: (account && account.balance) || 0, tokens: tokens };
   } finally {
     clearTimeout(timer);
   }
@@ -449,7 +449,22 @@ async function tronDeposits(state, cursor) {
       continue;                                 // try again next poll
     }
 
-    const trx = await fromBalance(state, 'trx:' + address, account.trx, 1e6, {
+    const trxKey = 'trx:' + address;
+    const tokenKey = (symbol) => 'trc:' + address + ':' + symbol;
+
+    // A funded Tron account keeps its record forever, so "no record" means the
+    // address has never been used and provably holds nothing: worth an empty
+    // baseline, so the first real arrival is credited in full. What it must not
+    // do is overwrite a total already seen, or a lagging index reporting "no
+    // account" would let the same coins be credited twice.
+    if (!account.exists) {
+      [trxKey].concat(Object.keys(TRC20_TOKENS).map(tokenKey)).forEach((key) => {
+        if (state.get(key) == null) state.set(key, 0);
+      });
+      continue;
+    }
+
+    const trx = await fromBalance(state, trxKey, account.trx, 1e6, {
       address: address, userId: userId, coin: 'TRX', network: 'Tron · mainnet',
     });
     if (trx) found.push(trx);
@@ -459,7 +474,7 @@ async function tronDeposits(state, cursor) {
       // TRC-20 amounts arrive as decimal strings that overflow a 32-bit int
       const raw = Number(account.tokens[token.contract] || 0);
       if (!Number.isFinite(raw)) continue;
-      const deposit = await fromBalance(state, 'trc:' + address + ':' + symbol, raw, 10 ** token.decimals, {
+      const deposit = await fromBalance(state, tokenKey(symbol), raw, 10 ** token.decimals, {
         address: address, userId: userId, coin: symbol, network: 'Tron · TRC-20',
       });
       if (deposit) found.push(deposit);

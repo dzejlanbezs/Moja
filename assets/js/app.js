@@ -424,7 +424,7 @@
     wdHint.textContent = chain.name ? 'Paid out on ' + chain.name + ' (' + chain.tag + ')' : '';
     wdHint.hidden = !chain.name;
 
-    D.$('#wdAddress').placeholder = chain.address ? chain.address.slice(0, 6) + '…' : 'Wallet address';
+    D.$('#wdAddress').placeholder = chain.name ? 'Your ' + chain.name + ' address' : 'Wallet address';
     D.$('#wdAvailable').textContent = D.fmt(D.Store.balance);
     paintTransactions();
   }

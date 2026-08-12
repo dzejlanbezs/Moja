@@ -17,7 +17,7 @@
 
   const COIN_COLORS = {
     USDT: '#26a17b', USDC: '#2775ca', ETH: '#627eea',
-    BTC: '#f7931a', SOL: '#9945ff', USD: '#ffcc33',
+    BTC: '#f7931a', SOL: '#9945ff', TRX: '#ff060a', USD: '#ffcc33',
   };
 
   let since = 0;

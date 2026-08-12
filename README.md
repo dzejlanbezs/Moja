@@ -208,11 +208,23 @@ as "Last race" on the Races page. The ladder lives in `RACE_PRIZES` in `server.j
 One BIP39 mnemonic gives each account its own address on every chain, derived with
 standard paths so any wallet can recover them:
 
-| Coin | Path | Address type |
-| --- | --- | --- |
-| ETH, USDT, USDC | `m/44'/60'/0'/0/<index>` | one Ethereum address for all three |
-| BTC | `m/84'/0'/0'/0/<index>` | native segwit (`bc1…`) |
-| SOL | `m/44'/501'/<index>'/0'` | Solana |
+| Chain | Path | Address type | Carries |
+| --- | --- | --- | --- |
+| Ethereum | `m/44'/60'/0'/0/<index>` | `0x…` | ETH, USDT and USDC as ERC-20 |
+| Bitcoin | `m/84'/0'/0'/0/<index>` | native segwit (`bc1…`) | BTC |
+| Solana | `m/44'/501'/<index>'/0'` | base58 | SOL, USDT and USDC as SPL |
+| Tron | `m/44'/195'/0'/0/<index>` | `T…` | TRX, USDT and USDC as TRC-20 |
+
+### USDT and USDC pick their network
+
+Both stablecoins are offered on **Ethereum (ERC-20), Solana (SPL) and Tron (TRC-20)**.
+The cashier shows a network row under the coins; picking a network swaps the address, the
+QR code and the warning line, because each network pays into the player's address on
+*that* chain. Coins that live on one chain only (ETH, BTC, SOL, TRX) show no network row.
+
+Nothing extra is needed to receive SPL tokens: the sender creates the associated token
+account, so the plain Solana address is all a player ever hands out. USDT and USDC credit
+1:1 whichever network they arrive on.
 
 Put the mnemonic in **`data/seed.txt`** (git-ignored) or the `DICEY_MNEMONIC` environment
 variable. Without it the cashier falls back to the manual "report your deposit" flow.
@@ -224,8 +236,10 @@ player sees an address and a QR code, sends, and the balance moves on its own. T
 form to fill in and nothing for an admin to approve.
 
 * ERC-20 transfers and plain ETH transfers are picked up from Ethereum logs and blocks
-* BTC and SOL addresses are polled for a rise in total received
-* USDT and USDC credit 1:1; ETH, BTC and SOL convert at the live Coinbase spot price
+* BTC, SOL and TRX addresses are polled for a rise in balance, and so are the SPL token
+  accounts on Solana and the TRC-20 balances on Tron
+* USDT and USDC credit 1:1 on every network; ETH, BTC, SOL and TRX convert at the live
+  Coinbase spot price
 * anything worth at least `DICEY_MIN_DEPOSIT_USD` (default $10) is credited automatically
   once it has `DICEY_CONFIRMATIONS` (default 3) confirmations; smaller dust is logged as
   pending so you can decide what to do with it
@@ -254,12 +268,17 @@ credited within a poll cycle (20 seconds by default), so in practice just sweep 
 | `DICEY_RPC_URL` | `https://ethereum-rpc.publicnode.com` | Ethereum JSON-RPC endpoint |
 | `DICEY_SOL_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana JSON-RPC endpoint |
 | `DICEY_BTC_API_URL` | `https://blockstream.info/api` | Bitcoin address API |
+| `DICEY_TRON_API_URL` | `https://api.trongrid.io` | Tron account API |
+| `DICEY_TRON_API_KEY` | none | TronGrid API key; without one TronGrid allows one account lookup per second |
 | `DICEY_CONFIRMATIONS` | `3` | confirmations before crediting |
 | `DICEY_MIN_DEPOSIT_USD` | `10` | smallest deposit that credits by itself |
 | `DICEY_ETH_USD` | live price | fixed ETH price instead of the feed |
-| `DICEY_WATCH_ETH` / `_BTC` / `_SOL` | `1` | set any to `0` to stop watching that chain |
+| `DICEY_WATCH_ETH` / `_BTC` / `_SOL` / `_TRON` | `1` | set any to `0` to stop watching that chain |
 | `DICEY_POLL_MS` | `20000` | how often to poll |
-| `DICEY_RECONCILE_BATCH` | `6` | addresses checked per sweep |
+| `DICEY_RECONCILE_BATCH` | `6` | Ethereum addresses checked per sweep |
+| `DICEY_SOL_BATCH` | `8` | Solana addresses checked per poll |
+| `DICEY_TRON_BATCH` | `5` | Tron addresses checked per poll |
+| `DICEY_TRON_GAP_MS` | `1200` | pause between Tron lookups, to stay inside the rate limit |
 
 ### The server never touches the money
 
@@ -279,6 +298,12 @@ exposed, move the funds and start from a fresh phrase.
 A withdrawal request deducts the balance immediately and waits as `Pending`. You send the
 coin yourself from your wallet, then hit **Confirm** — rejecting refunds the player
 automatically. The site never has the ability to pay anyone out on its own.
+
+The player picks a network for USDT and USDC here too, and the request is refused unless
+the address really belongs to that chain: checksums are verified, so a Tron address typed
+into an ERC-20 withdrawal, or a single mistyped character, is caught before you ever see
+it. The network is shown next to every request in the admin panel so you know which wallet
+to pay from.
 
 ## Admin dashboard
 
@@ -305,7 +330,7 @@ means the built-in artwork stays — nothing to configure and nothing breaks.
 | `banners/` | `race`, `vip` | background of the two lobby banners |
 | `games/` | `blackholes`, `blackjack`, `coinflip`, `dice`, `digdig`, `keno`, `limbo`, `mines`, `plinko`, `wheel` | game tile backgrounds, and the thumbnail wherever that game appears in a feed |
 | `sports/` | `logo` | thumbnail for sportsbook bets in the feeds |
-| `coins/` | `usdt`, `usdc`, `eth`, `btc`, `sol` | currency icons in the cashier, deposit and withdraw |
+| `coins/` | `usdt`, `usdc`, `eth`, `btc`, `sol`, `trx` | currency icons in the cashier, deposit and withdraw |
 | `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
 
 `.jpg .jpeg .png .webp .avif` all work and names are matched loosely, so
@@ -354,7 +379,7 @@ This is a working demo, not a hardened casino. At minimum you would need to:
 ```
 index.html                 page shell (sidebar, topbar, pages, modals)
 server.js                  accounts, wallet, rewards, admin API + static file server
-chain.js                   read-only deposit watching for Ethereum, Bitcoin and Solana
+chain.js                   read-only deposit watching for Ethereum, Bitcoin, Solana and Tron
 hd.js                      BIP39/BIP32 address derivation (keccak, bech32, base58)
 sports.js                  bet365 prematch feed: fetch, cache and flatten markets
 data/seed.txt              your mnemonic, git-ignored
