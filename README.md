@@ -111,15 +111,31 @@ Prematch fixtures and odds come live from the bet365 feed via
 or the `DICEY_B365_TOKEN` environment variable; without it the Sports page says so plainly
 instead of showing filler.
 
-* 28 sports, `sport_id`s as published by the provider
+* 28 sports, `sport_id`s as published by the provider, each with its own icon
 * `/v1/bet365/upcoming` gives the fixture list, `/v4/bet365/prematch` the markets
+* **team crests** come from `/v1/event/view`, which returns both sides' `image_id` in a
+  single request — note that `/v1/team/info` will not accept the team ids found in the
+  bet365 payload, only the provider's own ids. Crests are validated once (the feed serves a
+  43-byte placeholder when a club has no badge), remembered on disk in `data/teams.json`
+  keyed by team name, and served through `/api/sports/logo` so the browser only ever talks
+  to us. Anything missing or broken falls back to the initial in a coloured circle
+* prices refresh every 30 seconds and flash green with an up arrow or red with a down
+  arrow as they move
 * `sports.js` flattens bet365's nested payload (`main`, `goals`, `half`, `asian_lines`,
   `others`, per-period groups, plus the reduced `schedule` shape) into plain markets with
   readable selections — "Feyenoord (W) -1.0" rather than `header: 1, handicap: -1.0`
 * markets that pack Spread / Money Line / Total together are split apart, duplicates
   across groups are dropped, and simulated leagues (e-soccer and friends) sort last
-* everything is cached — fixtures 90s, odds 45s — and only the first dozen fixtures on a
-  page get their headline market fetched, which keeps the request count sane
+* the fixture list paints straight away and prices stream in behind it: `FI` accepts ten
+  events per request, so twenty rows cost two calls instead of twenty, and crests resolve
+  in the background. Fixtures cache for 90s and odds for 25s
+
+### Finding a match
+
+The search box above the list scans the first few pages of the chosen sport by team or
+league name. Clicking the `+N` button on a row opens a page for that match alone, with
+both crests, a breadcrumb, a market search box, Main / All markets chips, and Over-Under
+markets laid out as labelled rows.
 
 ### Betting
 
@@ -139,8 +155,8 @@ they feed VIP progress, rakeback and the weekly race.
 | --- | --- | --- |
 | `DICEY_B365_TOKEN` | `data/b365-token.txt` | feed token |
 | `DICEY_SPORTS_LIST_TTL` | `90000` | fixture cache, ms |
-| `DICEY_SPORTS_ODDS_TTL` | `45000` | odds cache, ms |
-| `DICEY_SPORTS_ODDS_PER_PAGE` | `12` | fixtures per page that get headline odds |
+| `DICEY_SPORTS_ODDS_TTL` | `25000` | odds cache, ms |
+| `DICEY_SPORTS_ODDS_PER_PAGE` | `20` | fixtures per page that get headline odds |
 
 In-play is not wired up yet — this is the prematch feed only.
 
