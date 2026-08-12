@@ -130,6 +130,23 @@ instead of showing filler.
   events per request, so twenty rows cost two calls instead of twenty, and crests resolve
   in the background. Fixtures cache for 90s and odds for 25s
 
+### Promo banners
+
+Three banners sit above the sport tabs: the 100% sports bonus, "Sportsbook is live now"
+and the XP boost. Clicking them opens the cashier, jumps to the fixtures, or goes to the
+VIP page.
+
+Each one draws itself from CSS, so the strip looks finished out of the box. To use your own
+artwork, drop these files into `assets/img/promo/` (1024×576 works well):
+
+```
+sports-bonus.jpg      sportsbook-live.jpg      level-up.jpg
+```
+
+A banner switches to the image as soon as it loads and hides its own overlay text, since
+finished artwork already carries the wording. Names and copy live in the `PROMOS` list at
+the top of `assets/js/sports.js`.
+
 ### Finding a match
 
 The search box above the list scans the first few pages of the chosen sport by team or
