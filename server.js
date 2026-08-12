@@ -470,6 +470,41 @@ function serveStatic(req, res, urlPath) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/* ------------------------------------------------------------------ swappable art */
+
+const ART_FOLDERS = ['banners', 'games', 'sports', 'promo'];
+const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
+// friendlier names people are likely to save files under
+const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportsbonus: 'sports-bonus', sportslogo: 'logo' };
+
+const artKey = (name) => {
+  const base = name.replace(ART_EXT, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return ART_ALIASES[base] || base;
+};
+
+let artCache = { at: 0, value: null };
+
+/**
+ * Lists the images the operator has dropped into assets/img/*, so the browser
+ * knows exactly what exists and never has to guess at filenames.
+ */
+function artManifest() {
+  if (artCache.value && Date.now() - artCache.at < 10000) return artCache.value;
+
+  const manifest = {};
+  ART_FOLDERS.forEach((folder) => {
+    manifest[folder] = {};
+    let names = [];
+    try { names = fs.readdirSync(path.join(ROOT, 'assets', 'img', folder)); } catch (err) { names = []; }
+    names.filter((name) => ART_EXT.test(name)).forEach((name) => {
+      manifest[folder][artKey(name)] = 'assets/img/' + folder + '/' + encodeURIComponent(name);
+    });
+  });
+
+  artCache = { at: Date.now(), value: manifest };
+  return manifest;
+}
+
 function userAggregates(user) {
   const rounds = db.rounds.filter((r) => r.userId === user.id);
   const txs = db.transactions.filter((t) => t.userId === user.id);
@@ -671,6 +706,8 @@ const ROUTES = {
     });
   },
 
+  'GET /api/art': (ctx) => sendJson(ctx.res, 200, { art: artManifest() }),
+
   /* ---- rewards ---- */
   'GET /api/rewards': (ctx) => {
     const user = ctx.requireUser();
@@ -761,7 +798,18 @@ const ROUTES = {
       return sendJson(ctx.res, 200, { tab: tab, race: board, endsAt: db.meta.raceStart + 7 * DAY });
     }
 
-    let rounds = db.rounds.slice();
+    // sportsbook stakes belong in the feed too, marked so the UI can show the sports badge
+    const sportsRows = db.sportsBets.map((bet) => ({
+      userId: bet.userId,
+      gameId: 'sports',
+      game: (bet.picks[0] && bet.picks[0].sport) || 'Sports',
+      bet: bet.stake,
+      payout: bet.status === 'won' ? (bet.paid || bet.potential) : 0,
+      multiplier: bet.odds,
+      ts: bet.ts,
+    }));
+
+    let rounds = db.rounds.concat(sportsRows);
     if (tab === 'mine') {
       const user = ctx.requireUser();
       if (!user) return;
@@ -770,7 +818,7 @@ const ROUTES = {
 
     if (tab === 'high') rounds.sort((a, b) => b.bet - a.bet);
     else if (tab === 'lucky') rounds = rounds.filter((r) => r.payout > r.bet).sort((a, b) => b.multiplier - a.multiplier);
-    else rounds.reverse();
+    else rounds.sort((a, b) => b.ts - a.ts);
 
     const emails = {};
     db.users.forEach((u) => { emails[u.id] = maskEmail(u.email); });

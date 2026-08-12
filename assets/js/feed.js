@@ -33,11 +33,8 @@
 
   const coin = () => '<span class="feed-coin">$</span>';
 
-  function thumb(gameId) {
-    const game = D.games[gameId];
-    if (!game) return '<span class="feed-thumb" style="background:var(--surface-3)">?</span>';
-    return '<span class="feed-thumb" style="background:' + game.accent + '">' + esc(game.name.slice(0, 1)) + '</span>';
-  }
+  // the thumbnail shows the game that was played, or the gold sports mark
+  const thumb = (gameId, gameName) => D.thumbHtml(gameId, gameName).replace('win-thumb', 'win-thumb feed-thumb');
 
   function avatar(user) {
     const hidden = user === 'Hidden';
@@ -49,14 +46,16 @@
   function simulate(kind, count) {
     const ids = gameIds();
     const rows = [];
+    const SPORTS = ['Soccer', 'Tennis', 'Basketball', 'Ice Hockey'];
     for (let i = 0; i < count; i++) {
-      const gameId = ids[D.randInt(ids.length)];
+      const sports = D.rand() < 0.15;
+      const gameId = sports ? 'sports' : ids[D.randInt(ids.length)];
       const big = kind === 'high';
       const bet = D.round2(big ? 50 + D.rand() * 950 : 0.5 + D.rand() * 40);
       const mult = kind === 'lucky' ? D.round2(8 + D.rand() * 400) : D.round2(1.2 + D.rand() * 4);
       rows.push({
         user: NAMES[D.randInt(NAMES.length)],
-        game: D.games[gameId].name,
+        game: sports ? SPORTS[D.randInt(SPORTS.length)] : D.games[gameId].name,
         gameId: gameId,
         bet: bet,
         multiplier: mult,
@@ -103,13 +102,14 @@
       rows.map((r) =>
         '<tr>' +
           '<td><span class="cell-flex">' + avatar(r.user) + '<span>' + esc(r.user) + '</span></span></td>' +
-          '<td><span class="cell-flex">' + thumb(r.gameId) + '<span class="feed-game">' + esc(r.game) + '</span></span></td>' +
+          '<td><span class="cell-flex">' + thumb(r.gameId, r.game) + '<span class="feed-game">' + esc(r.game) + '</span></span></td>' +
           '<td class="muted">' + esc(ago(r.ts)) + '</td>' +
           '<td class="num">' + coin() + esc(D.fmt(r.bet)) + '</td>' +
           '<td class="num">' + esc((r.multiplier || 0).toFixed(2)) + '\u00d7</td>' +
           '<td class="num ' + (r.payout > r.bet ? 'green' : 'muted') + '">' + coin() + esc(D.fmt(r.payout)) + '</td>' +
         '</tr>'
       ).join('') + '</tbody>';
+    D.applyThumbArt(table);
   }
 
   function renderRace(rows) {

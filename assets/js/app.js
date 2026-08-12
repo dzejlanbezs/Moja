@@ -146,6 +146,11 @@
     );
   }
 
+  /** Swaps in operator artwork for the lobby tiles that have a file. */
+  function applyTileArt() {
+    D.$$('.tile', grid).forEach((tile) => D.Art.apply(tile, 'games', tile.dataset.game));
+  }
+
   function renderGrid() {
     const query = (D.$('#searchInput').value || '').trim().toLowerCase();
     let ids = GAME_IDS;
@@ -155,6 +160,7 @@
     else if (EMPTY_MESSAGES[filter]) ids = [];
 
     grid.innerHTML = ids.map(tileHtml).join('');
+    applyTileArt();
     const isEmpty = ids.length === 0;
     emptyState.hidden = !isEmpty;
     grid.hidden = isEmpty;
@@ -191,22 +197,54 @@
   const winsTrack = D.$('#winsTrack');
   let winsMode = 'live';
 
+  const esc = (value) => String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  const SPORTS_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.7"/>' +
+    '<path d="M12 7.4l3.3 2.4-1.3 3.9h-4L8.7 9.8 12 7.4Z" fill="currentColor"/>' +
+    '<path d="M12 2.9v4.5M4.3 10.1l4.4-.3M19.7 10.1l-4.4-.3M7.6 20.1l2.4-6.4M16.4 20.1L14 13.7" ' +
+    'fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+
+  /**
+   * The thumbnail shows what was bet on, not who bet: the game's own artwork
+   * when the operator supplied one, its built-in badge otherwise, and the gold
+   * sports mark for a sportsbook bet.
+   */
+  D.thumbHtml = (gameId, gameName) => {
+    if (gameId === 'sports') {
+      return '<span class="win-thumb sports" data-thumb="sports">' + SPORTS_ICON + '</span>';
+    }
+    const game = D.games[gameId] || { accent: 'var(--surface-3)', name: gameName || '?' };
+    return '<span class="win-thumb" data-thumb="' + esc(gameId) + '" style="background:' + game.accent + '">' +
+      '<b>' + esc(game.name.slice(0, 1)) + '</b></span>';
+  };
+
+  D.applyThumbArt = (root) => {
+    D.$$('[data-thumb]', root || document).forEach((el) => {
+      const id = el.dataset.thumb;
+      if (id === 'sports') D.Art.apply(el, 'sports', 'logo');
+      else D.Art.apply(el, 'games', id);
+    });
+  };
+
   function winCard(id, amount, user) {
-    const g = D.games[id] || { accent: 'var(--surface-3)', name: '?' };
+    const game = D.games[id] || { name: id === 'sports' ? 'Sports' : '?' };
     return (
       '<div class="win-card">' +
-        '<div class="win-thumb" style="background:' + g.accent + '">' + g.name.slice(0, 1) + '</div>' +
+        D.thumbHtml(id, game.name) +
         '<div class="win-meta">' +
           '<span class="win-amount">' + D.fmt(amount) + '</span>' +
-          '<span class="win-game">' + g.name + '</span>' +
-          '<span class="win-user">' + user + '</span>' +
+          '<span class="win-game">' + esc(game.name) + '</span>' +
+          '<span class="win-user">' + esc(user) + '</span>' +
         '</div>' +
       '</div>'
     );
   }
 
   function randomWin() {
-    const id = GAME_IDS[D.randInt(GAME_IDS.length)];
+    // sports bets show up in the feed too, with the gold sports mark
+    const id = D.rand() < 0.15 ? 'sports' : GAME_IDS[D.randInt(GAME_IDS.length)];
     const amount = D.round2(1 + D.rand() * (winsMode === 'lucky' ? 9000 : 400));
     return winCard(id, amount, USERS[D.randInt(USERS.length)]);
   }
@@ -214,6 +252,7 @@
   function seedWins() {
     winsTrack.innerHTML = '';
     for (let i = 0; i < 14; i++) winsTrack.insertAdjacentHTML('beforeend', randomWin());
+    D.applyThumbArt(winsTrack);
   }
 
   D.$$('.wins-tab').forEach((tab) => {
@@ -232,6 +271,7 @@
         const wins = (data.rows || []).filter((r) => r.payout > r.bet);
         if (!wins.length) return;
         winsTrack.innerHTML = wins.map((r) => winCard(r.gameId, r.payout, r.user)).join('');
+        D.applyThumbArt(winsTrack);
       })
       .catch(() => {});
   }
@@ -240,6 +280,7 @@
     if (document.hidden || !D.$('#page-casino').classList.contains('active')) return;
     if (D.Wallet.isServer()) { realWins(); return; }
     winsTrack.insertAdjacentHTML('afterbegin', randomWin());
+    D.applyThumbArt(winsTrack.firstElementChild);
     while (winsTrack.children.length > 16) winsTrack.lastElementChild.remove();
   }, 3200);
 
@@ -484,17 +525,17 @@
       return;
     }
     list.innerHTML = state.history.map((b) => {
-      const g = D.games[b.gameId] || { accent: 'var(--surface-3)', name: b.game };
       const profit = D.round2(b.payout - b.bet);
       return (
         '<div class="bet-row">' +
-          '<span class="bet-icon" style="background:' + g.accent + '">' + b.game.slice(0, 1) + '</span>' +
+          D.thumbHtml(b.gameId, b.game).replace('win-thumb', 'win-thumb bet-icon') +
           '<span><span class="bet-name">' + b.game + '</span><br><span class="bet-time">' + D.timeAgo(b.ts) + ' · ' + D.fmt(b.bet) + '</span></span>' +
           '<span class="bet-mult">' + (b.multiplier ? D.fmtMult(b.multiplier) : '0\u00d7') + '</span>' +
           '<span class="bet-amount ' + (profit >= 0 ? 'win' : 'loss') + '">' + (profit >= 0 ? '+' : '') + D.fmt(profit) + '</span>' +
         '</div>'
       );
     }).join('');
+    D.applyThumbArt(list);
   }
 
   D.Store.onChange((state) => {
@@ -511,6 +552,8 @@
   });
 
   /* ---------------- boot ---------------- */
+  D.Art.apply(D.$('#bannerRace'), 'banners', 'race');
+  D.Art.apply(D.$('#bannerVip'), 'banners', 'vip');
   seedWins();
   renderGrid();
 

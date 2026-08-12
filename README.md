@@ -288,6 +288,29 @@ Visible in the left rail only for admin accounts. It shows:
   transaction list and their last 60 rounds, a field to add or subtract balance with a
   note, and a block switch
 
+## Swapping the artwork
+
+Everything visual in the lobby can be replaced by dropping files into
+`assets/img/`. The server lists what is actually there, so a missing file simply
+means the built-in artwork stays — nothing to configure and nothing breaks.
+
+| Folder | File | Where it shows |
+| --- | --- | --- |
+| `banners/` | `race`, `vip` | background of the two lobby banners |
+| `games/` | `blackholes`, `blackjack`, `coinflip`, `dice`, `digdig`, `keno`, `limbo`, `mines`, `plinko`, `wheel` | game tile backgrounds, and the thumbnail wherever that game appears in a feed |
+| `sports/` | `logo` | thumbnail for sportsbook bets in the feeds |
+| `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
+
+`.jpg .jpeg .png .webp .avif` all work and names are matched loosely, so
+`black-holes.png`, `Dig Dig.webp` or `weekly-race.jpg` are all fine. Each folder
+has a README with sizes. Banners and tiles keep their text on top of your image;
+the sportsbook promos hide their text instead, since that artwork usually carries
+its own wording.
+
+The little square in the Live Wins strip and the bet feeds shows **what was bet
+on**, not who bet: the game's artwork when you supplied one, its built-in badge
+otherwise, and a gold sports mark for sportsbook bets.
+
 ## Games
 
 Clicking a lobby tile opens the game in a popup with its own bet panel.
@@ -332,7 +355,9 @@ data/b365-token.txt        your sportsbook token, git-ignored
 data/db.json               created at runtime, git-ignored
 assets/css/app.css         shell, auth, feed and admin styling
 assets/css/games.css       game modal + per-game styling
+assets/img/                swappable banner, tile, sports and promo artwork
 assets/js/core.js          RNG, formatting, wallet store, toasts
+assets/js/art.js           finds your artwork and falls back to the built-in art
 assets/js/api.js           backend client, mode detection, balance sync
 assets/js/game-modal.js    game registry, modal, shared bet-panel widgets
 assets/js/games/*.js       one file per game
