@@ -61,6 +61,88 @@
   };
   const sportIcon = (id) => '<svg class="sb-ico" viewBox="0 0 24 24">' + (ICONS[id] || BALL) + '</svg>';
 
+  /* ---------------- promo banners ---------------- */
+
+  // Drop the real artwork in assets/img/promo/ under these names and it takes
+  // over automatically; until then each banner draws itself.
+  const PROMOS = [
+    {
+      id: 'sports-bonus', theme: 'gold', art: 'assets/img/promo/sports-bonus.jpg',
+      badge: 'Brand New!', title: '100% Sports Bonus',
+      sub: 'Get 100% Sports Bonus on First Deposit!', action: 'deposit',
+    },
+    {
+      id: 'sportsbook-live', theme: 'purple', art: 'assets/img/promo/sportsbook-live.jpg',
+      badge: 'Sportbook!', title: 'Sportsbook is Live Now!',
+      sub: '28 sports, thousands of matches, prices that move live.', action: 'browse',
+    },
+    {
+      id: 'level-up', theme: 'sunset', art: 'assets/img/promo/level-up.jpg',
+      badge: 'Refreshed!', title: 'Boost Your Level Up!',
+      sub: 'Earn 3x more XP while playing sports!', action: 'vip',
+    },
+  ];
+
+  const promosEl = D.$('#sbPromos');
+
+  function renderPromos() {
+    promosEl.innerHTML = PROMOS.map((promo) =>
+      '<button class="sb-promo ' + promo.theme + '" data-promo="' + promo.id + '">' +
+        '<span class="sb-promo-art" aria-hidden="true">' + promoArt(promo.theme) + '</span>' +
+        '<span class="sb-promo-copy">' +
+          '<span class="sb-promo-badge">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6L18.5 9l-3.4 3.2.8 4.8L12 14.8 8.1 17l.8-4.8L5.5 9l4.6-1.4L12 3Z"/></svg>' +
+            esc(promo.badge) +
+          '</span>' +
+          '<b class="sb-promo-title">' + esc(promo.title) + '</b>' +
+          '<span class="sb-promo-sub">' + esc(promo.sub) + '</span>' +
+        '</span>' +
+      '</button>'
+    ).join('');
+
+    // swap in the real artwork the moment it is available
+    PROMOS.forEach((promo) => {
+      const probe = new Image();
+      probe.onload = () => {
+        const card = promosEl.querySelector('[data-promo="' + promo.id + '"]');
+        if (!card) return;
+        card.classList.add('has-art');
+        card.style.backgroundImage = 'url("' + promo.art + '")';
+      };
+      probe.src = promo.art;
+    });
+  }
+
+  /** Stand-in artwork so the strip looks finished before the real files land. */
+  function promoArt(theme) {
+    if (theme === 'gold') {
+      return '<i class="blob b1"></i><i class="blob b2"></i>' +
+        '<i class="wheel"></i><i class="chip c1"></i><i class="chip c2"></i>';
+    }
+    if (theme === 'purple') {
+      return '<i class="blob b1"></i><i class="cup"></i>' +
+        '<i class="ball s1"></i><i class="ball s2"></i><i class="ball s3"></i>';
+    }
+    return '<i class="blob b1"></i><i class="blob b2"></i>' +
+      '<i class="gem g1"></i><i class="gem g2"></i><i class="gem g3"></i>';
+  }
+
+  promosEl.addEventListener('click', (e) => {
+    const card = e.target.closest('[data-promo]');
+    if (!card) return;
+    const promo = PROMOS.filter((p) => p.id === card.dataset.promo)[0];
+    if (!promo) return;
+
+    if (promo.action === 'deposit') {
+      if (D.openCashier) D.openCashier('deposit');
+    } else if (promo.action === 'vip') {
+      D.navigate('vip');
+    } else if (searchEl) {
+      sportsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      searchEl.focus();
+    }
+  });
+
   /* ---------------- state ---------------- */
 
   const state = {
@@ -882,6 +964,7 @@
   function start() {
     if (started) return;
     started = true;
+    renderPromos();
     D.Api.request('GET', '/api/sports/catalog')
       .then((data) => {
         if (!data.enabled) {

@@ -8,6 +8,87 @@
 /* the slip is a fixed rail, so the sportsbook pages leave room for it */
 body.sports-mode .main { padding-right: 372px; }
 
+/* ---------------- promo strip ---------------- */
+
+.sb-promos {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sb-promo {
+  position: relative; overflow: hidden;
+  aspect-ratio: 16 / 8.2;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  padding: 18px 20px;
+  display: flex; align-items: flex-start;
+  text-align: left;
+  background-size: cover; background-position: center;
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease), border-color .2s;
+}
+.sb-promo:hover { transform: translateY(-3px); border-color: var(--line-strong); box-shadow: 0 16px 34px rgba(0, 0, 0, .45); }
+.sb-promo::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, .28) 52%, transparent 78%);
+}
+.sb-promo.has-art .sb-promo-art,
+.sb-promo.has-art .sb-promo-copy,
+.sb-promo.has-art::after { display: none; }   /* the real artwork already carries the words */
+
+.sb-promo.gold { background-color: #1a1206; background-image: radial-gradient(120% 130% at 85% 20%, #6b4a10, transparent 62%), linear-gradient(120deg, #241a08, #0c0803); }
+.sb-promo.purple { background-color: #2b1a72; background-image: radial-gradient(120% 130% at 80% 25%, #5b34c9, transparent 60%), linear-gradient(120deg, #38209b, #1b0f52); }
+.sb-promo.sunset { background-color: #7a2350; background-image: radial-gradient(110% 130% at 78% 30%, #ff9f45, transparent 58%), linear-gradient(120deg, #b03266, #4b1350); }
+
+.sb-promo-copy { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 7px; max-width: 74%; }
+.sb-promo-badge {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  background: #fff; color: #14161c;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .2px;
+  padding: 5px 10px; border-radius: 8px;
+}
+.sb-promo-badge svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+.sb-promo-title {
+  font-family: Rajdhani, Inter, sans-serif;
+  font-size: clamp(20px, 2.1vw, 30px); font-weight: 700; line-height: .98;
+  letter-spacing: -.2px; text-transform: uppercase; color: #fff;
+  text-shadow: 0 3px 16px rgba(0, 0, 0, .5);
+}
+.sb-promo.purple .sb-promo-title { color: #d8ff4d; }
+.sb-promo-sub { font-size: 11.5px; font-weight: 600; color: rgba(255, 255, 255, .82); line-height: 1.35; }
+
+/* stand-in artwork */
+.sb-promo-art { position: absolute; inset: 0; z-index: 1; }
+.sb-promo-art i { position: absolute; display: block; }
+.sb-promo-art .blob { border-radius: 50%; filter: blur(14px); opacity: .55; }
+.sb-promo.gold .blob.b1 { width: 130px; height: 130px; right: -22px; top: -26px; background: #ffcf59; }
+.sb-promo.gold .blob.b2 { width: 90px; height: 90px; right: 88px; bottom: -30px; background: #a3690b; }
+.sb-promo.gold .wheel {
+  width: 116px; height: 116px; right: 6px; bottom: -34px; border-radius: 50%;
+  background: conic-gradient(#f3c35a 0 12%, #2a1c06 12% 25%, #7b5bd6 25% 37%, #f3c35a 37% 50%, #2a1c06 50% 62%, #f3c35a 62% 75%, #7b5bd6 75% 87%, #2a1c06 87% 100%);
+  box-shadow: inset 0 0 0 7px rgba(243, 195, 90, .85), 0 0 26px rgba(255, 205, 90, .35);
+}
+.sb-promo.gold .chip { width: 26px; height: 26px; border-radius: 6px; background: linear-gradient(150deg, #ffe89b, #b8860b); transform: rotate(18deg); box-shadow: 0 4px 12px rgba(0, 0, 0, .5); }
+.sb-promo.gold .chip.c1 { right: 128px; top: 18px; }
+.sb-promo.gold .chip.c2 { right: 96px; top: 54px; transform: rotate(-14deg); }
+
+.sb-promo.purple .blob.b1 { width: 140px; height: 140px; right: -14px; top: -18px; background: #8b5cff; }
+.sb-promo.purple .cup {
+  width: 74px; height: 84px; right: 34px; bottom: -6px;
+  background: linear-gradient(160deg, #ffe08a, #c98b16);
+  clip-path: polygon(22% 0, 78% 0, 72% 52%, 60% 70%, 60% 84%, 78% 100%, 22% 100%, 40% 84%, 40% 70%, 28% 52%);
+}
+.sb-promo.purple .ball { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0, 0, 0, .4); }
+.sb-promo.purple .ball.s1 { right: 14px; top: 16px; background: radial-gradient(circle at 34% 30%, #ffb968, #d2691e); }
+.sb-promo.purple .ball.s2 { right: 52px; top: 42px; background: radial-gradient(circle at 34% 30%, #fff, #cfd6e2); }
+.sb-promo.purple .ball.s3 { right: 108px; top: 12px; background: radial-gradient(circle at 34% 30%, #d9ff6b, #7cb518); }
+
+.sb-promo.sunset .blob.b1 { width: 130px; height: 130px; right: 4px; top: -34px; background: #ffd166; }
+.sb-promo.sunset .blob.b2 { width: 96px; height: 96px; right: 84px; bottom: -34px; background: #ff5d8f; }
+.sb-promo.sunset .gem { width: 26px; height: 26px; transform: rotate(45deg); border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, .45); }
+.sb-promo.sunset .gem.g1 { right: 26px; bottom: 20px; background: linear-gradient(160deg, #ff5f6d, #b30021); }
+.sb-promo.sunset .gem.g2 { right: 68px; bottom: 44px; background: linear-gradient(160deg, #6be3ff, #0077b6); width: 20px; height: 20px; }
+.sb-promo.sunset .gem.g3 { right: 54px; bottom: 8px; background: linear-gradient(160deg, #b6ff7a, #2d9e00); width: 18px; height: 18px; }
+
 .sb-sports {
   display: flex; gap: 6px; overflow-x: auto; padding: 4px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
@@ -410,6 +491,18 @@ body.sports-mode .main { padding-right: 372px; }
   .sb-odds { grid-area: odds; justify-content: stretch; }
   .sb-expand { position: absolute; right: 14px; top: 52px; }
   .sb-event { position: relative; }
+}
+
+@media (max-width: 900px) {
+  /* the strip becomes a swipeable carousel rather than shrinking to nothing */
+  .sb-promos {
+    display: flex; grid-template-columns: none;
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    margin: 0 -14px 16px; padding: 0 14px 4px;
+    scrollbar-width: none;
+  }
+  .sb-promos::-webkit-scrollbar { height: 0; }
+  .sb-promo { flex: 0 0 84%; scroll-snap-align: center; }
 }
 
 @media (max-width: 620px) {
