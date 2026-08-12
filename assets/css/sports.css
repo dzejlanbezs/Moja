@@ -137,6 +137,7 @@
   background: var(--surface); border: 1px solid var(--line);
 }
 .slip-gear svg { width: 15px; height: 15px; }
+.slip-gear.on { color: var(--green); border-color: rgba(0, 230, 118, .35); background: var(--green-soft); }
 
 .slip-picks { display: flex; flex-direction: column; gap: 10px; }
 .slip-pick {
@@ -244,6 +245,8 @@
 .bet-status.won { background: rgba(0, 230, 118, .14); color: var(--green); }
 .bet-status.lost { background: rgba(255, 71, 87, .12); color: var(--red); }
 .bet-status.void { background: rgba(255, 204, 51, .12); color: var(--gold); }
+.bet-status.freebet { background: rgba(255, 204, 51, .16); color: var(--gold); }
+.bet-card-tags { display: inline-flex; gap: 6px; align-items: center; }
 
 .bet-card-type { display: flex; align-items: baseline; justify-content: space-between; }
 .bet-card-type b { font-size: 17px; font-weight: 800; }

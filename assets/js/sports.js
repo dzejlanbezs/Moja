@@ -36,6 +36,8 @@
     bets: [],
     betFilter: 'pending',
     loading: false,
+    useFreeBet: false,
+    acceptChanges: true,
   };
 
   const money = (n) => D.fmt(n);
@@ -232,10 +234,23 @@
     return state.picks.some((p) => (seen[p.fi] ? true : (seen[p.fi] = true) && false));
   };
 
+  const freeBet = () => {
+    const fb = D.Api.user && D.Api.user.freeBet;
+    return fb && !fb.used ? fb : null;
+  };
+
+  /** Free bets always stake their full amount, whatever is typed in the box. */
+  function stakeFor(pick) {
+    const fb = freeBet();
+    if (state.useFreeBet && fb && state.picks.length === 1) return fb.amount;
+    const value = state.stakes[pick.selectionId];
+    return Number(value == null ? 10 : value) || 0;
+  }
+
   function singleTotals() {
     let bet = 0, win = 0;
     state.picks.forEach((p) => {
-      const stake = Number(state.stakes[p.selectionId]) || 0;
+      const stake = stakeFor(p);
       bet += stake;
       win += stake * p.odds;
     });
@@ -250,22 +265,26 @@
     return singleTotals();
   }
 
-  const freeBet = () => {
-    const fb = D.Api.user && D.Api.user.freeBet;
-    return fb && !fb.used ? fb : null;
+  const freeBetUsable = () => {
+    const fb = freeBet();
+    return !!(fb && state.picks.length === 1 && state.mode === 'single' &&
+      state.picks[0].odds >= fb.minOdds && state.picks[0].odds <= fb.maxOdds);
   };
 
-  function pickCard(pick, index) {
-    const stake = state.stakes[pick.selectionId] == null ? 10 : state.stakes[pick.selectionId];
+  function pickCard(pick) {
+    const locked = state.useFreeBet && freeBetUsable();
+    const stake = stakeFor(pick);
     const stakeBox = state.mode === 'single'
       ? '<div class="slip-stake">' +
           '<span class="slip-stake-sign">$</span>' +
-          '<input class="slip-stake-input" type="number" min="0" step="0.01" value="' + stake + '" data-stake="' + esc(pick.selectionId) + '">' +
+          '<input class="slip-stake-input" type="number" min="0" step="0.01" value="' + stake + '"' +
+            ' data-stake="' + esc(pick.selectionId) + '"' + (locked ? ' disabled' : '') + '>' +
           '<div class="slip-chips">' +
-            [10, 20, 100].map((v) => '<button class="slip-chip" data-chip="' + v + '" data-for="' + esc(pick.selectionId) + '">$' + v + '</button>').join('') +
+            [10, 20, 100].map((v) => '<button class="slip-chip" data-chip="' + v + '" data-for="' +
+              esc(pick.selectionId) + '"' + (locked ? ' disabled' : '') + '>$' + v + '</button>').join('') +
           '</div>' +
         '</div>' +
-        '<div class="slip-towin">To win: <b>' + money(D.round2((Number(stake) || 0) * pick.odds)) + '</b></div>'
+        '<div class="slip-towin">To win: <b>' + money(D.round2(stake * pick.odds)) + '</b></div>'
       : '';
 
     return '<div class="slip-pick">' +
@@ -304,17 +323,20 @@
       return;
     }
 
-    const sums = totals();
     const fb = freeBet();
+    const canFreeBet = freeBetUsable();
+    if (!canFreeBet) state.useFreeBet = false;
+    const sums = totals();
     const clash = state.mode === 'combo' && sameEventClash();
-    const canFreeBet = fb && state.picks.length === 1 && state.picks[0].odds >= fb.minOdds && state.picks[0].odds <= fb.maxOdds;
 
     bodyEl.innerHTML =
       '<div class="slip-mode">' +
         '<button class="slip-mode-btn' + (state.mode === 'single' ? ' active' : '') + '" data-mode="single">Single</button>' +
         '<button class="slip-mode-btn' + (state.mode === 'combo' ? ' active' : '') + '" data-mode="combo"' +
           (state.picks.length < 2 ? ' disabled' : '') + '>Combo</button>' +
-        '<button class="slip-gear" title="Slip settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/>' +
+        '<button class="slip-gear' + (state.acceptChanges ? ' on' : '') + '" data-gear="1"' +
+          ' title="' + (state.acceptChanges ? 'Accepting odds changes' : 'Rejecting odds changes') + '">' +
+          '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/>' +
           '<path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4"/></svg></button>' +
       '</div>' +
 
@@ -336,7 +358,7 @@
       (clash ? '<div class="slip-warn">Two picks from the same match cannot be combined.</div>' : '') +
 
       (canFreeBet
-        ? '<label class="slip-freebet"><input type="checkbox" id="slipFreeBet">' +
+        ? '<label class="slip-freebet"><input type="checkbox" id="slipFreeBet"' + (state.useFreeBet ? ' checked' : '') + '>' +
             '<span>Use free bet <b>' + money(fb.amount) + '</b></span></label>'
         : (fb ? '<div class="slip-note">Free bet ' + money(fb.amount) + ' needs a single at odds ' +
             price(fb.minOdds) + '–' + price(fb.maxOdds) + '.</div>' : '')) +
@@ -353,22 +375,9 @@
 
     const check = D.$('#slipFreeBet');
     if (check) check.addEventListener('change', () => {
-      const on = check.checked;
-      D.$$('.slip-stake-input').forEach((i) => { i.disabled = on; });
-      if (on) {
-        state.stakes[state.picks[0].selectionId] = fb.amount;
-        renderSlipKeepFree(true);
-      } else renderSlip();
+      state.useFreeBet = check.checked;
+      renderSlip();
     });
-  }
-
-  function renderSlipKeepFree(checked) {
-    renderSlip();
-    const check = D.$('#slipFreeBet');
-    if (check) {
-      check.checked = checked;
-      D.$$('.slip-stake-input').forEach((i) => { i.disabled = checked; });
-    }
   }
 
   function renderPlaced() {
@@ -393,9 +402,12 @@
           '<circle cx="11" cy="11" r="2.6" fill="#04150c"/><circle cx="21" cy="11" r="2.6" fill="#04150c"/>' +
           '<circle cx="11" cy="21" r="2.6" fill="#04150c"/><circle cx="21" cy="21" r="2.6" fill="#04150c"/></svg>' +
           'dicey</span>' +
-        (placed
-          ? '<span class="bet-status placed"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Placed</span>'
-          : '<span class="bet-status ' + statusClass + '">' + esc(bet.status.charAt(0).toUpperCase() + bet.status.slice(1)) + '</span>') +
+        '<span class="bet-card-tags">' +
+          (bet.freeBet ? '<span class="bet-status freebet">Free bet</span>' : '') +
+          (placed
+            ? '<span class="bet-status placed"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Placed</span>'
+            : '<span class="bet-status ' + statusClass + '">' + esc(bet.status.charAt(0).toUpperCase() + bet.status.slice(1)) + '</span>') +
+        '</span>' +
       '</div>' +
 
       '<div class="bet-card-type"><b>' + (bet.type === 'combo' ? bet.picks.length + '-pick Combo' : 'Single') + '</b>' +
@@ -461,6 +473,13 @@
   bodyEl.addEventListener('click', (e) => {
     const mode = e.target.closest('[data-mode]');
     if (mode && !mode.disabled) { state.mode = mode.dataset.mode; renderSlip(); return; }
+
+    if (e.target.closest('[data-gear]')) {
+      state.acceptChanges = !state.acceptChanges;
+      D.toast(state.acceptChanges ? 'Odds changes will be accepted' : 'Bets will be rejected if odds move', 'info');
+      renderSlip();
+      return;
+    }
 
     const remove = e.target.closest('[data-remove]');
     if (remove) {
@@ -558,34 +577,49 @@
       return;
     }
 
-    const useFree = !!(D.$('#slipFreeBet') && D.$('#slipFreeBet').checked);
+    const useFree = state.useFreeBet && freeBetUsable();
     const button = D.$('#slipSubmit');
     if (button) { button.disabled = true; button.textContent = 'Placing…'; }
 
     const groups = state.mode === 'combo'
       ? [{ picks: state.picks, stake: Number(state.comboStake) || 0 }]
-      : state.picks.map((p) => ({ picks: [p], stake: Number(state.stakes[p.selectionId]) || 0 }));
+      : state.picks.map((p) => ({ picks: [p], stake: stakeFor(p) }));
+
+    const send = (group) => D.Api.request('POST', '/api/sports/bet', {
+      stake: group.stake,
+      freeBet: useFree,
+      picks: group.picks.map((p) => ({
+        fi: p.fi, selectionId: p.selectionId, odds: p.odds, market: p.market, label: p.label,
+        home: p.home, away: p.away, league: p.league, sportId: p.sportId, sport: p.sport, time: p.time,
+      })),
+    });
 
     try {
       let last = null;
       for (const group of groups) {
         if (!useFree && !(group.stake > 0)) throw new Error('Enter a stake for every pick');
-        const data = await D.Api.request('POST', '/api/sports/bet', {
-          stake: group.stake,
-          freeBet: useFree,
-          picks: group.picks.map((p) => ({
-            fi: p.fi, selectionId: p.selectionId, odds: p.odds, market: p.market, label: p.label,
-            home: p.home, away: p.away, league: p.league, sportId: p.sportId, sport: p.sport, time: p.time,
-          })),
-        });
+        let data;
+        try {
+          data = await send(group);
+        } catch (err) {
+          // prices on fast markets move constantly; take the new one and retry once
+          const moved = err.data && err.data.odds && err.status === 409;
+          if (!moved || !state.acceptChanges) throw err;
+          const pick = group.picks.filter((p) => p.selectionId === String(err.data.selectionId))[0];
+          if (pick) pick.odds = err.data.odds;
+          D.toast('Odds moved to ' + price(err.data.odds) + ', placing at the new price', 'info');
+          data = await send(group);
+        }
         last = data.bet;
         D.Store.hydrate({ balance: data.balance });
         if (D.Api.user) D.Api.user.freeBet = data.freeBet;
+        if (D.Deposits) D.Deposits.applyFreeBet(data.freeBet);
       }
 
       state.placed = last;
       state.picks = [];
       state.mode = 'single';
+      state.useFreeBet = false;
       D.toast('Bet placed · to win ' + money(last.potential), 'win');
       renderEvents();
       renderSlip();

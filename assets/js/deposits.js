@@ -119,5 +119,5 @@
     applyFreeBet(null);
   }
 
-  D.Deposits = { start: start, stop: stop, poll: poll, openFreeBet: openFreeBet };
+  D.Deposits = { start: start, stop: stop, poll: poll, openFreeBet: openFreeBet, applyFreeBet: applyFreeBet };
 })(window.Dicey);
