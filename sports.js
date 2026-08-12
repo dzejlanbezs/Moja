@@ -438,31 +438,44 @@ async function usableImage(imageId) {
   }
 }
 
-// served through our own host so the browser never needs the upstream CDN
-const logoFor = (sportId, name) => {
+// served through our own host so the browser never needs the upstream CDN.
+// size 's' is the small crest used in lists, 'b' the larger one for match pages.
+const logoFor = (sportId, name, size) => {
   const image = teamImages[teamKey(sportId, name)];
-  return image ? '/api/sports/logo?id=' + image : '';
+  if (!image) return '';
+  return '/api/sports/logo?id=' + image + (size === 'b' ? '&size=b' : '');
 };
+
+/** The crest that belongs to a selection: the team it names, or the home side. */
+function logoForPick(sportId, home, away, label) {
+  const text = String(label || '').toLowerCase();
+  const matches = (name) => name && text.indexOf(String(name).toLowerCase()) === 0;
+  if (matches(away)) return logoFor(sportId, away);
+  if (matches(home)) return logoFor(sportId, home);
+  return logoFor(sportId, home);
+}
 
 /* ---- crest proxy ---- */
 
 const logoBytes = new Map();
 
 /** Fetches a crest once and keeps the bytes around to serve again. */
-async function logoImage(imageId) {
+async function logoImage(imageId, size) {
   const id = String(imageId).replace(/[^0-9]/g, '');
   if (!id) return null;
-  if (logoBytes.has(id)) return logoBytes.get(id);
+  const variant = size === 'b' ? 'b' : 's';
+  const cacheKey = variant + ':' + id;
+  if (logoBytes.has(cacheKey)) return logoBytes.get(cacheKey);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(IMAGE_BASE + id + '.png', { signal: controller.signal });
+    const res = await fetch(IMAGE_BASE.replace('/s/', '/' + variant + '/') + id + '.png', { signal: controller.signal });
     if (!res.ok) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
     if (buffer.length < 200) return null;
-    if (logoBytes.size > 600) logoBytes.clear();
-    logoBytes.set(id, buffer);
+    if (logoBytes.size > 800) logoBytes.clear();
+    logoBytes.set(cacheKey, buffer);
     return buffer;
   } catch (err) {
     return null;
@@ -527,6 +540,8 @@ async function eventDetail(fi, hint) {
     sport: (SPORT_BY_ID[event.sportId] || {}).name || 'Sport',
     homeLogo: logoFor(event.sportId, event.home),
     awayLogo: logoFor(event.sportId, event.away),
+    homeLogoBig: logoFor(event.sportId, event.home, 'b'),
+    awayLogoBig: logoFor(event.sportId, event.away, 'b'),
     markets: normaliseMarkets(result, event),
   });
 }
@@ -613,6 +628,8 @@ module.exports = {
   attachLogos: attachLogos,
   resolveLogos: resolveLogos,
   logoImage: logoImage,
+  logoFor: logoFor,
+  logoForPick: logoForPick,
   search: search,
   verifySelection: verifySelection,
 };

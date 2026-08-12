@@ -10,10 +10,10 @@
 (function (D) {
   'use strict';
 
-  const FOLDERS = ['banners', 'games', 'sports', 'promo'];
+  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins'];
   const EXTENSIONS = ['jpg', 'png', 'webp'];
 
-  const manifest = { banners: {}, games: {}, sports: {}, promo: {} };
+  const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {} };
   const probes = {};
   let ready = null;
   let listed = false;   // true once the server has told us what exists

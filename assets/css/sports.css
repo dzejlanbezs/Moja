@@ -151,9 +151,9 @@ body.sports-mode .main { padding-right: 372px; }
   font-size: 10.5px; font-weight: 800; color: #04150c;
   background: linear-gradient(140deg, #79f2b4, #14a75f);
 }
-/* crests come with transparency and are often light, so give them a pale chip */
-.sb-badge.has-logo { background: #eef2fa; border: 1px solid rgba(255, 255, 255, .12); }
-.sb-badge img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 1px; }
+/* crests are transparent, so they keep the same green chip as the letter badges */
+.sb-badge.has-logo { border: 1px solid rgba(255, 255, 255, .1); }
+.sb-badge img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 2px; }
 .sb-badge.big { width: 54px; height: 54px; font-size: 20px; }
 .sb-when { font-size: 11.5px; color: var(--text-3); white-space: nowrap; font-weight: 600; }
 

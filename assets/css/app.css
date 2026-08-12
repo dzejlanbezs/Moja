@@ -661,7 +661,15 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 }
 .coin:hover { border-color: var(--line-strong); }
 .coin.active { border-color: rgba(0, 230, 118, .45); background: var(--green-soft); }
-.coin-ico { width: 22px; height: 22px; border-radius: 99px; display: grid; place-items: center; font-size: 10px; font-weight: 900; color: #fff; }
+.coin-ico {
+  width: 22px; height: 22px; border-radius: 99px; overflow: hidden;
+  display: grid; place-items: center;
+  font-size: 10px; font-weight: 900; color: #fff;
+  background-size: cover; background-position: center;
+}
+/* an icon file from assets/img/coins replaces the letter */
+.coin-ico.has-art { background-color: transparent; }
+.coin-ico.has-art b { display: none; }
 .coin-name { font-size: 12px; font-weight: 700; }
 .coin-sym { font-size: 10px; color: var(--text-3); }
 
@@ -949,6 +957,11 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 }
 .tag-in { background: rgba(0, 230, 118, .14); color: var(--green); }
 .tag-out { background: rgba(255, 71, 87, .14); color: var(--red); }
+.tag-neutral { background: var(--surface-3); color: var(--text-2); font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; }
+
+.admin-picks { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.admin-pick { font-size: 11.5px; color: var(--text-2); }
+.admin-pick em { font-style: normal; color: var(--text-3); }
 
 .table-scroll { overflow-x: auto; }
 .admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }

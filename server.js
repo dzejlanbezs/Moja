@@ -472,7 +472,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ------------------------------------------------------------------ swappable art */
 
-const ART_FOLDERS = ['banners', 'games', 'sports', 'promo'];
+const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins'];
 const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
 // friendlier names people are likely to save files under
 const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportsbonus: 'sports-bonus', sportslogo: 'logo' };
@@ -876,7 +876,7 @@ const ROUTES = {
 
   /** Team crests, proxied so the browser only ever talks to us. */
   'GET /api/sports/logo': async (ctx) => {
-    const image = await sports.logoImage(ctx.query.get('id'));
+    const image = await sports.logoImage(ctx.query.get('id'), ctx.query.get('size'));
     if (!image) return sendJson(ctx.res, 404, { error: 'No crest' });
     ctx.res.writeHead(200, {
       'Content-Type': 'image/png',
@@ -959,18 +959,27 @@ const ROUTES = {
       if (Math.abs(live.odds - parseFloat(pick.odds)) > 0.001) {
         return sendJson(ctx.res, 409, { error: 'Odds moved on ' + (pick.label || 'a pick'), selectionId: pick.selectionId, odds: live.odds });
       }
+      const sportId = parseInt(pick.sportId, 10) || 0;
+      const home = String(pick.home || '').slice(0, 60);
+      const away = String(pick.away || '').slice(0, 60);
+      const label = String(pick.label || '').slice(0, 80);
+
       verified.push({
         fi: String(pick.fi),
         selectionId: String(pick.selectionId),
         odds: live.odds,
         market: String(pick.market || live.market).slice(0, 60),
-        label: String(pick.label || '').slice(0, 80),
-        home: String(pick.home || '').slice(0, 60),
-        away: String(pick.away || '').slice(0, 60),
+        label: label,
+        home: home,
+        away: away,
         league: String(pick.league || '').slice(0, 80),
-        sportId: parseInt(pick.sportId, 10) || 0,
+        sportId: sportId,
         sport: String(pick.sport || '').slice(0, 30),
         time: parseInt(pick.time, 10) || 0,
+        // crests come from our own cache, never from whatever the browser sent
+        logo: sports.logoForPick(sportId, home, away, label),
+        homeLogo: sports.logoFor(sportId, home),
+        awayLogo: sports.logoFor(sportId, away),
       });
     }
 
@@ -1166,6 +1175,7 @@ const ROUTES = {
         totals: userAggregates(user),
       }),
       bets: db.rounds.filter((r) => r.userId === user.id).slice(-60).reverse(),
+      sportsBets: db.sportsBets.filter((b) => b.userId === user.id).slice(0, 40),
       transactions: db.transactions.filter((t) => t.userId === user.id).slice(0, 60),
       referrals: db.users.filter((u) => u.referredBy === user.referralCode).map((u) => u.email),
     });

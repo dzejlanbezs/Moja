@@ -29,6 +29,7 @@
   /* ---------------- overview ---------------- */
 
   function load() {
+    loadSportsBets();
     return Api.adminOverview()
       .then((data) => {
         renderTotals(data.totals);
@@ -128,6 +129,67 @@
       '</tr></thead><tbody>' + rows + '</tbody>';
   }
 
+  /* ---------------- sports bets ---------------- */
+
+  const sportsBetsEl = D.$('#adminSportsBets');
+  const sportsFilterEl = D.$('#adminSportsFilter');
+
+  /** One sports bet with the buttons that settle it. */
+  function sportsBetRow(bet, compact) {
+    const picks = bet.picks.map((pick) =>
+      '<span class="admin-pick">' + esc(pick.label) + ' <em>' + esc(pick.market) + '</em> ' +
+      '<span class="muted">' + esc(pick.home) + ' v ' + esc(pick.away) + '</span> @' + Number(pick.odds).toFixed(2) +
+      '</span>').join('');
+
+    return '<div class="admin-row">' +
+      '<span class="tag-' + (bet.status === 'won' ? 'in' : bet.status === 'lost' ? 'out' : 'neutral') + '">' +
+        esc(bet.type === 'combo' ? bet.picks.length + '-pick' : 'single') + '</span>' +
+      '<div class="admin-row-main">' +
+        '<b>' + esc(bet.email || 'player') + (bet.freeBet ? '<span class="pill-bonus">free bet</span>' : '') + '</b>' +
+        '<span class="muted">' + D.fmt(bet.stake) + ' @ ' + Number(bet.odds).toFixed(2) +
+          ' → ' + D.fmt(bet.potential) + ' · ' + esc(when(bet.ts)) + '</span>' +
+        '<span class="admin-picks">' + picks + '</span>' +
+      '</div>' +
+      '<span class="' + (STATUS_CLASS[bet.status] || '') + '"><b>' + esc(bet.status) + '</b></span>' +
+      (bet.status === 'pending'
+        ? '<div class="admin-row-actions">' +
+            '<button class="btn btn-primary" data-settle="won" data-bet="' + esc(bet.id) + '">Win</button>' +
+            '<button class="btn btn-danger" data-settle="lost" data-bet="' + esc(bet.id) + '">Loss</button>' +
+            '<button class="btn btn-ghost" data-settle="void" data-bet="' + esc(bet.id) + '">Void</button>' +
+          '</div>'
+        : '<span class="muted">' + (bet.paid ? 'paid ' + D.fmt(bet.paid) : 'nothing paid') + '</span>') +
+    '</div>';
+  }
+
+  function loadSportsBets() {
+    if (!sportsBetsEl) return Promise.resolve();
+    const status = sportsFilterEl ? sportsFilterEl.value : 'pending';
+    return Api.request('GET', '/api/admin/sports/bets?status=' + status)
+      .then((data) => {
+        const bets = data.bets || [];
+        sportsBetsEl.innerHTML = bets.length
+          ? bets.map((bet) => sportsBetRow(bet)).join('')
+          : '<div class="bets-empty">No ' + esc(status === 'all' ? '' : status) + ' sports bets.</div>';
+      })
+      .catch((err) => { sportsBetsEl.innerHTML = '<div class="bets-empty">' + esc(err.message || 'Could not load') + '</div>'; });
+  }
+
+  if (sportsFilterEl) sportsFilterEl.addEventListener('change', loadSportsBets);
+
+  /** Win pays the potential, Void returns the stake, Loss pays nothing. */
+  function settleBet(id, result) {
+    return Api.request('POST', '/api/admin/sports/settle', { id: id, result: result })
+      .then((data) => {
+        const paid = data.bet.paid;
+        D.toast('Marked ' + result + (paid ? ' · paid ' + D.fmt(paid) : ' · nothing paid'), result === 'lost' ? 'info' : 'win');
+        loadSportsBets();
+        const open = userBody.dataset.userId;
+        if (!userModal.hidden && open) openUser(open);
+        return load();
+      })
+      .catch((err) => D.toast(err.message || 'Could not settle', 'lose'));
+  }
+
   /* ---------------- player detail ---------------- */
 
   function openUser(userId) {
@@ -161,6 +223,11 @@
           '<button class="btn ' + (u.blocked ? 'btn-ghost' : 'btn-danger') + '" id="blockToggle" data-blocked="' + u.blocked + '">' +
             (u.blocked ? 'Unblock' : 'Block') + '</button>' +
         '</div>' +
+
+        '<h3 class="admin-sub">Sports bets</h3>' +
+        ((data.sportsBets || []).length
+          ? '<div class="admin-list">' + data.sportsBets.map((bet) => sportsBetRow(bet)).join('') + '</div>'
+          : '<div class="bets-empty">No sports bets</div>') +
 
         '<h3 class="admin-sub">Transactions</h3>' +
         (data.transactions.length
@@ -226,6 +293,9 @@
   document.addEventListener('click', (e) => {
     const resolve = e.target.closest('[data-resolve]');
     if (resolve) { resolveTx(resolve.dataset.tx, resolve.dataset.resolve); return; }
+
+    const settle = e.target.closest('[data-settle]');
+    if (settle) { settleBet(settle.dataset.bet, settle.dataset.settle); return; }
 
     const assign = e.target.closest('[data-assign]');
     if (assign) {

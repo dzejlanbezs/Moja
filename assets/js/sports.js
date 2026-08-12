@@ -458,13 +458,13 @@
 
     D.$('#evHero').innerHTML =
       '<div class="ev-hero-card">' +
-        '<div class="ev-side">' + crest(event.home, event.homeLogo, 'big') + '<b>' + esc(event.home) + '</b></div>' +
+        '<div class="ev-side">' + crest(event.home, event.homeLogoBig || event.homeLogo, 'big') + '<b>' + esc(event.home) + '</b></div>' +
         '<div class="ev-mid">' +
           '<span class="ev-kick">' + esc(kickoff(event.time)) + '</span>' +
           '<span class="ev-vs">vs</span>' +
           '<span class="ev-league">' + esc(event.league) + '</span>' +
         '</div>' +
-        '<div class="ev-side">' + crest(event.away, event.awayLogo, 'big') + '<b>' + esc(event.away) + '</b></div>' +
+        '<div class="ev-side">' + crest(event.away, event.awayLogoBig || event.awayLogo, 'big') + '<b>' + esc(event.away) + '</b></div>' +
       '</div>';
 
     const showAll = state.marketFilter === 'more';
@@ -578,6 +578,15 @@
 
   /* ---------------- slip ---------------- */
 
+  /** The crest for a selection: the team it names, or the home side. */
+  function pickLogo(event, label) {
+    const text = String(label || '').toLowerCase();
+    const starts = (name) => name && text.indexOf(String(name).toLowerCase()) === 0;
+    if (starts(event.away)) return event.awayLogo || '';
+    if (starts(event.home)) return event.homeLogo || '';
+    return event.homeLogo || '';
+  }
+
   function togglePick(data) {
     const existing = state.picks.filter((p) => p.selectionId === data.pick)[0];
     if (existing) {
@@ -591,6 +600,9 @@
         odds: parseFloat(data.odds),
         market: data.market,
         label: data.label,
+        logo: pickLogo(source, data.label),
+        homeLogo: source.homeLogo || '',
+        awayLogo: source.awayLogo || '',
         home: source.home || '',
         away: source.away || '',
         league: source.league || '',
@@ -669,7 +681,7 @@
       '<button class="slip-remove" data-remove="' + esc(pick.selectionId) + '" title="Remove">' +
         '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
       '<div class="slip-pick-top">' +
-        crest(pick.label, '') +
+        crest(pick.label, pick.logo || pick.homeLogo) +
         '<div class="slip-pick-id">' +
           '<b>' + esc(pick.label) + '</b>' +
           '<span>' + esc(pick.market) + '</span>' +
@@ -774,7 +786,7 @@
           money(bet.status === 'won' ? bet.paid : bet.potential) + '</b></div>' +
       '</div>' +
       bet.picks.map((pick) =>
-        '<div class="bet-pick">' + crest(pick.label, '') +
+        '<div class="bet-pick">' + crest(pick.label, pick.logo || pick.homeLogo) +
           '<div class="bet-pick-id"><b>' + esc(pick.label) + '</b>' +
             '<span>' + esc(pick.market) + '</span>' +
             '<span class="muted">' + esc(pick.sport) + ' · ' + esc(pick.home) + ' v ' + esc(pick.away) + '</span>' +

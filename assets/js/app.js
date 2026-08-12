@@ -341,10 +341,16 @@
   function coinHtml(coin, active) {
     return (
       '<button class="coin' + (active ? ' active' : '') + '" data-coin="' + coin.id + '">' +
-        '<span class="coin-ico" style="background:' + coin.color + '">' + coin.sym.slice(0, 1) + '</span>' +
-        '<span><span class="coin-name">' + coin.name + '</span><br><span class="coin-sym">' + coin.sym + '</span></span>' +
+        '<span class="coin-ico" data-coin-art="' + esc(coin.sym) + '" style="background:' + coin.color + '">' +
+          '<b>' + esc(coin.sym.slice(0, 1)) + '</b></span>' +
+        '<span><span class="coin-name">' + esc(coin.name) + '</span><br><span class="coin-sym">' + esc(coin.sym) + '</span></span>' +
       '</button>'
     );
+  }
+
+  /** Coin icons can be replaced with files in assets/img/coins. */
+  function applyCoinArt() {
+    D.$$('[data-coin-art]').forEach((el) => D.Art.apply(el, 'coins', el.dataset.coinArt));
   }
 
   /** A genuine scannable QR of the address, or a placeholder if encoding fails. */
@@ -365,6 +371,7 @@
     const coin = currentCoin();
     D.$('#depositCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
     D.$('#withdrawCoins').innerHTML = COINS.map((c) => coinHtml(c, c.id === coinId)).join('');
+    applyCoinArt();
     D.$('#depositAddress').textContent = coin.addr;
     D.$('#depositQr').innerHTML = addressQr(coin.addr);
     const net = D.$('#depNetwork');
