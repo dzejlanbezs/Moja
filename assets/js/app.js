@@ -635,7 +635,8 @@
     navigate('casino');
     const id = hash.split('=')[1];
     if (D.hasGame(id)) D.openGame(id);
-  } else if (hash && D.$('#page-' + hash)) {
+  } else if (/^[a-z][a-z-]*$/.test(hash) && D.$('#page-' + hash)) {
+    // anything else (#event=123 and friends) belongs to the page that set it
     navigate(hash);
   }
 })(window.Dicey);
