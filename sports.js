@@ -1,15 +1,18 @@
 /* ============================================================
-   Dicey — sportsbook feed (bet365 via b365api)
+   Virtusjack — sportsbook feed (bet365 via b365api)
 
    Fetches upcoming fixtures and prematch odds, caches them so we
    stay inside the API's request budget, and flattens bet365's very
    nested market payload into something the browser can render.
 
    The token never reaches the browser: put it in data/b365-token.txt
-   or the DICEY_B365_TOKEN environment variable.
+   or the VIRTUSJACK_B365_TOKEN environment variable.
    ============================================================ */
 
 'use strict';
+/* Settings come from VIRTUSJACK_* variables; the older DICEY_* names still work. */
+const env = (name) => process.env['VIRTUSJACK_' + name] || process.env['DICEY_' + name] || '';
+
 
 const fs = require('fs');
 const path = require('path');
@@ -21,9 +24,9 @@ const TEAMS_FILE = path.join(__dirname, 'data', 'teams.json');
 const IMAGE_BASE = 'https://assets.b365api.com/images/team/s/';
 
 const config = {
-  upcomingTtl: parseInt(process.env.DICEY_SPORTS_LIST_TTL, 10) || 90000,
-  oddsTtl: parseInt(process.env.DICEY_SPORTS_ODDS_TTL, 10) || 25000,
-  oddsPerPage: parseInt(process.env.DICEY_SPORTS_ODDS_PER_PAGE, 10) || 20,
+  upcomingTtl: parseInt(env('SPORTS_LIST_TTL'), 10) || 90000,
+  oddsTtl: parseInt(env('SPORTS_ODDS_TTL'), 10) || 25000,
+  oddsPerPage: parseInt(env('SPORTS_ODDS_PER_PAGE'), 10) || 20,
   oddsBatch: 10,            // the feed accepts ten FI values per request
   logoConcurrency: 6,
   maxSelections: 40,
@@ -65,7 +68,7 @@ const SPORTS = [
 const SPORT_BY_ID = {};
 SPORTS.forEach((s) => { SPORT_BY_ID[s.id] = s; });
 
-let token = process.env.DICEY_B365_TOKEN || '';
+let token = env('B365_TOKEN') || '';
 if (!token) {
   try { token = fs.readFileSync(TOKEN_FILE, 'utf8').trim(); } catch (err) { token = ''; }
 }

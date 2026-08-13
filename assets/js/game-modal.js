@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — game modal framework
+   Virtusjack — game modal framework
    Every game is a module registered here. A module gets a ctx with
    the bet panel, the stage and the wallet plumbing it needs.
    ============================================================ */
@@ -154,10 +154,13 @@
     panel.innerHTML = '';
     stage.innerHTML = '';
     document.getElementById('gameTitle').textContent = def.name;
-    document.getElementById('gameSub').textContent = def.sub || 'Dicey Original';
+    document.getElementById('gameSub').textContent = def.sub || 'Virtusjack Original';
+    // the header square uses the same picture as the game's win in the strip
     const icon = document.getElementById('gameHeadIcon');
-    icon.textContent = def.name.slice(0, 1);
+    icon.innerHTML = '<b>' + def.name.slice(0, 1) + '</b>';
     icon.style.background = meta.accent || 'linear-gradient(140deg,#00f083,#00b85f)';
+    icon.dataset.thumb = id;
+    if (D.applyThumbArt) D.applyThumbArt(icon.parentNode);
 
     const ctx = {
       id: id,
@@ -245,4 +248,4 @@
   D.closeGame = closeGame;
   D.ui = ui;
   D.hasGame = (id) => !!registry[id];
-})(window.Dicey);
+})(window.Virtusjack);

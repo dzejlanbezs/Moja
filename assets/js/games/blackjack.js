@@ -1,4 +1,5 @@
-/* Blackjack — 6 deck shoe, dealer stands on 17, blackjack pays 3:2 */
+/* Blackjack — 6 deck shoe, dealer stands on 17, blackjack pays 3:2,
+   split to four hands, insurance when the dealer shows an ace */
 (function (D) {
   'use strict';
 
@@ -17,6 +18,8 @@
     { key: 'club', red: false },
   ];
   const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  const TENS = ['10', 'J', 'Q', 'K'];
+  const HANDS_MAX = 4;               // the first hand plus three splits
 
   const suitSvg = (key) => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + SUIT_PATHS[key] + '"/></svg>';
 
@@ -28,17 +31,46 @@
     return D.shuffle(shoe);
   }
 
-  function score(hand) {
-    let total = 0, aces = 0;
-    hand.forEach((c) => {
-      if (c.rank === 'A') { aces++; total += 11; }
-      else if (['10', 'J', 'Q', 'K'].indexOf(c.rank) > -1) total += 10;
-      else total += parseInt(c.rank, 10);
+  const cardValue = (card) => (card.rank === 'A' ? 11 : TENS.indexOf(card.rank) > -1 ? 10 : parseInt(card.rank, 10));
+
+  /** Counts a hand both ways: aces as one, and as eleven while that still fits. */
+  function counts(cards) {
+    let hard = 0, aces = 0;
+    cards.forEach((card) => {
+      if (card.rank === 'A') { aces++; hard += 1; }
+      else hard += cardValue(card);
     });
-    while (total > 21 && aces > 0) { total -= 10; aces--; }
-    return total;
+    return { hard: hard, soft: aces && hard + 10 <= 21 ? hard + 10 : 0 };
   }
-  const isBlackjack = (hand) => hand.length === 2 && score(hand) === 21;
+
+  const score = (cards) => {
+    const c = counts(cards);
+    return c.soft || c.hard;
+  };
+
+  /** A soft hand shows both totals — "7/17" — the way a table does. */
+  const scoreText = (cards) => {
+    const c = counts(cards);
+    return c.soft ? c.hard + '/' + c.soft : String(c.hard);
+  };
+
+  const isBlackjack = (cards) => cards.length === 2 && score(cards) === 21;
+
+  /** What one hand is worth against the dealer's final total. */
+  function settleHand(item, dealerTotal, dealerBJ) {
+    const p = score(item.cards);
+    // two cards worth 21 after a split is a plain 21, not a blackjack
+    const pBJ = isBlackjack(item.cards) && !item.split;
+
+    if (p > 21) return { payout: 0, text: 'bust ' + p, kind: 'lose' };
+    if (pBJ && dealerBJ) return { payout: item.stake, text: 'both blackjack', kind: 'push' };
+    if (pBJ) return { payout: D.round2(item.stake * 2.5), text: 'blackjack, paid 3:2', kind: 'win' };
+    if (dealerBJ) return { payout: 0, text: 'dealer blackjack', kind: 'lose' };
+    if (dealerTotal > 21) return { payout: D.round2(item.stake * 2), text: 'dealer busts with ' + dealerTotal, kind: 'win' };
+    if (p > dealerTotal) return { payout: D.round2(item.stake * 2), text: p + ' beats ' + dealerTotal, kind: 'win' };
+    if (p === dealerTotal) return { payout: item.stake, text: 'push on ' + p, kind: 'push' };
+    return { payout: 0, text: dealerTotal + ' beats ' + p, kind: 'lose' };
+  }
 
   D.registerGame({
     id: 'blackjack',
@@ -47,10 +79,11 @@
 
     mount(ctx) {
       let shoe = freshShoe();
-      let player = [];
       let dealer = [];
-      let stake = 0;
-      let round = 'idle'; // idle | player | done
+      let hands = [];               // { cards, stake, done, doubled, split }
+      let active = 0;
+      let insurance = 0;
+      let round = 'idle';           // idle | insurance | player | done
       let hideHole = true;
       let dealing = false;
 
@@ -62,18 +95,14 @@
             '<div class="bj-hand" id="dHand"></div>' +
           '</div>' +
           '<div class="bj-msg" id="bjMsg">Place your bet to deal</div>' +
-          '<div class="bj-side">' +
-            '<div class="bj-hand" id="pHand"></div>' +
-            '<div class="bj-side-label">You <span class="bj-score" id="pScore">—</span></div>' +
-          '</div>' +
+          '<div class="bj-seats" id="pSeats"></div>' +
         '</div>'
       );
       ctx.stage.appendChild(table);
 
       const dHand = table.querySelector('#dHand');
-      const pHand = table.querySelector('#pHand');
       const dScore = table.querySelector('#dScore');
-      const pScore = table.querySelector('#pScore');
+      const seatsEl = table.querySelector('#pSeats');
       const msg = table.querySelector('#bjMsg');
 
       const amount = ctx.ui.amount();
@@ -82,14 +111,23 @@
       const hitBtn = D.h('<button class="btn btn-ghost btn-lg">Hit</button>');
       const standBtn = D.h('<button class="btn btn-ghost btn-lg">Stand</button>');
       const dblBtn = D.h('<button class="btn btn-ghost btn-lg">Double</button>');
+      const splitBtn = D.h('<button class="btn btn-ghost btn-lg">Split</button>');
+      const insRow = D.h('<div class="bj-ins"></div>');
+      const insYes = D.h('<button class="btn btn-primary btn-lg">Insurance</button>');
+      const insNo = D.h('<button class="btn btn-ghost btn-lg">No thanks</button>');
       const shoeOut = ctx.ui.readout('Cards left');
-      actions.append(hitBtn, standBtn, dblBtn);
+      actions.append(hitBtn, standBtn, dblBtn, splitBtn);
+      insRow.append(insYes, insNo);
       actions.hidden = true;
+      insRow.hidden = true;
 
       ctx.panel.append(amount.node, ctx.ui.block('', shoeOut.node));
       const action = D.h('<div class="bp-action"></div>');
-      action.append(dealBtn, actions, ctx.ui.note('Blackjack pays 3:2 · insurance not offered'));
+      action.append(dealBtn, actions, insRow,
+        ctx.ui.note('Blackjack pays 3:2 · insurance 2:1 · split up to four hands'));
       ctx.panel.appendChild(action);
+
+      const stakeTotal = () => D.round2(hands.reduce((sum, hand) => sum + hand.stake, 0) + insurance);
 
       function cardNode(card, faceDown) {
         if (faceDown) return D.h('<div class="card back" aria-label="Face down card"></div>');
@@ -119,34 +157,65 @@
       }
 
       function render() {
-        renderHand(pHand, player, -1);
         renderHand(dHand, dealer, hideHole ? 1 : -1);
-        pScore.textContent = player.length ? score(player) : '—';
-        dScore.textContent = dealer.length ? (hideHole ? score(dealer.slice(0, 1)) + '+' : score(dealer)) : '—';
+        dScore.textContent = dealer.length
+          ? (hideHole ? scoreText(dealer.slice(0, 1)) + '+' : scoreText(dealer))
+          : '—';
+
+        while (seatsEl.children.length > hands.length) seatsEl.lastChild.remove();
+        hands.forEach((hand, i) => {
+          let seat = seatsEl.children[i];
+          if (!seat) {
+            seat = D.h('<div class="bj-seat"><div class="bj-hand"></div><div class="bj-side-label"></div></div>');
+            seatsEl.appendChild(seat);
+          }
+          renderHand(seat.querySelector('.bj-hand'), hand.cards, -1);
+          seat.querySelector('.bj-side-label').innerHTML =
+            (hands.length > 1 ? 'Hand ' + (i + 1) : 'You') +
+            ' <span class="bj-score">' + (hand.cards.length ? scoreText(hand.cards) : '—') + '</span>' +
+            ' <em>' + D.fmt(hand.stake) + (hand.doubled ? ' ×2' : '') + '</em>';
+          seat.classList.toggle('active', i === active && round === 'player' && hands.length > 1);
+          seat.classList.toggle('spent', hand.cards.length > 0 && score(hand.cards) > 21);
+        });
+
         shoeOut.set(shoe.length + ' / 312');
       }
 
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const hand = () => hands[active] || null;
+
+      const canDouble = () => {
+        const h = hand();
+        return !!h && h.cards.length === 2 && !h.done && D.Store.balance >= h.stake - 1e-9;
+      };
+
+      const canSplit = () => {
+        const h = hand();
+        return !!h && h.cards.length === 2 && !h.done && hands.length < HANDS_MAX &&
+          cardValue(h.cards[0]) === cardValue(h.cards[1]) && D.Store.balance >= h.stake - 1e-9;
+      };
 
       function setPhase(p) {
         round = p;
         dealBtn.hidden = p !== 'idle' && p !== 'done';
         dealBtn.textContent = p === 'done' ? 'Deal Again' : 'Deal';
         actions.hidden = p !== 'player';
-        amount.disable(p === 'player');
-        const canDouble = player.length === 2 && D.Store.balance >= stake;
-        dblBtn.disabled = !canDouble;
+        insRow.hidden = p !== 'insurance';
+        amount.disable(p === 'player' || p === 'insurance');
+        dblBtn.disabled = !canDouble();
+        splitBtn.disabled = !canSplit();
+        if (p === 'insurance') insYes.textContent = 'Insurance ' + D.fmt(D.round2(hands[0].stake / 2));
       }
 
       /** Locks the controls while cards are sliding in. */
       function setBusy(state) {
         dealing = state;
-        [dealBtn, hitBtn, standBtn, dblBtn].forEach((btn) => { btn.disabled = state; });
+        [dealBtn, hitBtn, standBtn, dblBtn, splitBtn, insYes, insNo].forEach((btn) => { btn.disabled = state; });
         if (!state) setPhase(round);
       }
 
-      async function slide(hand, card, faceDown) {
-        hand.push(card);
+      async function slide(cards, card, faceDown) {
+        cards.push(card);
         render();
         await wait(faceDown ? 340 : 520);
       }
@@ -157,13 +226,14 @@
       }
 
       async function deal() {
-        if (dealing || round === 'player') return; // never abandon a hand that still has money on it
+        if (dealing || round === 'player' || round === 'insurance') return;   // never abandon a hand with money on it
         const bet = amount.get();
         if (!ctx.bet(bet)) return;
 
-        stake = bet;
-        player = [];
         dealer = [];
+        hands = [{ cards: [], stake: bet, done: false, doubled: false, split: false }];
+        active = 0;
+        insurance = 0;
         hideHole = true;
         msg.className = 'bj-msg';
         msg.textContent = 'Dealing…';
@@ -173,80 +243,158 @@
         setBusy(true);
 
         await wait(220);
-        await slide(player, draw(), false);
+        await slide(hands[0].cards, draw(), false);
         await slide(dealer, draw(), false);
-        await slide(player, draw(), false);
+        await slide(hands[0].cards, draw(), false);
         await slide(dealer, draw(), true);
 
-        if (isBlackjack(player) || isBlackjack(dealer)) {
-          await revealDealer();
+        // insurance is offered against an ace, before anybody else acts
+        if (dealer[0].rank === 'A' && D.Store.balance >= D.round2(hands[0].stake / 2) - 1e-9) {
+          msg.textContent = 'Dealer shows an ace — take insurance?';
+          setPhase('insurance');
+          setBusy(false);
+          return;
+        }
+        await afterPeek();
+      }
+
+      /** Both blackjacks are settled before the player can act. */
+      async function afterPeek() {
+        setBusy(true);
+        if (isBlackjack(dealer) || isBlackjack(hands[0].cards)) {
+          await revealDealer(false);
           return finish();
         }
-        msg.textContent = 'Hit, stand or double';
+        msg.textContent = 'Hit, stand, double or split';
+        setPhase('player');
         setBusy(false);
+      }
+
+      async function takeInsurance(yes) {
+        if (dealing) return;
+        if (yes) {
+          const half = D.round2(hands[0].stake / 2);
+          if (!ctx.bet(half)) return;
+          insurance = half;
+          msg.textContent = 'Insurance ' + D.fmt(half) + ' placed';
+        }
+        await afterPeek();
       }
 
       async function hit() {
         if (dealing) return;
         setBusy(true);
-        await slide(player, draw(), false);
-        if (score(player) > 21) {
-          await revealDealer();
-          return finish();
-        }
+        const h = hand();
+        await slide(h.cards, draw(), false);
+        if (score(h.cards) >= 21) return advance();
         setBusy(false);
       }
 
       async function double() {
-        if (dealing) return;
-        if (!ctx.bet(stake)) return;
-        stake = D.round2(stake * 2);
+        if (dealing || !canDouble()) return;
+        const h = hand();
+        if (!ctx.bet(h.stake)) return;
+        h.stake = D.round2(h.stake * 2);
+        h.doubled = true;
         setBusy(true);
-        await slide(player, draw(), false);
-        await stand(true);
+        await slide(h.cards, draw(), false);
+        return advance();
+      }
+
+      /**
+       * Splits the active hand in two and deals a card to each. Split aces get
+       * one card only, the way a table plays them.
+       */
+      async function split() {
+        if (dealing || !canSplit()) return;
+        const h = hand();
+        if (!ctx.bet(h.stake)) return;
+        setBusy(true);
+
+        const moved = h.cards.pop();
+        h.split = true;
+        const extra = { cards: [moved], stake: h.stake, done: false, doubled: false, split: true };
+        hands.splice(active + 1, 0, extra);
+        render();
+        await wait(320);
+
+        await slide(h.cards, draw(), false);
+        await slide(extra.cards, draw(), false);
+
+        if (moved.rank === 'A') {
+          h.done = true;               // split aces take one card each and stand
+          extra.done = true;
+          return advance();
+        }
+        msg.textContent = 'Hand ' + (active + 1) + ' — hit, stand, double or split';
+        setBusy(false);
+      }
+
+      function stand() {
+        if (dealing) return;
+        return advance();
+      }
+
+      /** Closes the active hand and moves on, or hands over to the dealer. */
+      async function advance() {
+        const h = hand();
+        if (h) h.done = true;
+
+        const next = hands.map((item, i) => (item.done ? -1 : i)).filter((i) => i > -1)[0];
+        if (next != null) {
+          active = next;
+          msg.textContent = 'Hand ' + (next + 1) + ' — hit, stand, double or split';
+          render();
+          setPhase('player');
+          setBusy(false);
+          return;
+        }
+
+        setBusy(true);
+        const live = hands.some((item) => score(item.cards) <= 21);
+        msg.textContent = live ? 'Dealer plays…' : 'Dealer wins';
+        await revealDealer(live);
+        finish();
       }
 
       /** Flips the hole card over, then lets the dealer draw one card at a time. */
-      async function revealDealer() {
+      async function revealDealer(drawCards) {
         hideHole = false;
         render();
         await wait(520);
+        if (drawCards === false) return;
         while (score(dealer) < 17) {
           await slide(dealer, draw(), false);
           await wait(220);
         }
       }
 
-      async function stand(alreadyBusy) {
-        if (dealing && !alreadyBusy) return;
-        setBusy(true);
-        msg.textContent = 'Dealer plays…';
-        await revealDealer();
-        finish();
-      }
-
       function finish() {
-        const p = score(player);
         const d = score(dealer);
-        const pBJ = isBlackjack(player);
         const dBJ = isBlackjack(dealer);
-        let payout = 0, text = '', kind = 'lose';
+        const results = hands.map((item) => settleHand(item, d, dBJ));
 
-        if (pBJ && dBJ) { payout = stake; text = 'Both blackjack — push'; kind = 'push'; }
-        else if (pBJ) { payout = D.round2(stake * 2.5); text = 'Blackjack! Paid 3:2'; kind = 'win'; }
-        else if (dBJ) { payout = 0; text = 'Dealer blackjack'; }
-        else if (p > 21) { payout = 0; text = 'Bust with ' + p; }
-        else if (d > 21) { payout = D.round2(stake * 2); text = 'Dealer busts with ' + d; kind = 'win'; }
-        else if (p > d) { payout = D.round2(stake * 2); text = p + ' beats ' + d; kind = 'win'; }
-        else if (p === d) { payout = stake; text = 'Push on ' + p; kind = 'push'; }
-        else { payout = 0; text = d + ' beats your ' + p; }
+        const staked = stakeTotal();
+        const insurancePay = insurance && dBJ ? D.round2(insurance * 3) : 0;
+        const payout = D.round2(results.reduce((sum, r) => sum + r.payout, 0) + insurancePay);
+        const profit = D.round2(payout - staked);
+
+        const parts = results.map((r, i) => (hands.length > 1 ? 'Hand ' + (i + 1) + ' ' + r.text : r.text.charAt(0).toUpperCase() + r.text.slice(1)));
+        if (insurance) parts.push(insurancePay ? 'insurance paid ' + D.fmt(insurancePay) : 'insurance lost');
+        const text = parts.join(' · ');
+        const kind = profit > 0 ? 'win' : profit < 0 ? 'lose' : 'push';
 
         render();
         msg.className = 'bj-msg ' + kind;
         msg.textContent = text;
-        ctx.settle(stake, payout, payout ? D.round2(payout / stake) : 0);
+        ctx.settle(staked, payout, payout ? D.round2(payout / staked) : 0);
         ctx.banner(text, kind === 'win' ? 'win' : kind === 'push' ? '' : 'lose');
-        hist.push(kind === 'win' ? '+' + p : kind === 'push' ? 'push' : String(p), kind === 'win');
+        hist.push(
+          hands.length > 1
+            ? (profit > 0 ? '+' + D.fmt(profit) : profit < 0 ? D.fmt(profit) : 'push')
+            : (kind === 'win' ? '+' + score(hands[0].cards) : kind === 'push' ? 'push' : String(score(hands[0].cards))),
+          kind === 'win'
+        );
         setBusy(false);
         setPhase('done');
       }
@@ -255,12 +403,17 @@
       hitBtn.addEventListener('click', () => { hit(); });
       standBtn.addEventListener('click', () => { stand(); });
       dblBtn.addEventListener('click', () => { double(); });
+      splitBtn.addEventListener('click', () => { split(); });
+      insYes.addEventListener('click', () => { takeInsurance(true); });
+      insNo.addEventListener('click', () => { takeInsurance(false); });
 
       ctx.onClose = () => {
-        if (round !== 'player') return;
-        // settle the open hand straight away rather than leaving the stake in limbo
+        if (round !== 'player' && round !== 'insurance') return;
+        // settle the open hands straight away rather than leaving the stakes in limbo
         hideHole = false;
-        while (score(dealer) < 17) dealer.push(draw());
+        if (hands.some((item) => score(item.cards) <= 21)) {
+          while (score(dealer) < 17) dealer.push(draw());
+        }
         finish();
       };
 
@@ -268,4 +421,4 @@
       setPhase('idle');
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

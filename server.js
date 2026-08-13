@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — accounts, wallet and admin backend
+   Virtusjack — accounts, wallet and admin backend
 
    Zero dependencies: run it with `node server.js`.
    Data lives in ./data/db.json. Nothing here talks to a real
@@ -8,6 +8,9 @@
    ============================================================ */
 
 'use strict';
+/* Settings come from VIRTUSJACK_* variables; the older DICEY_* names still work. */
+const env = (name) => process.env['VIRTUSJACK_' + name] || process.env['DICEY_' + name] || '';
+
 
 const http = require('http');
 const fs = require('fs');
@@ -26,7 +29,7 @@ const SESSION_YEARS = 10;       // sessions do not expire in practice
 const MAX_ROUNDS = 20000;
 
 // Hours east of UTC used for the 02:00 bonus reset (2 = Serbia in summer).
-const TZ_OFFSET = parseFloat(process.env.DICEY_TZ_OFFSET || '2');
+const TZ_OFFSET = parseFloat(env('TZ_OFFSET') || '2');
 
 // Weekly wager race: $15,000 split between the top ten, paid out
 // automatically when the race closes on Sunday at 02:00.
@@ -34,10 +37,10 @@ const RACE_PRIZES = [6000, 4500, 2500, 1000, 500, 100, 100, 100, 100, 100];
 const RACE_POOL = RACE_PRIZES.reduce((sum, prize) => sum + prize, 0);
 
 // Anything worth at least this much is credited on its own.
-const MIN_DEPOSIT_USD = parseFloat(process.env.DICEY_MIN_DEPOSIT_USD || '10');
+const MIN_DEPOSIT_USD = parseFloat(env('MIN_DEPOSIT_USD') || '10');
 
 // Promo signups get a free bet matching their first deposit; 0 means no cap.
-const FREEBET_MAX = parseFloat(process.env.DICEY_FREEBET_MAX || '0');
+const FREEBET_MAX = parseFloat(env('FREEBET_MAX') || '0');
 
 const REWARD_RATES = {
   rakeback: { wager: 0.0005, loss: 0 },
@@ -48,7 +51,7 @@ const REWARD_RATES = {
 
 // Codes you hand out yourself. Anyone signing up with one gets the
 // 100% first-deposit sports bonus banner in the cashier.
-const PROMO_CODES = (process.env.DICEY_PROMO_CODES || 'DXDXDA,FGASDK')
+const PROMO_CODES = (env('PROMO_CODES') || 'DXDXDA,FGASDK')
   .split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
 
 /*
@@ -201,11 +204,11 @@ function maskEmail(email) {
 
 /* ------------------------------------------------------------------ hd wallet */
 
-// The mnemonic never lives in the repo: put it in data/seed.txt or DICEY_MNEMONIC.
+// The mnemonic never lives in the repo: put it in data/seed.txt or VIRTUSJACK_MNEMONIC.
 let hdSeed = null;
 
 function loadSeed() {
-  let mnemonic = process.env.DICEY_MNEMONIC || '';
+  let mnemonic = env('MNEMONIC') || '';
   if (!mnemonic) {
     try { mnemonic = fs.readFileSync(SEED_FILE, 'utf8'); } catch (err) { mnemonic = ''; }
   }
@@ -215,7 +218,7 @@ function loadSeed() {
     console.error('Ignoring seed: a BIP39 mnemonic needs at least 12 words.');
     return null;
   }
-  return hd.mnemonicToSeed(mnemonic, process.env.DICEY_MNEMONIC_PASSPHRASE || '');
+  return hd.mnemonicToSeed(mnemonic, env('MNEMONIC_PASSPHRASE') || '');
 }
 
 // bumped whenever a chain is added, so cached addresses are derived again
@@ -427,7 +430,7 @@ function rewardState(user, now) {
 
 function sessionFrom(req) {
   const cookie = req.headers.cookie || '';
-  const match = /(?:^|;\s*)dicey_session=([^;]+)/.exec(cookie);
+  const match = /(?:^|;\s*)virtusjack_session=([^;]+)/.exec(cookie);
   if (!match) return null;
   const record = db.sessions[match[1]];
   if (!record) return null;
@@ -440,7 +443,7 @@ function startSession(res, user, req) {
   const token = crypto.randomBytes(24).toString('hex');
   db.sessions[token] = { userId: user.id, createdAt: now(), ip: clientIp(req), ua: req.headers['user-agent'] || '' };
   res.setHeader('Set-Cookie',
-    'dicey_session=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + SESSION_YEARS * 365 * 86400);
+    'virtusjack_session=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + SESSION_YEARS * 365 * 86400);
   save();
 }
 
@@ -522,7 +525,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ------------------------------------------------------------------ swappable art */
 
-const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins'];
+const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo'];
 const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
 // friendlier names people are likely to save files under
 const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportslogo: 'logo', levelup: 'levelup' };
@@ -739,7 +742,7 @@ const ROUTES = {
 
   'POST /api/auth/logout': (ctx) => {
     if (ctx.session) { delete db.sessions[ctx.session.token]; save(); }
-    ctx.res.setHeader('Set-Cookie', 'dicey_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+    ctx.res.setHeader('Set-Cookie', 'virtusjack_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
     return sendJson(ctx.res, 200, { ok: true });
   },
 
@@ -1580,8 +1583,8 @@ function bootstrapAdmin() {
   const argv = process.argv.slice(2);
   const flagIndex = argv.indexOf('--admin-password');
   const cliPassword = flagIndex > -1 ? argv[flagIndex + 1] : null;
-  const email = (process.env.DICEY_ADMIN_EMAIL || 'infektorr234@gmail.com').trim().toLowerCase();
-  const password = cliPassword || process.env.DICEY_ADMIN_PASSWORD || null;
+  const email = (env('ADMIN_EMAIL') || 'infektorr234@gmail.com').trim().toLowerCase();
+  const password = cliPassword || env('ADMIN_PASSWORD') || null;
 
   let admin = findByEmail(email);
 
@@ -1702,7 +1705,7 @@ const raceTimer = setInterval(settleRaceIfDue, 60000);
 if (raceTimer.unref) raceTimer.unref();
 
 server.listen(PORT, () => {
-  console.log('Dicey running on http://localhost:' + PORT);
+  console.log('Virtusjack running on http://localhost:' + PORT);
   console.log(db.users.length + ' account(s) in ' + path.relative(ROOT, DB_FILE));
   startWatcher();
 });

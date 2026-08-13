@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — bet feed at the bottom of the lobby
+   Virtusjack — bet feed at the bottom of the lobby
 
    Live Wins / My Bets / High Rollers / Lucky Wins / Wager Race.
    Real rounds from the backend in server mode, simulated traffic
@@ -173,4 +173,4 @@
   D.Feed = { load: load };
   load();
   schedule();
-})(window.Dicey);
+})(window.Virtusjack);

@@ -19,7 +19,7 @@
   D.registerGame({
     id: 'wheel',
     name: 'Wheel',
-    sub: 'Dicey Original · spin to win',
+    sub: 'Virtusjack Original · spin to win',
 
     mount(ctx) {
       let risk = 'medium';
@@ -112,4 +112,4 @@
       paintWheel();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

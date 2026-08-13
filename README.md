@@ -1,4 +1,4 @@
-# Dicey — casino front-end + accounts backend
+# Virtusjack — casino front-end + accounts backend
 
 A dependency-free casino site: lobby, VIP club, races, promotions, a live prematch
 sportsbook, cashier, ten playable in-browser originals, real player accounts and an
@@ -30,7 +30,7 @@ node server.js
 Then open <http://localhost:3000>. Use `PORT=8080 node server.js` for a different port.
 
 The admin account is `infektorr234@gmail.com` by default; change it with
-`DICEY_ADMIN_EMAIL=you@example.com`. If you start the server without ever setting a
+`VIRTUSJACK_ADMIN_EMAIL=you@example.com`. If you start the server without ever setting a
 password, one is generated and written to `data/admin-password.txt`.
 
 Everything lives in `data/db.json` (git-ignored). Delete that folder to start over.
@@ -49,7 +49,7 @@ returning player is still signed in.
 ### Promo codes and the deposit bonus
 
 `DXDXDA` and `FGASDK` out of the box, changeable with
-`DICEY_PROMO_CODES="CODE1,CODE2"`. Anyone who signs up with one sees the yellow
+`VIRTUSJACK_PROMO_CODES="CODE1,CODE2"`. Anyone who signs up with one sees the yellow
 **100% Sports Bonus** panel on the deposit page ("Receive 100% First Deposit Bonus as
 Free Bet!" / "No Wager Requirement"), their promo code shows in the admin player table,
 and their first deposit is tagged with the bonus so you know to hand it out. The panel
@@ -89,7 +89,7 @@ as bets are placed, so nothing has to be recalculated from the bet log.
 "Lossback" is the net loss inside that window, so a player who came out ahead only gets
 the wagered part. The rates live in `REWARD_RATES` at the top of `server.js`.
 
-The 02:00 boundary follows `DICEY_TZ_OFFSET` (default `2`, i.e. Serbian summer time). Set
+The 02:00 boundary follows `VIRTUSJACK_TZ_OFFSET` (default `2`, i.e. Serbian summer time). Set
 it to your own UTC offset so the day rolls over at the right moment.
 
 Only rakeback shows a figure. Daily, weekly and monthly sit behind a padlock until they
@@ -101,14 +101,14 @@ numbers out rather than hiding them in the page.
 A player who signed up with one of your promo codes earns a free sports bet worth 100% of
 their **first deposit** the moment it credits. The Sports icon in the rail starts glowing
 gold, and clicking it explains the offer: the amount, allowed odds of 1.50–5.00 and no
-wager requirement. Cap it with `DICEY_FREEBET_MAX` if you want an upper limit. Settling
+wager requirement. Cap it with `VIRTUSJACK_FREEBET_MAX` if you want an upper limit. Settling
 the bet is manual, since the sportsbook is still a preview.
 
 ## Sportsbook
 
 Prematch fixtures and odds come live from the bet365 feed via
 [b365api](https://b365api.com). Put your token in **`data/b365-token.txt`** (git-ignored)
-or the `DICEY_B365_TOKEN` environment variable; without it the Sports page says so plainly
+or the `VIRTUSJACK_B365_TOKEN` environment variable; without it the Sports page says so plainly
 instead of showing filler.
 
 * 28 sports, `sport_id`s as published by the provider, each with its own icon
@@ -196,10 +196,10 @@ variant (`/images/team/b/`) so the header badges stay sharp.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `DICEY_B365_TOKEN` | `data/b365-token.txt` | feed token |
-| `DICEY_SPORTS_LIST_TTL` | `90000` | fixture cache, ms |
-| `DICEY_SPORTS_ODDS_TTL` | `25000` | odds cache, ms |
-| `DICEY_SPORTS_ODDS_PER_PAGE` | `20` | fixtures per page that get headline odds |
+| `VIRTUSJACK_B365_TOKEN` | `data/b365-token.txt` | feed token |
+| `VIRTUSJACK_SPORTS_LIST_TTL` | `90000` | fixture cache, ms |
+| `VIRTUSJACK_SPORTS_ODDS_TTL` | `25000` | odds cache, ms |
+| `VIRTUSJACK_SPORTS_ODDS_PER_PAGE` | `20` | fixtures per page that get headline odds |
 
 In-play is not wired up yet — this is the prematch feed only.
 
@@ -219,7 +219,7 @@ its own the moment the week rolls over — no button to press.
 
 Prizes land as a `race` transaction on the winner's balance and the finished board is kept
 as "Last race" on the Races page. The ladder lives in `RACE_PRIZES` in `server.js`; the
-02:00 boundary follows the same `DICEY_TZ_OFFSET` as the bonuses.
+02:00 boundary follows the same `VIRTUSJACK_TZ_OFFSET` as the bonuses.
 
 ## Cashier
 
@@ -246,7 +246,7 @@ Nothing extra is needed to receive SPL tokens: the sender creates the associated
 account, so the plain Solana address is all a player ever hands out. USDT and USDC credit
 1:1 whichever network they arrive on.
 
-Put the mnemonic in **`data/seed.txt`** (git-ignored) or the `DICEY_MNEMONIC` environment
+Put the mnemonic in **`data/seed.txt`** (git-ignored) or the `VIRTUSJACK_MNEMONIC` environment
 variable. Without it the cashier falls back to the manual "report your deposit" flow.
 Index 1 goes to the first account created, and the QR code beside each address is a real
 scannable QR of that exact address.
@@ -260,8 +260,8 @@ form to fill in and nothing for an admin to approve.
   accounts on Solana and the TRC-20 balances on Tron
 * USDT and USDC credit 1:1 on every network; ETH, BTC, SOL and TRX convert at the live
   Coinbase spot price
-* anything worth at least `DICEY_MIN_DEPOSIT_USD` (default $10) is credited automatically
-  once it has `DICEY_CONFIRMATIONS` (default 3) confirmations; smaller dust is logged as
+* anything worth at least `VIRTUSJACK_MIN_DEPOSIT_USD` (default $10) is credited automatically
+  once it has `VIRTUSJACK_CONFIRMATIONS` (default 3) confirmations; smaller dust is logged as
   pending so you can decide what to do with it
 * when a deposit lands the player gets a toast and a glowing pill in the topbar showing
   the amount and the coin
@@ -284,21 +284,21 @@ credited within a poll cycle (20 seconds by default), so in practice just sweep 
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `DICEY_MNEMONIC` | `data/seed.txt` | the BIP39 mnemonic addresses are derived from |
-| `DICEY_RPC_URL` | `https://ethereum-rpc.publicnode.com` | Ethereum JSON-RPC endpoint |
-| `DICEY_SOL_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana JSON-RPC endpoint |
-| `DICEY_BTC_API_URL` | `https://blockstream.info/api` | Bitcoin address API |
-| `DICEY_TRON_API_URL` | `https://api.trongrid.io` | Tron account API |
-| `DICEY_TRON_API_KEY` | none | TronGrid API key; without one TronGrid allows one account lookup per second |
-| `DICEY_CONFIRMATIONS` | `3` | confirmations before crediting |
-| `DICEY_MIN_DEPOSIT_USD` | `10` | smallest deposit that credits by itself |
-| `DICEY_ETH_USD` | live price | fixed ETH price instead of the feed |
-| `DICEY_WATCH_ETH` / `_BTC` / `_SOL` / `_TRON` | `1` | set any to `0` to stop watching that chain |
-| `DICEY_POLL_MS` | `20000` | how often to poll |
-| `DICEY_RECONCILE_BATCH` | `6` | Ethereum addresses checked per sweep |
-| `DICEY_SOL_BATCH` | `8` | Solana addresses checked per poll |
-| `DICEY_TRON_BATCH` | `5` | Tron addresses checked per poll |
-| `DICEY_TRON_GAP_MS` | `1200` | pause between Tron lookups, to stay inside the rate limit |
+| `VIRTUSJACK_MNEMONIC` | `data/seed.txt` | the BIP39 mnemonic addresses are derived from |
+| `VIRTUSJACK_RPC_URL` | `https://ethereum-rpc.publicnode.com` | Ethereum JSON-RPC endpoint |
+| `VIRTUSJACK_SOL_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana JSON-RPC endpoint |
+| `VIRTUSJACK_BTC_API_URL` | `https://blockstream.info/api` | Bitcoin address API |
+| `VIRTUSJACK_TRON_API_URL` | `https://api.trongrid.io` | Tron account API |
+| `VIRTUSJACK_TRON_API_KEY` | none | TronGrid API key; without one TronGrid allows one account lookup per second |
+| `VIRTUSJACK_CONFIRMATIONS` | `3` | confirmations before crediting |
+| `VIRTUSJACK_MIN_DEPOSIT_USD` | `10` | smallest deposit that credits by itself |
+| `VIRTUSJACK_ETH_USD` | live price | fixed ETH price instead of the feed |
+| `VIRTUSJACK_WATCH_ETH` / `_BTC` / `_SOL` / `_TRON` | `1` | set any to `0` to stop watching that chain |
+| `VIRTUSJACK_POLL_MS` | `20000` | how often to poll |
+| `VIRTUSJACK_RECONCILE_BATCH` | `6` | Ethereum addresses checked per sweep |
+| `VIRTUSJACK_SOL_BATCH` | `8` | Solana addresses checked per poll |
+| `VIRTUSJACK_TRON_BATCH` | `5` | Tron addresses checked per poll |
+| `VIRTUSJACK_TRON_GAP_MS` | `1200` | pause between Tron lookups, to stay inside the rate limit |
 
 ### The server never touches the money
 
@@ -461,7 +461,7 @@ assets/js/admin.js         admin dashboard
 ### Adding a game
 
 ```js
-Dicey.registerGame({
+Virtusjack.registerGame({
   id: 'mygame',
   name: 'My Game',
   mount(ctx) {
@@ -477,7 +477,7 @@ Dicey.registerGame({
 });
 ```
 
-Add matching metadata (name, badge, tile art) to `Dicey.games` in `assets/js/app.js`
+Add matching metadata (name, badge, tile art) to `Virtusjack.games` in `assets/js/app.js`
 so the game shows up in the lobby, then load the file from `index.html`. In server mode
 `ctx.settle` also reports the round to the backend, so it shows up in the admin dashboard
 with no extra work.

@@ -1,5 +1,5 @@
 /* ============================================================
-   Virtus — the pages behind the footer links
+   Virtusjack — the pages behind the footer links
 
    Every entry below becomes its own page, opened by any element
    with data-doc="<key>" and reachable at #doc=<key>. The copy is
@@ -253,7 +253,7 @@
               : '') +
           '</section>').join('') +
         '<p class="doc-foot">Last updated ' + new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) +
-          ' · questions to <b>support@virtus.com</b></p>' +
+          ' · questions to <b>support@virtusjack.com</b></p>' +
       '</article>';
     return true;
   }
@@ -279,4 +279,4 @@
   if (hash.indexOf('doc=') === 0 && page) open(hash.slice(4));
 
   D.Docs = { open: open, keys: Object.keys(DOCS) };
-})(window.Dicey);
+})(window.Virtusjack);

@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — backend client
+   Virtusjack — backend client
 
    The site runs in two modes:
      server  — server.js is reachable, so accounts, balances and
@@ -171,4 +171,4 @@
 
   D.Api = Api;
   D.Wallet = Wallet;
-})(window.Dicey);
+})(window.Virtusjack);

@@ -19,7 +19,7 @@
   D.registerGame({
     id: 'mines',
     name: 'Mines',
-    sub: 'Dicey Original · pick your risk',
+    sub: 'Virtusjack Original · pick your risk',
 
     mount(ctx) {
       let mines = 3;
@@ -160,4 +160,4 @@
       paint();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

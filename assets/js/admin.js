@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — admin dashboard
+   Virtusjack — admin dashboard
 
    Players, their rounds, deposits and withdrawals. Pending
    requests wait here until they are confirmed or rejected.
@@ -517,4 +517,4 @@
   });
 
   D.Admin = { load: load, openUser: openUser };
-})(window.Dicey);
+})(window.Virtusjack);

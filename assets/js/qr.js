@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — QR encoder
+   Virtusjack — QR encoder
 
    Byte mode, error correction level M, versions 1–10. Enough for
    any crypto address or BIP21/EIP-681 payment URI. Returns a
@@ -9,8 +9,8 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  if (root && root.Dicey) root.Dicey.QR = api;
-  else if (root) root.DiceyQR = api;
+  if (root && root.Virtusjack) root.Virtusjack.QR = api;
+  else if (root) root.VirtusjackQR = api;
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 

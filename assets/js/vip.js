@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — VIP ranks
+   Virtusjack — VIP ranks
 
    One source of truth for the ladder. Rank follows total amount
    wagered, so it moves on its own as the player bets.
@@ -103,4 +103,4 @@
 
   D.Vip = { ranks: RANKS, progress: progress, rankFor: rankFor, range: range };
   D.Store.onChange(paint);
-})(window.Dicey);
+})(window.Virtusjack);

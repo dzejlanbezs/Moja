@@ -20,7 +20,7 @@
   D.registerGame({
     id: 'plinko',
     name: 'Plinko',
-    sub: 'Dicey Original · drop and pray',
+    sub: 'Virtusjack Original · drop and pray',
 
     mount(ctx) {
       let risk = 'medium';
@@ -179,4 +179,4 @@
       draw();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

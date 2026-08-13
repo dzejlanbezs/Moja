@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — rewards popup
+   Virtusjack — rewards popup
 
    Rakeback, daily, weekly and monthly bonuses. Amounts and the
    claim rules come from the server; this only displays them.
@@ -142,4 +142,4 @@
   });
 
   D.Rewards = { refresh: refresh, apply: apply, open: open };
-})(window.Dicey);
+})(window.Virtusjack);

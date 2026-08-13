@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — lobby, navigation, cashier and page data
+   Virtusjack — lobby, navigation, cashier and page data
    ============================================================ */
 
 (function (D) {
@@ -127,7 +127,7 @@
   let filter = 'originals';
 
   const EMPTY_MESSAGES = {
-    slots: 'Slot providers are not wired up in this demo. Every Dicey Original is playable right now.',
+    slots: 'Slot providers are not wired up in this demo. Every Virtusjack Original is playable right now.',
     live: 'Live dealer tables need a video feed. Try our table game Blackjack instead.',
     shows: 'Game shows are on the roadmap. Meanwhile, spin the Wheel.',
   };
@@ -206,6 +206,29 @@
 
   /** Casino and Sports carry their own picture, from assets/img/nav. */
   D.$$('[data-nav-art]').forEach((el) => D.Art.apply(el, 'nav', el.dataset.navArt));
+
+  /**
+   * A logo dropped into assets/img/logo takes over: full.png replaces the whole
+   * lockup, mark.png only the square beside the name.
+   */
+  D.Art.load().then(() => {
+    const full = D.Art.get('logo', 'full');
+    const mark = D.Art.get('logo', 'mark');
+    if (!full && !mark) return;
+
+    D.$$('[data-logo]').forEach((brand) => {
+      if (full) {
+        brand.style.backgroundImage = 'url("' + full + '")';
+        brand.classList.add('has-logo');
+        return;
+      }
+      const chip = brand.querySelector('.brand-mark');
+      if (chip) {
+        chip.style.backgroundImage = 'url("' + mark + '")';
+        chip.classList.add('has-art');
+      }
+    });
+  });
 
   /* ---------------- live wins ---------------- */
   const winsTrack = D.$('#winsTrack');
@@ -677,4 +700,4 @@
     // anything else (#event=123 and friends) belongs to the page that set it
     navigate(hash);
   }
-})(window.Dicey);
+})(window.Virtusjack);

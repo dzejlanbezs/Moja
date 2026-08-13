@@ -8,7 +8,7 @@
   D.registerGame({
     id: 'limbo',
     name: 'Limbo',
-    sub: 'Dicey Original · 99% RTP',
+    sub: 'Virtusjack Original · 99% RTP',
 
     mount(ctx) {
       let target = 2;
@@ -117,4 +117,4 @@
       refresh();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

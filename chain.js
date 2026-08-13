@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — deposit watching
+   Virtusjack — deposit watching
 
    Read-only on purpose. Players send to an address that is
    theirs alone, so nothing here ever holds a private key, signs
@@ -13,6 +13,9 @@
    ============================================================ */
 
 'use strict';
+/* Settings come from VIRTUSJACK_* variables; the older DICEY_* names still work. */
+const env = (name) => process.env['VIRTUSJACK_' + name] || process.env['DICEY_' + name] || '';
+
 
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
@@ -34,24 +37,24 @@ const TRC20_TOKENS = {
 };
 
 const config = {
-  rpcUrl: process.env.DICEY_RPC_URL || 'https://ethereum-rpc.publicnode.com',
-  solRpcUrl: process.env.DICEY_SOL_RPC_URL || 'https://api.mainnet-beta.solana.com',
-  btcApiUrl: process.env.DICEY_BTC_API_URL || 'https://blockstream.info/api',
-  tronApiUrl: process.env.DICEY_TRON_API_URL || 'https://api.trongrid.io',
-  tronApiKey: process.env.DICEY_TRON_API_KEY || '',
-  confirmations: parseInt(process.env.DICEY_CONFIRMATIONS, 10) || 3,
-  pollMs: parseInt(process.env.DICEY_POLL_MS, 10) || 20000,
+  rpcUrl: env('RPC_URL') || 'https://ethereum-rpc.publicnode.com',
+  solRpcUrl: env('SOL_RPC_URL') || 'https://api.mainnet-beta.solana.com',
+  btcApiUrl: env('BTC_API_URL') || 'https://blockstream.info/api',
+  tronApiUrl: env('TRON_API_URL') || 'https://api.trongrid.io',
+  tronApiKey: env('TRON_API_KEY') || '',
+  confirmations: parseInt(env('CONFIRMATIONS'), 10) || 3,
+  pollMs: parseInt(env('POLL_MS'), 10) || 20000,
   maxBlocksPerPoll: 12,
-  reconcileBatch: parseInt(process.env.DICEY_RECONCILE_BATCH, 10) || 6,
-  solBatch: parseInt(process.env.DICEY_SOL_BATCH, 10) || 8,
-  tronBatch: parseInt(process.env.DICEY_TRON_BATCH, 10) || 5,
+  reconcileBatch: parseInt(env('RECONCILE_BATCH'), 10) || 6,
+  solBatch: parseInt(env('SOL_BATCH'), 10) || 8,
+  tronBatch: parseInt(env('TRON_BATCH'), 10) || 5,
   // TronGrid allows one account lookup per second without an API key
-  tronGapMs: parseInt(process.env.DICEY_TRON_GAP_MS, 10) || 1200,
-  watchNative: process.env.DICEY_WATCH_ETH !== '0',
-  watchBtc: process.env.DICEY_WATCH_BTC !== '0',
-  watchSol: process.env.DICEY_WATCH_SOL !== '0',
-  watchTron: process.env.DICEY_WATCH_TRON !== '0',
-  ethUsdOverride: parseFloat(process.env.DICEY_ETH_USD) || 0,
+  tronGapMs: parseInt(env('TRON_GAP_MS'), 10) || 1200,
+  watchNative: env('WATCH_ETH') !== '0',
+  watchBtc: env('WATCH_BTC') !== '0',
+  watchSol: env('WATCH_SOL') !== '0',
+  watchTron: env('WATCH_TRON') !== '0',
+  ethUsdOverride: parseFloat(env('ETH_USD')) || 0,
   priceUrl: 'https://api.coinbase.com/v2/prices/',
 };
 

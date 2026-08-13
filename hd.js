@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — HD wallet address derivation
+   Virtusjack — HD wallet address derivation
 
    Turns one BIP39 mnemonic into a fresh deposit address per
    player per chain:

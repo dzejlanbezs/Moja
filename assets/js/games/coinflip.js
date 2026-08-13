@@ -7,7 +7,7 @@
   D.registerGame({
     id: 'coinflip',
     name: 'Coinflip',
-    sub: 'Dicey Original · 1.98\u00d7 per flip',
+    sub: 'Virtusjack Original · 1.98\u00d7 per flip',
 
     mount(ctx) {
       let side = 'heads';
@@ -140,4 +140,4 @@
       paint();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

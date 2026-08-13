@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — swappable artwork
+   Virtusjack — swappable artwork
 
    Anything dropped into assets/img/{banners,games,sports,promo,
    coins,trending,nav,wins}
@@ -11,10 +11,10 @@
 (function (D) {
   'use strict';
 
-  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins'];
+  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo'];
   const EXTENSIONS = ['jpg', 'png', 'webp'];
 
-  const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {}, trending: {}, nav: {}, wins: {} };
+  const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {}, trending: {}, nav: {}, wins: {}, logo: {} };
   const probes = {};
   let ready = null;
   let listed = false;   // true once the server has told us what exists
@@ -89,4 +89,4 @@
   }
 
   D.Art = { load: load, get: get, first: first, apply: apply, probe: probe, key: key };
-})(window.Dicey);
+})(window.Virtusjack);

@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — sportsbook: fixtures, single-match view and bet slip
+   Virtusjack — sportsbook: fixtures, single-match view and bet slip
 
    Fixtures paint immediately, prices arrive in batches and then
    refresh every 30 seconds, flashing green or red as they move.
@@ -1036,7 +1036,7 @@
       '<div class="bet-card-head">' +
         '<span class="bet-brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#00e676"/>' +
           '<circle cx="11" cy="11" r="2.6" fill="#04150c"/><circle cx="21" cy="11" r="2.6" fill="#04150c"/>' +
-          '<circle cx="11" cy="21" r="2.6" fill="#04150c"/><circle cx="21" cy="21" r="2.6" fill="#04150c"/></svg>dicey</span>' +
+          '<circle cx="11" cy="21" r="2.6" fill="#04150c"/><circle cx="21" cy="21" r="2.6" fill="#04150c"/></svg>virtusjack</span>' +
         '<span class="bet-card-tags">' +
           (bet.freeBet ? '<span class="bet-status freebet">Free bet</span>' : '') +
           (placed
@@ -1285,4 +1285,4 @@
   syncSlip();
 
   D.Sportsbook = { start: start, state: state, reloadBets: loadBets, openEvent: openEvent, flash: flash };
-})(window.Dicey);
+})(window.Virtusjack);

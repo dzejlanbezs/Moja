@@ -5,7 +5,7 @@
   D.registerGame({
     id: 'dice',
     name: 'Dice',
-    sub: 'Dicey Original · 99% RTP',
+    sub: 'Virtusjack Original · 99% RTP',
 
     mount(ctx) {
       let mode = 'over';
@@ -130,4 +130,4 @@
       refresh();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

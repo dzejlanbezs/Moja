@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — sign up, sign in, and switching the UI between the
+   Virtusjack — sign up, sign in, and switching the UI between the
    local demo wallet and a real server account
    ============================================================ */
 
@@ -234,4 +234,4 @@
 
   D.openAuth = openAuth;
   D.applySession = applySession;
-})(window.Dicey);
+})(window.Virtusjack);

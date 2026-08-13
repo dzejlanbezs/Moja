@@ -21,7 +21,7 @@
   D.registerGame({
     id: 'blackholes',
     name: 'Black Holes',
-    sub: 'Dicey Original · the drawing game',
+    sub: 'Virtusjack Original · the drawing game',
 
     mount(ctx) {
       let active = false;
@@ -138,4 +138,4 @@
       paint();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

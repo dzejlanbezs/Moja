@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — weekly wager race
+   Virtusjack — weekly wager race
 
    $15,000 split between the top ten. The board is live wagering
    from the backend; the server pays the prizes out by itself
@@ -147,4 +147,4 @@
   load();
 
   D.Race = { load: load };
-})(window.Dicey);
+})(window.Virtusjack);

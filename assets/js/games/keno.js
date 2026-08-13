@@ -22,7 +22,7 @@
   D.registerGame({
     id: 'keno',
     name: 'Keno',
-    sub: 'Dicey Original · up to 1000\u00d7',
+    sub: 'Virtusjack Original · up to 1000\u00d7',
 
     mount(ctx) {
       const picked = new Set();
@@ -159,4 +159,4 @@
       paint();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

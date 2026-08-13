@@ -1,5 +1,5 @@
 /* ============================================================
-   Dicey — deposit alerts and the sports free bet
+   Virtusjack — deposit alerts and the sports free bet
 
    Watches for credited deposits so the player sees the money
    arrive, and lights up the Sports rail once the promo free bet
@@ -120,4 +120,4 @@
   }
 
   D.Deposits = { start: start, stop: stop, poll: poll, openFreeBet: openFreeBet, applyFreeBet: applyFreeBet };
-})(window.Dicey);
+})(window.Virtusjack);

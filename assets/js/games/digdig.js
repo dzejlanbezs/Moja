@@ -20,7 +20,7 @@
   D.registerGame({
     id: 'digdig',
     name: 'Dig Dig',
-    sub: 'Dicey Original · climb the tower',
+    sub: 'Virtusjack Original · climb the tower',
 
     mount(ctx) {
       let mode = 'medium';
@@ -178,4 +178,4 @@
       paint();
     },
   });
-})(window.Dicey);
+})(window.Virtusjack);

@@ -1,8 +1,8 @@
 /* ============================================================
-   Dicey — core helpers, wallet store, toasts
+   Virtusjack — core helpers, wallet store, toasts
    ============================================================ */
 
-window.Dicey = (function () {
+window.Virtusjack = (function () {
   'use strict';
 
   /* ---------- random ---------- */
@@ -57,7 +57,7 @@ window.Dicey = (function () {
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
   /* ---------- wallet store ---------- */
-  const KEY = 'dicey.wallet.v1';
+  const KEY = 'virtusjack.wallet.v1';
   const DEFAULTS = { balance: 1000, wagered: 0, won: 0, bets: 0, wins: 0, history: [], tx: [] };
 
   function load() {
