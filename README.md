@@ -356,6 +356,8 @@ means the built-in artwork stays — nothing to configure and nothing breaks.
 | `coins/` | `usdt`, `usdc`, `eth`, `btc`, `sol`, `trx` | currency icons in the cashier, deposit and withdraw |
 | `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
 | `trending/` | any single image | the background behind all three Trending Now cards |
+| `nav/` | `casino`, `sports` | the two picture tiles at the top of the left rail |
+| `wins/` | one per original | the square beside every win in the Live Wins strip |
 
 `.jpg .jpeg .png .webp .avif` all work and names are matched loosely, so
 `black-holes.png`, `Dig Dig.webp` or `weekly-race.jpg` are all fine. Each folder
@@ -364,8 +366,34 @@ the sportsbook promos hide their text instead, since that artwork usually carrie
 its own wording.
 
 The little square in the Live Wins strip and the bet feeds shows **what was bet
-on**, not who bet: the game's artwork when you supplied one, its built-in badge
-otherwise, and a gold sports mark for sportsbook bets.
+on**, not who bet: the picture from `wins/` if there is one, then the game's tile
+art from `games/`, then its built-in badge, and a gold sports mark for sportsbook
+bets. That means the strip can carry different artwork from the lobby without
+touching the tiles.
+
+### Live Wins strip
+
+Two tabs sit above the lobby. **Live Wins** invents one win every ten seconds
+inside a range you set in the admin dashboard (*Live Wins strip* panel, for
+example $0 to $1,000), and **Biggest Wins** lists the largest real payouts the
+server has seen, falling back to invented ones while the log is empty. No player
+is ever named: every card reads **Hidden**.
+
+### Footer
+
+The footer carries Support, Platform, Legal and Community, and every link opens
+its own page. All of that copy — eight documents, from the Help Center to Cookie
+Preferences — lives in one place, **`assets/js/docs.js`**: edit the strings in
+`DOCS` and nothing else needs to change. Each page is reachable at `#doc=<key>`,
+so a link can be shared or bookmarked.
+
+### Navigation
+
+Casino and Sports are picture tiles at the top of the rail, tinted green when
+selected. Below them, the Originals / Slots / Live shortcuts follow the lobby
+category and only one is ever lit. Expand the rail — or open the drawer on a
+phone — and every entry spells out its name. Signed out, the balance and the
+cashier are hidden and the topbar shows only **Log in** and **Register**.
 
 ## Games
 
@@ -425,6 +453,7 @@ assets/js/rewards.js       the rewards popup
 assets/js/race.js          weekly race board and countdown
 assets/js/deposits.js      deposit alerts and the sports free bet
 assets/js/sports.js        sportsbook page, markets and the bet slip
+assets/js/docs.js          the footer pages — all of that copy lives here
 assets/js/account.js       register / log in / log out and session UI
 assets/js/admin.js         admin dashboard
 ```
