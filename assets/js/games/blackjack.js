@@ -324,6 +324,8 @@
         if (moved.rank === 'A') {
           h.done = true;               // split aces take one card each and stand
           extra.done = true;
+          msg.textContent = 'Split aces take one card each';
+          await wait(700);
           return advance();
         }
         msg.textContent = 'Hand ' + (active + 1) + ' — hit, stand, double or split';
