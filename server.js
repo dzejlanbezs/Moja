@@ -73,6 +73,23 @@ const COINS = [
 
 const networkLabel = (network) => network.name + ' · ' + network.tag;
 
+/** Every deposit address a player has, and the coins each one accepts. */
+function depositAddresses(user) {
+  const addresses = addressesFor(user);
+  if (!addresses) return [];
+
+  const byChain = new Map();
+  COINS.forEach((coin) => coin.networks.forEach((network) => {
+    const address = addresses[network.chain];
+    if (!address) return;
+    const entry = byChain.get(network.chain) ||
+      { chain: network.chain, network: network.name, address: address, coins: [] };
+    entry.coins.push(coin.sym + (coin.networks.length > 1 ? ' (' + network.tag + ')' : ''));
+    byChain.set(network.chain, entry);
+  }));
+  return Array.from(byChain.values());
+}
+
 /** Looks up a coin and one of its networks, falling back to the coin's first network. */
 function coinNetwork(sym, networkId) {
   const coin = COINS.filter((c) => c.sym === String(sym || '').toUpperCase())[0];
@@ -85,6 +102,7 @@ function coinNetwork(sym, networkId) {
 
 const EMPTY_DB = {
   users: [], sessions: {}, rounds: [], transactions: [], sportsBets: [],
+  trending: { events: [], watchers: {} },
   meta: { lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} },
 };
 
@@ -100,6 +118,7 @@ function loadDb() {
 const db = loadDb();
 db.meta = Object.assign({ lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} }, db.meta);
 db.sportsBets = db.sportsBets || [];
+db.trending = Object.assign({ events: [], watchers: {} }, db.trending);
 let saveTimer = null;
 
 function save() {
@@ -501,7 +520,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ------------------------------------------------------------------ swappable art */
 
-const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins'];
+const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending'];
 const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
 // friendlier names people are likely to save files under
 const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportslogo: 'logo', levelup: 'levelup' };
@@ -532,6 +551,49 @@ function artManifest() {
 
   artCache = { at: Date.now(), value: manifest };
   return manifest;
+}
+
+/* ------------------------------------------------------------------ trending strip */
+
+const TRENDING_MAX = 3;
+
+/** A steady made-up crowd for a match, unless an admin has set the number. */
+function watchersFor(event) {
+  const set = db.trending.watchers[event.id];
+  if (set != null) return set;
+  let hash = 0;
+  for (const ch of String(event.id)) hash = (hash * 31 + ch.charCodeAt(0)) % 100000;
+  return 900 + (hash % 8600);
+}
+
+const trendingEntry = (event) => ({
+  id: String(event.id),
+  sportId: parseInt(event.sportId, 10) || 1,
+  sport: String(event.sport || ''),
+  league: String(event.league || '').slice(0, 80),
+  home: String(event.home || '').slice(0, 60),
+  away: String(event.away || '').slice(0, 60),
+  time: parseInt(event.time, 10) || 0,
+});
+
+/**
+ * What the strip shows: whatever an admin pinned, topped up with the next MLB
+ * games so it is never empty, and with matches that have started dropped.
+ */
+async function trendingEvents() {
+  const cutoff = now() - 3 * HOUR;
+  const pinned = (db.trending.events || []).filter((e) => !e.time || e.time > cutoff);
+  if (pinned.length !== (db.trending.events || []).length) {
+    db.trending.events = pinned;
+    save();
+  }
+
+  let list = pinned.slice(0, TRENDING_MAX);
+  if (list.length < TRENDING_MAX && sports.enabled()) {
+    const filler = await sports.featured(TRENDING_MAX - list.length, list.map((e) => e.id));
+    list = list.concat(filler.map(trendingEntry));
+  }
+  return list.map((event) => Object.assign({}, event, { watchers: watchersFor(event) }));
 }
 
 function userAggregates(user) {
@@ -944,6 +1006,23 @@ const ROUTES = {
     }
   },
 
+  /** The three matches on the Trending strip, with live prices. */
+  'GET /api/sports/trending': async (ctx) => {
+    try {
+      const pinned = await trendingEvents();
+      if (!pinned.length) return sendJson(ctx.res, 200, { events: [] });
+
+      // mainOdds hands back enriched copies, so carry the crowd numbers over
+      const events = await sports.mainOdds(pinned);
+      events.forEach((event, i) => { event.watchers = pinned[i].watchers; });
+      sports.attachLogos(events);
+      sports.resolveLogos(events);
+      return sendJson(ctx.res, 200, { events: events });
+    } catch (err) {
+      return sendJson(ctx.res, 200, { events: [], error: err.message || 'Feed unavailable' });
+    }
+  },
+
   'GET /api/sports/event': async (ctx) => {
     const fi = String(ctx.query.get('FI') || '').replace(/[^0-9]/g, '');
     if (!fi) return sendJson(ctx.res, 400, { error: 'Missing event id' });
@@ -1230,6 +1309,7 @@ const ROUTES = {
         blocked: !!user.blocked,
         totals: userAggregates(user),
       }),
+      addresses: depositAddresses(user),
       bets: db.rounds.filter((r) => r.userId === user.id).slice(-60).reverse(),
       sportsBets: db.sportsBets.filter((b) => b.userId === user.id).slice(0, 40),
       transactions: db.transactions.filter((t) => t.userId === user.id).slice(0, 60),
@@ -1380,6 +1460,37 @@ const ROUTES = {
         .slice(0, 80)
         .map((b) => Object.assign({ email: emails[b.userId] }, b)),
     });
+  },
+
+  /** What the Trending strip is showing, plus whether it is pinned or automatic. */
+  'GET /api/admin/sports/trending': async (ctx) => {
+    const admin = ctx.requireAdmin();
+    if (!admin) return;
+    const events = await trendingEvents().catch(() => []);
+    return sendJson(ctx.res, 200, {
+      events: events,
+      pinned: (db.trending.events || []).map((e) => e.id),
+      max: TRENDING_MAX,
+    });
+  },
+
+  /** Replaces the pinned matches and their crowd numbers in one go. */
+  'POST /api/admin/sports/trending': async (ctx) => {
+    const admin = ctx.requireAdmin();
+    if (!admin) return;
+    const body = await ctx.body();
+    const incoming = Array.isArray(body.events) ? body.events.slice(0, TRENDING_MAX) : [];
+
+    db.trending.events = incoming.filter((e) => e && e.id).map(trendingEntry);
+    incoming.forEach((event) => {
+      const watchers = Math.max(0, Math.min(9999999, Math.round(Number(event.watchers) || 0)));
+      if (watchers) db.trending.watchers[String(event.id)] = watchers;
+      else delete db.trending.watchers[String(event.id)];
+    });
+    save();
+
+    const events = await trendingEvents().catch(() => []);
+    return sendJson(ctx.res, 200, { events: events, pinned: db.trending.events.map((e) => e.id) });
   },
 
   'POST /api/admin/block': async (ctx) => {

@@ -10,10 +10,10 @@
 (function (D) {
   'use strict';
 
-  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins'];
+  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending'];
   const EXTENSIONS = ['jpg', 'png', 'webp'];
 
-  const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {} };
+  const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {}, trending: {} };
   const probes = {};
   let ready = null;
   let listed = false;   // true once the server has told us what exists
@@ -55,6 +55,12 @@
 
   const get = (folder, name) => (manifest[folder] || {})[key(name)] || '';
 
+  /** Any image in a folder, for artwork where the filename does not matter. */
+  const first = (folder) => {
+    const names = Object.keys(manifest[folder] || {});
+    return names.length ? manifest[folder][names[0]] : '';
+  };
+
   /**
    * Puts the custom image on an element as a background and marks it, so the
    * stylesheet can hide whatever the built-in artwork was drawing.
@@ -81,5 +87,5 @@
     });
   }
 
-  D.Art = { load: load, get: get, apply: apply, probe: probe, key: key };
+  D.Art = { load: load, get: get, first: first, apply: apply, probe: probe, key: key };
 })(window.Dicey);

@@ -147,10 +147,15 @@
     sportName: 'Soccer',
     page: 1,
     events: [],
+    trending: [],
     query: '',
     view: 'list',
     event: null,
     marketFilter: 'main',
+    marketQuery: '',
+    marketSearch: false,
+    evMode: 'standard',
+    openLines: {},
     tab: 'slip',
     mode: 'single',
     picks: [],
@@ -416,6 +421,10 @@
     state.view = 'event';
     state.event = null;
     state.marketFilter = 'main';
+    state.marketQuery = '';
+    state.marketSearch = false;
+    state.evMode = 'standard';
+    state.openLines = {};
     D.navigate('event');
     if (history.replaceState) history.replaceState(null, '', '#event=' + fi);
 
@@ -444,6 +453,43 @@
   }
 
   const MAIN_MARKETS = 6;
+  const LINES_PER_ROW = 5;          // beyond this a row scrolls and offers "View all lines"
+
+  const PROP_RE = /player|pitcher|batter|hitter|scorer|strikeout|assist|rebound|passing|rushing|receiving|\bshots?\b|\bcards?\b/i;
+  const TOTAL_RE = /total|over\/under|goal line|run line|handicap|spread|\bline\b/i;
+  const PERIODS = [
+    [/\binnings?\b/i, 'Innings'],
+    [/\bhalf|halves\b/i, 'Halves'],
+    [/\bquarters?\b/i, 'Quarters'],
+    [/\bperiods?\b/i, 'Periods'],
+    [/\bsets?\b/i, 'Sets'],
+  ];
+
+  /** The chip row is built from what this match actually offers. */
+  function marketTabs(event) {
+    const names = event.markets.map((m) => m.name);
+    const tabs = [{ id: 'main', label: 'Main' }];
+    if (names.some((n) => PROP_RE.test(n))) tabs.push({ id: 'props', label: 'Player Props' });
+
+    const period = PERIODS.filter(([re]) => names.some((n) => re.test(n)))[0];
+    if (period) tabs.push({ id: 'period', label: period[1], re: period[0] });
+
+    if (names.some((n) => TOTAL_RE.test(n))) tabs.push({ id: 'totals', label: 'Totals' });
+    tabs.push({ id: 'more', label: 'More' });
+    return tabs;
+  }
+
+  function marketsFor(event, tabs) {
+    const needle = (state.marketQuery || '').trim().toLowerCase();
+    if (needle) return event.markets.filter((m) => m.name.toLowerCase().indexOf(needle) > -1);
+
+    const tab = tabs.filter((t) => t.id === state.marketFilter)[0] || tabs[0];
+    if (tab.id === 'main') return event.markets.slice(0, MAIN_MARKETS);
+    if (tab.id === 'props') return event.markets.filter((m) => PROP_RE.test(m.name));
+    if (tab.id === 'period') return event.markets.filter((m) => tab.re.test(m.name));
+    if (tab.id === 'totals') return event.markets.filter((m) => TOTAL_RE.test(m.name));
+    return event.markets;
+  }
 
   function renderEvent() {
     const event = state.event;
@@ -454,30 +500,47 @@
         '<div class="ev-side">' + crest(event.home, event.homeLogoBig || event.homeLogo, 'big') + '<b>' + esc(event.home) + '</b></div>' +
         '<div class="ev-mid">' +
           '<span class="ev-kick">' + esc(kickoff(event.time)) + '</span>' +
-          '<span class="ev-vs">vs</span>' +
           '<span class="ev-league">' + esc(event.league) + '</span>' +
         '</div>' +
         '<div class="ev-side">' + crest(event.away, event.awayLogoBig || event.awayLogo, 'big') + '<b>' + esc(event.away) + '</b></div>' +
       '</div>';
 
-    const showAll = state.marketFilter === 'more';
+    const sgp = state.evMode === 'sgp';
+    const tabs = marketTabs(event);
+    if (!tabs.some((t) => t.id === state.marketFilter)) state.marketFilter = 'main';
+    const searching = state.marketSearch || !!(state.marketQuery || '').trim();
+
     D.$('#evFilters').innerHTML =
-      '<label class="ev-find"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>' +
-        '<input type="search" id="evFind" placeholder="Find a market" value="' + esc(state.marketQuery || '') + '"></label>' +
-      '<button class="ev-chip' + (!showAll ? ' active' : '') + '" data-filter="main">Main</button>' +
-      '<button class="ev-chip' + (showAll ? ' active' : '') + '" data-filter="more">All ' + event.markets.length + ' markets</button>';
+      '<div class="ev-modes">' +
+        '<button class="ev-mode' + (sgp ? '' : ' active') + '" data-mode="standard">Standard markets</button>' +
+        '<button class="ev-mode' + (sgp ? ' active' : '') + '" data-mode="sgp">Same Game Parlay</button>' +
+      '</div>' +
+      (sgp ? '' :
+        '<div class="ev-chips">' +
+          '<button class="ev-search-btn' + (searching ? ' active' : '') + '" data-search="1" aria-label="Find a market">' +
+            '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>' +
+          (searching
+            ? '<input class="ev-find" id="evFind" type="search" placeholder="Find a market" value="' + esc(state.marketQuery || '') + '">'
+            : '') +
+          tabs.map((t) => '<button class="ev-chip' + (t.id === state.marketFilter ? ' active' : '') + '"' +
+            ' data-filter="' + t.id + '">' + esc(t.label) + '</button>').join('') +
+        '</div>');
 
-    const needle = (state.marketQuery || '').trim().toLowerCase();
-    let markets = event.markets;
-    if (needle) markets = markets.filter((m) => m.name.toLowerCase().indexOf(needle) > -1);
-    else if (!showAll) markets = markets.slice(0, MAIN_MARKETS);
+    if (sgp) {
+      D.$('#evMarkets').innerHTML = '<div class="sb-empty">Same Game Parlay is not offered on this match. ' +
+        'Picks from different matches still combine into a multi in your slip.</div>';
+      return;
+    }
 
+    const markets = marketsFor(event, tabs);
     D.$('#evMarkets').innerHTML = markets.length
       ? markets.map((market) => marketCard(event, market)).join('')
       : '<div class="sb-empty">No market matches that.</div>';
 
     const find = D.$('#evFind');
     if (find) {
+      find.focus();
+      find.setSelectionRange(find.value.length, find.value.length);
       find.addEventListener('input', () => {
         state.marketQuery = find.value;
         const at = find.selectionStart;
@@ -488,37 +551,148 @@
     }
   }
 
-  /** Over/Under style markets read better as two labelled rows. */
-  function marketCard(event, market) {
-    const overUnder = market.selections.every((s) => /^(Over|Under)\b/.test(s.label));
-    let inner;
+  /* ---- market cards ---- */
 
-    if (overUnder && market.selections.length > 2) {
-      const rows = [['Over', market.selections.filter((s) => /^Over/.test(s.label))],
-        ['Under', market.selections.filter((s) => /^Under/.test(s.label))]];
-      inner = '<div class="ev-lines">' + rows.map(([side, list]) =>
-        '<div class="ev-line"><span class="ev-line-side">' + side + '</span>' +
-          '<div class="ev-line-odds">' + list.map((s) =>
-            '<button class="sb-odd line' + (state.picks.some((p) => p.selectionId === s.id) ? ' active' : '') + '"' +
-            ' data-pick="' + esc(s.id) + '" data-fi="' + esc(event.id) + '" data-market="' + esc(market.name) + '"' +
-            ' data-label="' + esc(s.label) + '" data-odds="' + s.odds + '">' +
-            '<span class="sb-odd-label">' + esc(s.label.replace(/^(Over|Under)\s*/, '')) + '</span>' +
-            '<span class="sb-odd-price">' + price(s.odds) + '</span><span class="sb-arrow"></span></button>').join('') +
-          '</div></div>').join('') + '</div>';
-    } else {
-      inner = '<div class="ev-market-odds">' +
-        market.selections.map((s) => oddsButton(event, market.name, s)).join('') + '</div>';
+  const startsWithName = (label, name) =>
+    !!name && label.toLowerCase().indexOf(name.toLowerCase()) === 0;
+
+  /** Splits "TEX Rangers Over 2.5" into the side it belongs to and the line itself. */
+  function splitSelection(event, label) {
+    let rest = String(label);
+    let team = '';
+    if (startsWithName(rest, event.home)) { team = 'home'; rest = rest.slice(event.home.length).trim(); }
+    else if (startsWithName(rest, event.away)) { team = 'away'; rest = rest.slice(event.away.length).trim(); }
+
+    let side = '';
+    const match = /^(Over|Under)\b\s*/i.exec(rest);
+    if (match) { side = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase(); rest = rest.slice(match[0].length).trim(); }
+
+    return { team: team, side: side, line: rest };
+  }
+
+  const lineValue = (text) => {
+    const match = /-?\d+(\.\d+)?/.exec(text);
+    return match ? Math.abs(parseFloat(match[0])) : 0;
+  };
+
+  /**
+   * Markets that price the same thing at several lines read as one row per side
+   * with the lines side by side, the way a sportsbook lays them out. Anything
+   * that does not fit that shape stays a plain list of buttons.
+   */
+  function lineRows(event, market) {
+    const rows = new Map();
+
+    for (const selection of market.selections) {
+      const part = splitSelection(event, selection.label);
+      if (!part.team && !part.side) return null;          // an odd one out keeps the market flat
+      const key = part.team + '|' + part.side;
+      const row = rows.get(key) || {
+        key: key,
+        name: part.team === 'home' ? event.home : part.team === 'away' ? event.away : '',
+        logo: part.team === 'home' ? event.homeLogo : part.team === 'away' ? event.awayLogo : '',
+        side: part.side,
+        items: [],
+      };
+      row.items.push({ selection: selection, line: part.line || part.side || row.name });
+      rows.set(key, row);
     }
 
-    return '<div class="ev-market"><div class="ev-market-name">' + esc(market.name) + '</div>' + inner + '</div>';
+    const list = Array.from(rows.values());
+    if (list.length < 2 || !list.some((row) => row.items.length > 1)) return null;
+
+    list.forEach((row) => row.items.sort((a, b) => lineValue(a.line) - lineValue(b.line)));
+    return list;
+  }
+
+  function lineButton(event, market, item) {
+    const selection = item.selection;
+    return '<button class="sb-odd line' + (state.picks.some((p) => p.selectionId === selection.id) ? ' active' : '') + '"' +
+      ' data-pick="' + esc(selection.id) + '" data-fi="' + esc(event.id) + '"' +
+      ' data-market="' + esc(market.name) + '" data-label="' + esc(selection.label) + '"' +
+      ' data-odds="' + selection.odds + '">' +
+      '<span class="sb-odd-label">' + esc(item.line) + '</span>' +
+      '<span class="sb-odd-price">' + price(selection.odds) + '</span>' +
+      '<span class="sb-arrow"></span></button>';
+  }
+
+  function marketCard(event, market) {
+    const rows = lineRows(event, market);
+    const open = !!state.openLines[market.key];
+    const longest = rows ? Math.max.apply(null, rows.map((r) => r.items.length)) : 0;
+    const scrolls = !!rows && longest > LINES_PER_ROW;
+
+    const head = '<div class="ev-market-head"><span class="ev-market-name">' + esc(market.name) + '</span>' +
+      (scrolls && !open
+        ? '<span class="ev-nav">' +
+            '<button data-scroll="-1" aria-label="Earlier lines"><svg viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button>' +
+            '<button data-scroll="1" aria-label="More lines"><svg viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></button>' +
+          '</span>'
+        : '') +
+      '</div>';
+
+    if (!rows) {
+      return '<div class="ev-market">' + head +
+        '<div class="ev-market-odds">' +
+          market.selections.map((s) => oddsButton(event, market.name, s)).join('') +
+        '</div></div>';
+    }
+
+    const body = '<div class="ev-lines' + (open ? ' open' : '') + '">' + rows.map((row) =>
+      '<div class="ev-line">' +
+        '<div class="ev-line-side">' +
+          (row.name ? crest(row.name, row.logo, 'sm') + '<span>' + esc(row.name) + (row.side ? ' ' + esc(row.side) : '') + '</span>'
+            : '<span>' + esc(row.side) + '</span>') +
+        '</div>' +
+        '<div class="ev-line-track">' + row.items.map((item) => lineButton(event, market, item)).join('') + '</div>' +
+      '</div>').join('') + '</div>';
+
+    return '<div class="ev-market" data-market-key="' + esc(market.key) + '">' + head + body +
+      (scrolls
+        ? '<button class="ev-all-lines" data-lines="' + esc(market.key) + '">' +
+            (open ? 'Show fewer lines' : 'View all lines') + '</button>'
+        : '') +
+      '</div>';
   }
 
   D.$('#evMarkets').addEventListener('click', (e) => {
     const odd = e.target.closest('[data-pick]');
-    if (odd) togglePick(odd.dataset);
+    if (odd) { togglePick(odd.dataset); return; }
+
+    const all = e.target.closest('[data-lines]');
+    if (all) {
+      const key = all.dataset.lines;
+      state.openLines[key] = !state.openLines[key];
+      renderEvent();
+      return;
+    }
+
+    // both rows scroll together so the lines stay in step with each other
+    const arrow = e.target.closest('[data-scroll]');
+    if (arrow) {
+      const card = arrow.closest('.ev-market');
+      const step = parseInt(arrow.dataset.scroll, 10);
+      D.$$('.ev-line-track', card).forEach((track) => {
+        track.scrollBy({ left: step * Math.max(160, track.clientWidth * 0.8), behavior: 'smooth' });
+      });
+    }
   });
 
   D.$('#evFilters').addEventListener('click', (e) => {
+    const mode = e.target.closest('[data-mode]');
+    if (mode) {
+      state.evMode = mode.dataset.mode;
+      renderEvent();
+      return;
+    }
+
+    if (e.target.closest('[data-search]')) {
+      state.marketSearch = !state.marketSearch;
+      if (!state.marketSearch) state.marketQuery = '';
+      renderEvent();
+      return;
+    }
+
     const chip = e.target.closest('[data-filter]');
     if (!chip) return;
     state.marketFilter = chip.dataset.filter;
@@ -541,6 +715,94 @@
     const odd = e.target.closest('[data-pick]');
     if (odd) togglePick(odd.dataset);
   });
+
+  /* ---------------- trending strip ---------------- */
+
+  const trendingEl = D.$('#sbTrending');
+  const trendingTrack = D.$('#sbTrendingTrack');
+
+  const PEOPLE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<circle cx="9" cy="8.4" r="3.1"/><path d="M2.8 19.2c0-3.1 2.8-5.2 6.2-5.2s6.2 2.1 6.2 5.2"/>' +
+    '<path d="M16.2 6.2a3 3 0 0 1 0 5.6M17.4 14.4c2.4.5 3.8 2.1 3.8 4.4"/></svg>';
+
+  /** "in 2 hours", the way a sportsbook counts down to kick-off. */
+  function startsIn(ts) {
+    const diff = ts - Date.now();
+    if (diff <= 0) return 'starting now';
+    const mins = Math.round(diff / 60000);
+    if (mins < 60) return 'in ' + mins + ' min';
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return 'in ' + hours + ' hour' + (hours === 1 ? '' : 's');
+    const days = Math.round(hours / 24);
+    return 'in ' + days + ' day' + (days === 1 ? '' : 's');
+  }
+
+  function trendingCard(event) {
+    const odds = event.main
+      ? event.main.selections.map((s) => oddsButton(event, event.main.name, s)).join('')
+      : '<span class="sb-noodds">No prices yet</span>';
+
+    return '<article class="tn-card" data-open="' + esc(event.id) + '">' +
+      '<header class="tn-card-head">' +
+        '<span class="tn-league">' + esc(event.league) +
+          '<svg viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></span>' +
+        (event.marketCount ? '<span class="tn-count">+' + event.marketCount + '</span>' : '') +
+      '</header>' +
+      '<div class="tn-art">' +
+        '<div class="tn-teams">' +
+          '<span class="tn-team">' + crest(event.home, event.homeLogo) + '<b>' + esc(event.home) + '</b></span>' +
+          '<span class="tn-vs">vs.</span>' +
+          '<span class="tn-team">' + crest(event.away, event.awayLogo) + '<b>' + esc(event.away) + '</b></span>' +
+        '</div>' +
+        '<span class="tn-when">' + esc(kickoff(event.time)) + ' · ' + esc(startsIn(event.time)) + '</span>' +
+      '</div>' +
+      '<div class="tn-odds">' + odds + '</div>' +
+      '<div class="tn-watchers">' + PEOPLE_ICON +
+        '<span>' + Number(event.watchers || 0).toLocaleString('en-US') + ' watching</span></div>' +
+    '</article>';
+  }
+
+  /** One image from assets/img/trending sits behind all three cards. */
+  function applyTrendingArt() {
+    D.Art.load().then(() => {
+      const url = D.Art.get('trending', 'card') || D.Art.first('trending');
+      if (!url) return;
+      D.$$('.tn-art', trendingTrack).forEach((art) => {
+        art.style.backgroundImage = 'url("' + url + '")';
+        art.classList.add('has-art');
+      });
+    });
+  }
+
+  function renderTrending() {
+    if (!trendingEl) return;
+    trendingEl.hidden = !state.trending.length;
+    if (!state.trending.length) return;
+    trendingTrack.innerHTML = state.trending.map(trendingCard).join('');
+    applyTrendingArt();
+  }
+
+  function loadTrending() {
+    return D.Api.request('GET', '/api/sports/trending')
+      .then((data) => { state.trending = data.events || []; renderTrending(); })
+      .catch(() => {});
+  }
+
+  if (trendingTrack) {
+    trendingTrack.addEventListener('click', (e) => {
+      const odd = e.target.closest('[data-pick]');
+      if (odd) { togglePick(odd.dataset); return; }
+      const card = e.target.closest('[data-open]');
+      if (card) openEvent(card.dataset.open);
+    });
+
+    trendingEl.addEventListener('click', (e) => {
+      const arrow = e.target.closest('[data-tn-scroll]');
+      if (!arrow) return;
+      const step = parseInt(arrow.dataset.tnScroll, 10);
+      trendingTrack.scrollBy({ left: step * Math.max(240, trendingTrack.clientWidth * 0.6), behavior: 'smooth' });
+    });
+  }
 
   /* ---------------- refresh loop ---------------- */
 
@@ -567,6 +829,7 @@
     if (!D.$('#page-sports').classList.contains('active')) return;
     const ids = state.events.slice(0, 20).map((e) => e.id);
     if (ids.length) loadOdds(ids, true);
+    loadTrending();
   }, REFRESH_MS);
 
   /* ---------------- slip ---------------- */
@@ -586,7 +849,8 @@
       state.picks = state.picks.filter((p) => p.selectionId !== data.pick);
     } else {
       const source = state.view === 'event' && state.event ? state.event
-        : (state.events.filter((e) => e.id === data.fi)[0] || {});
+        : (state.events.filter((e) => e.id === data.fi)[0] ||
+           state.trending.filter((e) => e.id === data.fi)[0] || {});
       state.picks.push({
         selectionId: data.pick,
         fi: data.fi,
@@ -984,6 +1248,7 @@
         state.catalog = data.sports;
         renderSports();
         loadEvents();
+        loadTrending();
         loadBets();
       })
       .catch(() => { eventsEl.innerHTML = '<div class="sb-empty">The sportsbook needs the server running.</div>'; });

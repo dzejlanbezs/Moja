@@ -652,26 +652,26 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .tab { display: none; }
 .tab.active { display: block; }
 
-.coins { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+/* even tiles, three to a row, so any number of coins stays tidy */
+.coins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
 .coin {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 12px; border-radius: 10px;
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 12px; border-radius: 12px;
   background: var(--surface); border: 1px solid var(--line);
   transition: all .18s;
 }
 .coin:hover { border-color: var(--line-strong); }
-.coin.active { border-color: rgba(0, 230, 118, .45); background: var(--green-soft); }
+.coin.active { border-color: rgba(0, 230, 118, .55); background: var(--green-soft); }
 .coin-ico {
-  width: 22px; height: 22px; border-radius: 99px; overflow: hidden;
+  width: 26px; height: 26px; flex: none; border-radius: 99px; overflow: hidden;
   display: grid; place-items: center;
-  font-size: 10px; font-weight: 900; color: #fff;
+  font-size: 11px; font-weight: 900; color: #fff;
   background-size: cover; background-position: center;
 }
 /* an icon file from assets/img/coins replaces the letter */
 .coin-ico.has-art { background-color: transparent; }
 .coin-ico.has-art b { display: none; }
-.coin-name { font-size: 12px; font-weight: 700; }
-.coin-sym { font-size: 10px; color: var(--text-3); }
+.coin-sym { font-size: 13px; font-weight: 800; letter-spacing: .2px; }
 
 /* network picker, only present for coins that live on more than one chain */
 .nets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -6px 0 16px; }
@@ -1021,6 +1021,22 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 }
 .field-inline:focus { border-color: rgba(0, 230, 118, .45); }
 .admin-sub { font-size: 12px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; color: var(--text-2); margin: 20px 0 10px; }
+
+.tn-find { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+.tn-find .field-inline.slim { flex: 0 0 150px; }
+
+/* the player's own deposit address on every chain */
+.addr-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
+.addr-line { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 11px 13px; }
+.addr-line-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.addr-line-head b { font-size: 12.5px; }
+.addr-line-head .muted { font-size: 11px; }
+.addr-copy {
+  display: block; width: 100%; cursor: pointer;
+  font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--text-2);
+  word-break: break-all; line-height: 1.5;
+}
+.addr-copy:hover { color: var(--green); }
 
 /* ---------------- toasts ---------------- */
 .toast-wrap { position: fixed; top: 74px; right: 18px; z-index: 400; display: flex; flex-direction: column; gap: 9px; pointer-events: none; }

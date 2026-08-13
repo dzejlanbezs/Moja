@@ -30,6 +30,7 @@
 
   function load() {
     loadSportsBets();
+    loadTrending();
     return Api.adminOverview()
       .then((data) => {
         renderTotals(data.totals);
@@ -191,6 +192,120 @@
       .catch((err) => D.toast(err.message || 'Could not settle', 'lose'));
   }
 
+  /* ---------------- trending now ---------------- */
+
+  const tnListEl = D.$('#tnList');
+  const tnResultsEl = D.$('#tnResults');
+  const tnSportEl = D.$('#tnSport');
+  const tnQueryEl = D.$('#tnQuery');
+
+  // what the strip is showing right now; saving pins exactly this
+  let trending = [];
+
+  const matchLabel = (event) => event.home + ' vs ' + event.away;
+
+  function trendingRow(event) {
+    return '<div class="admin-row">' +
+      '<span class="tag-in">' + esc(event.league || event.sport || 'Match') + '</span>' +
+      '<div class="admin-row-main"><b>' + esc(matchLabel(event)) + '</b>' +
+        '<span class="muted">' + esc(when(event.time)) + '</span></div>' +
+      '<div class="admin-row-actions">' +
+        '<input class="field-inline slim" type="number" min="0" step="1" title="People watching"' +
+          ' data-tn-watch="' + esc(event.id) + '" value="' + (event.watchers || 0) + '">' +
+        '<button class="btn btn-danger" data-tn-remove="' + esc(event.id) + '">Remove</button>' +
+      '</div></div>';
+  }
+
+  function renderTrending() {
+    if (!tnListEl) return;
+    tnListEl.innerHTML = trending.length
+      ? trending.map(trendingRow).join('')
+      : '<div class="bets-empty">Nothing pinned — the strip fills itself with the next MLB games.</div>';
+  }
+
+  function loadTrending() {
+    if (!tnListEl) return Promise.resolve();
+    return Api.request('GET', '/api/admin/sports/trending')
+      .then((data) => { trending = data.events || []; renderTrending(); })
+      .catch(() => { tnListEl.innerHTML = '<div class="bets-empty">Could not load the strip</div>'; });
+  }
+
+  /** Saving pins whatever is on the list, so an edit makes the strip explicit. */
+  function saveTrending(list) {
+    return Api.request('POST', '/api/admin/sports/trending', { events: list })
+      .then((data) => {
+        trending = data.events || [];
+        renderTrending();
+        D.toast('Trending strip updated', 'win');
+      })
+      .catch((err) => D.toast(err.message || 'Could not update the strip', 'lose'));
+  }
+
+  function fillSports() {
+    if (!tnSportEl) return;
+    Api.request('GET', '/api/sports/catalog')
+      .then((data) => {
+        tnSportEl.innerHTML = (data.sports || [])
+          .map((s) => '<option value="' + s.id + '"' + (s.id === 16 ? ' selected' : '') + '>' + esc(s.name) + '</option>')
+          .join('');
+      })
+      .catch(() => {});
+  }
+
+  function searchMatches() {
+    const query = (tnQueryEl.value || '').trim();
+    if (query.length < 2) { D.toast('Type at least two letters', 'info'); return; }
+    tnResultsEl.innerHTML = '<div class="bets-empty">Searching…</div>';
+    Api.request('GET', '/api/sports/search?sport_id=' + (tnSportEl.value || 1) + '&q=' + encodeURIComponent(query))
+      .then((data) => {
+        const events = data.events || [];
+        tnResultsEl.innerHTML = events.length
+          ? events.slice(0, 12).map((event) =>
+              '<div class="admin-row">' +
+                '<span class="tag-in">' + esc(event.league) + '</span>' +
+                '<div class="admin-row-main"><b>' + esc(matchLabel(event)) + '</b>' +
+                  '<span class="muted">' + esc(when(event.time)) + '</span></div>' +
+                '<button class="btn btn-primary" data-tn-pin=\'' + esc(JSON.stringify({
+                  id: event.id, sportId: event.sportId, sport: event.sport,
+                  league: event.league, home: event.home, away: event.away, time: event.time,
+                })) + '\'>Pin</button>' +
+              '</div>').join('')
+          : '<div class="bets-empty">No match found for "' + esc(query) + '"</div>';
+      })
+      .catch((err) => { tnResultsEl.innerHTML = '<div class="bets-empty">' + esc(err.message || 'Search failed') + '</div>'; });
+  }
+
+  if (tnListEl) {
+    fillSports();
+    D.$('#tnSearch').addEventListener('click', searchMatches);
+    tnQueryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchMatches(); });
+    D.$('#tnAuto').addEventListener('click', () => saveTrending([]));
+
+    tnListEl.addEventListener('click', (e) => {
+      const remove = e.target.closest('[data-tn-remove]');
+      if (remove) saveTrending(trending.filter((event) => event.id !== remove.dataset.tnRemove));
+    });
+
+    tnListEl.addEventListener('change', (e) => {
+      const input = e.target.closest('[data-tn-watch]');
+      if (!input) return;
+      const id = input.dataset.tnWatch;
+      saveTrending(trending.map((event) =>
+        (event.id === id ? Object.assign({}, event, { watchers: parseInt(input.value, 10) || 0 }) : event)));
+    });
+
+    tnResultsEl.addEventListener('click', (e) => {
+      const pin = e.target.closest('[data-tn-pin]');
+      if (!pin) return;
+      const event = JSON.parse(pin.dataset.tnPin);
+      if (trending.some((item) => item.id === event.id)) { D.toast('Already on the strip', 'info'); return; }
+      // three fit, so pinning a fourth pushes the oldest one off
+      saveTrending(trending.slice(Math.max(0, trending.length - 2)).concat([event]));
+      tnResultsEl.innerHTML = '';
+      tnQueryEl.value = '';
+    });
+  }
+
   /* ---------------- player detail ---------------- */
 
   function openUser(userId) {
@@ -224,6 +339,11 @@
           '<button class="btn ' + (u.blocked ? 'btn-ghost' : 'btn-danger') + '" id="blockToggle" data-blocked="' + u.blocked + '">' +
             (u.blocked ? 'Unblock' : 'Block') + '</button>' +
         '</div>' +
+
+        '<h3 class="admin-sub">Deposit addresses</h3>' +
+        ((data.addresses || []).length
+          ? '<div class="addr-list">' + data.addresses.map(addressRow).join('') + '</div>'
+          : '<div class="bets-empty">No wallet seed configured</div>') +
 
         '<h3 class="admin-sub">Sports bets</h3>' +
         ((data.sportsBets || []).length
@@ -269,6 +389,15 @@
       document.body.classList.add('modal-open');
     }).catch((err) => D.toast(err.message || 'Could not load player', 'lose'));
   }
+
+  /** One chain the player can be paid on; clicking the address copies it. */
+  const addressRow = (entry) =>
+    '<div class="addr-line">' +
+      '<div class="addr-line-head"><b>' + esc(entry.network) + '</b>' +
+        '<span class="muted">' + esc(entry.coins.join(' · ')) + '</span></div>' +
+      '<code class="addr-copy" data-copy="' + esc(entry.address) + '" title="Click to copy">' +
+        esc(entry.address) + '</code>' +
+    '</div>';
 
   const card = (label, value, color) =>
     '<div class="stat"><b' + (color ? ' style="color:' + color + '"' : '') + '>' + esc(value) + '</b><span>' + esc(label) + '</span></div>';
@@ -319,6 +448,13 @@
 
   userModal.addEventListener('click', (e) => {
     if (e.target === userModal || e.target.closest('[data-close]')) { closeUser(); return; }
+
+    const copy = e.target.closest('[data-copy]');
+    if (copy) {
+      if (navigator.clipboard) navigator.clipboard.writeText(copy.dataset.copy).catch(() => {});
+      D.toast('Address copied', 'info');
+      return;
+    }
 
     if (e.target.closest('#adjApply')) {
       const amount = parseFloat(D.$('#adjAmount').value);

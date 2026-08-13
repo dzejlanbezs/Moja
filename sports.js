@@ -580,6 +580,26 @@ async function withMainOdds(list, limit) {
   return list;
 }
 
+/**
+ * The next few real fixtures, preferring MLB, so the Trending strip stays full
+ * even when nobody has pinned anything.
+ */
+async function featured(count, exclude) {
+  const skip = exclude || [];
+  const wanted = [{ sportId: 16, league: /^MLB$/i }, { sportId: 16, league: null }, { sportId: 1, league: null }];
+
+  for (const source of wanted) {
+    try {
+      const list = await upcoming(source.sportId, 1);
+      const picked = list.events.filter((event) =>
+        !event.virtual && skip.indexOf(event.id) === -1 &&
+        (!source.league || source.league.test(event.league)));
+      if (picked.length) return picked.slice(0, count);
+    } catch (err) { /* try the next source */ }
+  }
+  return [];
+}
+
 /** Filters the first few pages of a sport by team or league name. */
 async function search(sportId, query, pages) {
   const needle = String(query || '').trim().toLowerCase();
@@ -631,5 +651,6 @@ module.exports = {
   logoFor: logoFor,
   logoForPick: logoForPick,
   search: search,
+  featured: featured,
   verifySelection: verifySelection,
 };

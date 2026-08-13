@@ -124,7 +124,7 @@
   const grid = D.$('#gameGrid');
   const emptyState = D.$('#gridEmpty');
   const emptyCopy = D.$('#emptyCopy');
-  let filter = 'lobby';
+  let filter = 'originals';
 
   const EMPTY_MESSAGES = {
     slots: 'Slot providers are not wired up in this demo. Every Dicey Original is playable right now.',
@@ -187,8 +187,20 @@
       filter = tab.dataset.filter;
       D.$('#searchInput').value = '';
       renderGrid();
+      syncRailFilter();
     });
   });
+
+  /**
+   * The rail's casino shortcuts follow the category on show, one at a time,
+   * instead of every shortcut lighting up because they all open the same page.
+   */
+  function syncRailFilter() {
+    const onCasino = D.$('#page-casino').classList.contains('active');
+    D.$$('.rail-btn[data-filter]').forEach((btn) => {
+      btn.classList.toggle('active', onCasino && btn.dataset.filter === filter);
+    });
+  }
 
   D.$('#searchInput').addEventListener('input', renderGrid);
 
@@ -290,7 +302,10 @@
     if (!target) return;
     D.$$('.page').forEach((p) => p.classList.remove('active'));
     target.classList.add('active');
-    D.$$('.rail-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === page));
+    D.$$('.rail-btn[data-nav]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.nav === page && !b.dataset.filter);
+    });
+    syncRailFilter();
     D.$('#sidebar').classList.remove('open');
     window.scrollTo(0, 0);
     if (history.replaceState) history.replaceState(null, '', '#' + page);
@@ -345,10 +360,10 @@
 
   function coinHtml(coin, active) {
     return (
-      '<button class="coin' + (active ? ' active' : '') + '" data-coin="' + coin.id + '">' +
+      '<button class="coin' + (active ? ' active' : '') + '" data-coin="' + coin.id + '" title="' + esc(coin.name) + '">' +
         '<span class="coin-ico" data-coin-art="' + esc(coin.sym) + '" style="background:' + coin.color + '">' +
           '<b>' + esc(coin.sym.slice(0, 1)) + '</b></span>' +
-        '<span><span class="coin-name">' + esc(coin.name) + '</span><br><span class="coin-sym">' + esc(coin.sym) + '</span></span>' +
+        '<span class="coin-sym">' + esc(coin.sym) + '</span>' +
       '</button>'
     );
   }
@@ -613,6 +628,7 @@
   D.Art.apply(D.$('#bannerVip'), 'banners', 'vip');
   seedWins();
   renderGrid();
+  syncRailFilter();
 
   const hash = (location.hash || '').replace('#', '');
   if (hash.indexOf('game=') === 0) {

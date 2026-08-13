@@ -210,10 +210,10 @@
     <!-- Category tabs -->
     <div class="cat-row">
       <div class="cat-tabs" id="catTabs">
-        <button class="cat-tab active" data-filter="lobby">
+        <button class="cat-tab" data-filter="lobby">
           <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20H4v-9.5Z"/></svg>Lobby
         </button>
-        <button class="cat-tab" data-filter="originals">
+        <button class="cat-tab active" data-filter="originals">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>Originals
         </button>
         <button class="cat-tab" data-filter="slots">
@@ -272,6 +272,22 @@
     <div class="sb">
       <div class="sb-main">
         <div class="sb-promos" id="sbPromos"></div>
+
+        <section class="tn" id="sbTrending" hidden>
+          <header class="tn-head">
+            <h2>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/>
+                <path d="M12 3.4c2.6 3 2.6 14.2 0 17.2M3.4 12h17.2M5 7h14M5 17h14"/></svg>
+              Trending Now
+            </h2>
+            <div class="tn-nav">
+              <button data-tn-scroll="-1" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button>
+              <button data-tn-scroll="1" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></button>
+            </div>
+          </header>
+          <div class="tn-track" id="sbTrendingTrack"></div>
+        </section>
+
         <div class="sb-sports" id="sbSports"></div>
 
         <div class="sb-head">
@@ -378,6 +394,20 @@
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-head"><span class="dot-gold"></span>Pending requests</div>
       <div class="admin-list" id="adminPending"></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head">
+        <span class="dot-gold"></span>Trending Now
+        <button class="btn btn-ghost" id="tnAuto" style="margin-left:auto">Back to automatic</button>
+      </div>
+      <div class="admin-list" id="tnList"></div>
+      <div class="tn-find">
+        <select class="field-inline slim" id="tnSport" aria-label="Sport"></select>
+        <input class="field-inline" id="tnQuery" type="search" placeholder="Search a match to pin, e.g. Yankees">
+        <button class="btn btn-primary" id="tnSearch">Search</button>
+      </div>
+      <div class="admin-list" id="tnResults"></div>
     </div>
 
     <div class="panel" style="margin-bottom:16px">
