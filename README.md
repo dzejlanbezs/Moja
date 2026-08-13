@@ -36,6 +36,9 @@ password, one is generated and written to `data/admin-password.txt`.
 Everything lives in `data/db.json` (git-ignored). Delete that folder to start over.
 Passwords are stored as scrypt hashes with a per-user salt, never in plain text.
 
+Every setting below is read from a `VIRTUSJACK_*` environment variable. The older
+`DICEY_*` names are still honoured, so anything you had set keeps working.
+
 ## Accounts
 
 Register asks for an email, a password (8+ characters) and an optional code. That one
@@ -357,7 +360,8 @@ means the built-in artwork stays — nothing to configure and nothing breaks.
 | `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
 | `trending/` | any single image | the background behind all three Trending Now cards |
 | `nav/` | `casino`, `sports` | the two picture tiles at the top of the left rail |
-| `wins/` | one per original | the square beside every win in the Live Wins strip |
+| `wins/` | one per original | the square beside every win in the Live Wins strip, and in that game's header |
+| `logo/` | `mark`, `full` | your own logo: `mark` swaps the square, `full` replaces the whole wordmark |
 
 `.jpg .jpeg .png .webp .avif` all work and names are matched loosely, so
 `black-holes.png`, `Dig Dig.webp` or `weekly-race.jpg` are all fine. Each folder
@@ -389,8 +393,9 @@ so a link can be shared or bookmarked.
 
 ### Navigation
 
-Casino and Sports are picture tiles at the top of the rail, tinted green when
-selected. Below them, the Originals / Slots / Live shortcuts follow the lobby
+Casino and Sports sit in one block at the top of a narrow rail. A click tints the
+selected one green; the picture from `assets/img/nav` is a hover reveal, so the
+rail stays quiet until you point at it. Below them, the Originals / Slots / Live shortcuts follow the lobby
 category and only one is ever lit. Expand the rail — or open the drawer on a
 phone — and every entry spells out its name. Signed out, the balance and the
 cashier are hidden and the topbar shows only **Log in** and **Register**.
@@ -405,7 +410,7 @@ Clicking a lobby tile opens the game in a popup with its own bet panel.
 | Limbo | Set a target multiplier, the round has to reach it | 1% |
 | Coinflip | Heads or tails at 1.98×, ride the streak or collect | 1% |
 | Mines | 5×5 field, pick your mine count, cash out any time | 1% |
-| Blackjack | 6-deck shoe, dealer stands on 17, blackjack pays 3:2 | ~0.5% |
+| Blackjack | 6-deck shoe, dealer stands on 17, blackjack pays 3:2, split to four hands, insurance 2:1 | ~0.5% |
 | Keno | Pick up to 10 of 40, ten are drawn | classic paytable |
 | Dig Dig | Climb 8 levels, dodge the rocks, cash out any time | 1% |
 | Black Holes | Open 3 of 16 holes and add up the multipliers | ~2% |
