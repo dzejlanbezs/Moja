@@ -496,6 +496,11 @@
     const event = state.event;
     if (!event) return;
 
+    // the crumbs are guessed before the match loads, so put the real ones back
+    D.$('#evCrumbs').innerHTML = '<a data-back="1">All Sports</a><span>/</span>' +
+      '<a data-back="1">' + esc(event.sport || state.sportName) + '</a>' +
+      (event.league ? '<span>/</span><b>' + esc(event.league) + '</b>' : '');
+
     D.$('#evHero').innerHTML =
       '<div class="ev-hero-card">' +
         '<div class="ev-side">' + crest(event.home, event.homeLogoBig || event.homeLogo, 'big') + '<b>' + esc(event.home) + '</b></div>' +
