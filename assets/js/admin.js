@@ -31,6 +31,7 @@
   function load() {
     loadSportsBets();
     loadTrending();
+    loadWinRange();
     return Api.adminOverview()
       .then((data) => {
         renderTotals(data.totals);
@@ -190,6 +191,36 @@
         return load();
       })
       .catch((err) => D.toast(err.message || 'Could not settle', 'lose'));
+  }
+
+  /* ---------------- live wins range ---------------- */
+
+  const winMinEl = D.$('#winMin');
+  const winMaxEl = D.$('#winMax');
+
+  function loadWinRange() {
+    if (!winMinEl) return Promise.resolve();
+    return Api.request('GET', '/api/config')
+      .then((cfg) => {
+        if (!cfg.wins) return;
+        winMinEl.value = cfg.wins.min;
+        winMaxEl.value = cfg.wins.max;
+      })
+      .catch(() => {});
+  }
+
+  if (winMinEl) {
+    D.$('#winSave').addEventListener('click', () => {
+      const min = parseFloat(winMinEl.value);
+      const max = parseFloat(winMaxEl.value);
+      if (!(max > min) || !(min >= 0)) { D.toast('Give a range, smallest first', 'info'); return; }
+      Api.request('POST', '/api/admin/wins', { min: min, max: max })
+        .then((data) => {
+          if (D.setWinRange) D.setWinRange(data.wins);
+          D.toast('Wins now run ' + D.fmt(data.wins.min) + ' to ' + D.fmt(data.wins.max), 'win');
+        })
+        .catch((err) => D.toast(err.message || 'Could not save the range', 'lose'));
+    });
   }
 
   /* ---------------- trending now ---------------- */

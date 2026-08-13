@@ -166,6 +166,34 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 
 .rail-toggle { color: var(--text-2); margin-bottom: 4px; }
 
+/* Casino and Sports: picture tiles while the rail is a rail, plain rows once
+   it is open, so the labels read the same as every other entry */
+.rail-heroes { gap: 6px; }
+.rail-hero { overflow: hidden; }
+.rail-art {
+  position: absolute; inset: 0; border-radius: inherit;
+  background-size: cover; background-position: center;
+  display: none;
+}
+.sidebar:not(.expanded) .rail-hero {
+  min-height: 54px; border-radius: 14px;
+  background: var(--surface-2); border-color: var(--line);
+}
+.sidebar:not(.expanded) .rail-hero svg { position: relative; z-index: 1; width: 23px; height: 23px; }
+.sidebar:not(.expanded) .rail-art { display: block; }
+/* a scrim keeps the icon readable over any artwork */
+.sidebar:not(.expanded) .rail-art.has-art::after {
+  content: ''; position: absolute; inset: 0; background: rgba(6, 9, 15, .5);
+}
+.sidebar:not(.expanded) .rail-hero.active {
+  background: var(--green-soft); border-color: rgba(0, 230, 118, .55);
+  box-shadow: inset 0 0 0 1px rgba(0, 230, 118, .18);
+}
+.sidebar:not(.expanded) .rail-hero.active .rail-art::before {
+  content: ''; position: absolute; inset: 0; background: rgba(0, 230, 118, .3);
+}
+.sidebar:not(.expanded) .rail-hero.active .rail-art.has-art::after { background: rgba(4, 21, 12, .35); }
+
 /* ---------------- topbar ---------------- */
 .topbar {
   position: fixed; top: 0; left: var(--rail); right: 0;
@@ -256,6 +284,7 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
   background: var(--surface); border: 1px solid var(--line);
   transition: color .2s, background .2s, border-color .2s;
 }
+.wins-tab svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .wins-tab:hover { color: var(--text); }
 .wins-tab.active { color: var(--text); background: var(--surface-2); border-color: var(--line-strong); }
 .pulse { width: 7px; height: 7px; border-radius: 99px; background: var(--green); box-shadow: 0 0 0 0 rgba(0, 230, 118, .6); animation: pulse 1.8s infinite; }
@@ -272,18 +301,20 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 
 .win-card {
   flex: 0 0 auto;
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 10px 5px 5px;
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 14px 6px 6px;
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   animation: winIn .35s var(--ease);
+  transition: border-color .18s, transform .18s var(--ease);
 }
+.win-card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
 @keyframes winIn { from { opacity: 0; transform: translateY(-8px) scale(.96); } to { opacity: 1; transform: none; } }
 .win-thumb {
-  width: 32px; height: 32px; border-radius: 8px;
+  width: 40px; height: 40px; border-radius: 10px;
   flex: 0 0 auto; overflow: hidden;
   display: grid; place-items: center;
-  font-size: 13px; font-weight: 900; color: #04150c;
+  font-size: 15px; font-weight: 900; color: #04150c;
   background-size: cover; background-position: center;
 }
 /* the operator dropped in artwork for this game, so drop the letter */
@@ -293,11 +324,11 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
   background: linear-gradient(160deg, #ffe27a, #e0a100);
   color: #241800;
 }
-.win-thumb.sports svg { width: 20px; height: 20px; }
+.win-thumb.sports svg { width: 24px; height: 24px; }
 
-.win-meta { display: flex; flex-direction: column; line-height: 1.3; }
-.win-amount { font-size: 12px; font-weight: 800; color: var(--green); font-variant-numeric: tabular-nums; }
-.win-user { font-size: 10px; color: var(--text-3); }
+.win-meta { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
+.win-amount { font-size: 13px; font-weight: 800; color: var(--green); font-variant-numeric: tabular-nums; }
+.win-user { font-size: 11px; color: var(--text-3); font-weight: 600; }
 .win-game { font-size: 10.5px; color: var(--text-2); font-weight: 600; }
 
 /* ---------------- banners ---------------- */
@@ -1058,6 +1089,64 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
 @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
 
+/* ---------------- footer ---------------- */
+/* bleeds past the main padding so it spans the content area edge to edge */
+.footer {
+  margin: 44px -22px -60px;
+  padding: 34px 26px 34px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--line);
+}
+.footer-cols {
+  display: grid; grid-template-columns: 1.4fr repeat(3, 1fr) .9fr;
+  gap: 22px; padding-bottom: 26px;
+}
+.footer-brand { display: flex; flex-direction: column; gap: 4px; }
+.footer-logo { font-size: 26px; font-weight: 800; letter-spacing: -.6px; line-height: 1; }
+.footer-sub { font-size: 9.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-3); }
+
+.footer-col { display: flex; flex-direction: column; gap: 11px; }
+.footer-col h3 { font-size: 13.5px; font-weight: 800; margin-bottom: 3px; }
+.footer-col a { font-size: 13px; color: var(--text-2); cursor: pointer; transition: color .16s; }
+.footer-col a:hover { color: var(--green); }
+
+.footer-icons { display: flex; gap: 10px; }
+.footer-ico {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center; color: var(--text-2);
+  background: var(--surface); border: 1px solid var(--line);
+  transition: color .16s, border-color .16s;
+}
+.footer-ico svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.footer-ico:hover { color: var(--text); border-color: var(--line-strong); }
+
+.footer-mission { font-size: 13.5px; font-weight: 700; padding-top: 22px; border-top: 1px solid var(--line); }
+.footer-copy { font-size: 13px; color: var(--text-2); margin-top: 12px; }
+.footer-legal { font-size: 11.5px; line-height: 1.65; color: var(--text-3); margin-top: 16px; max-width: 900px; }
+
+.footer-badges { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+.footer-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 11px; border-radius: 8px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .3px;
+  border: 1px solid var(--line); color: var(--text-2);
+}
+.footer-badge.age { border-radius: 99px; border-color: var(--line-strong); color: var(--text); }
+.footer-badge.cert { color: var(--gold); border-color: rgba(255, 204, 51, .35); }
+.footer-badge.cert svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+
+/* ---------------- footer pages ---------------- */
+.doc-kicker { font-size: 10.5px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: var(--green); }
+.doc { max-width: 780px; }
+.doc-section { padding: 18px 0; border-top: 1px solid var(--line); }
+.doc-section h2 { font-size: 16px; font-weight: 800; margin-bottom: 9px; }
+.doc-section p { font-size: 14px; line-height: 1.7; color: var(--text-2); }
+.doc-section p + p { margin-top: 10px; }
+.doc-section ul { margin: 8px 0 0 18px; }
+.doc-section li { font-size: 14px; line-height: 1.75; color: var(--text-2); }
+.doc-foot { font-size: 12px; color: var(--text-3); padding-top: 18px; border-top: 1px solid var(--line); }
+.doc-foot b { color: var(--text-2); }
+
 /* ---------------- responsive ---------------- */
 @media (max-width: 1080px) {
   .banners { grid-template-columns: 1fr; }
@@ -1068,22 +1157,32 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 @media (max-width: 760px) {
   :root { --rail: 0px; }
   .sidebar {
-    width: 232px;
+    width: 240px;
     transform: translateX(-100%);
     transition: transform .24s var(--ease);
   }
   .sidebar.open { transform: none; box-shadow: 0 0 60px rgba(0, 0, 0, .6); }
-  .sidebar.open .rail-text { opacity: 1; transform: none; }
-  .sidebar .rail-btn { justify-content: flex-start; padding: 0 14px; }
+  /* the drawer has room for words, so it reads like the desktop rail expanded */
+  .sidebar.open:not(.expanded) .rail-text { display: inline; opacity: 1; transform: none; }
+  .sidebar.open:not(.expanded) .rail-btn { justify-content: flex-start; gap: 12px; padding: 0 14px; }
+  .sidebar.open .rail-btn[data-tip]::after { display: none; }
+  .sidebar.open:not(.expanded) .rail-art { display: none; }
   .sidebar .rail-toggle { display: none; }
-  .topbar { left: 0; padding: 0 12px; gap: 10px; }
+  .topbar { left: 0; padding: 0 12px; gap: 8px; }
   .only-mobile { display: inline-flex; }
   .topbar-center { position: static; transform: none; margin: 0 0 0 auto; }
-  #notifBtn { display: none; }
+  #notifBtn, #chatBtn { display: none; }
+  /* both auth buttons stay whole rather than being squeezed off the edge */
+  .topbar-right { gap: 8px; }
+  .auth-actions { gap: 6px; }
+  .auth-actions .btn { flex: none; height: 36px; padding: 0 13px; font-size: 12.5px; white-space: nowrap; }
   .main { padding: calc(var(--top) + 16px) 14px 60px; }
   .brand-text { display: none; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
   .banner-art { opacity: .25; }
   .banner-body { max-width: 100%; }
   .profile-balance { align-items: flex-start; }
+  .footer { margin: 34px -14px -60px; padding: 26px 16px; }
+  .footer-cols { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .footer-brand { grid-column: 1 / -1; }
 }

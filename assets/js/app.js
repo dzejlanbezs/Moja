@@ -204,10 +204,24 @@
 
   D.$('#searchInput').addEventListener('input', renderGrid);
 
+  /** Casino and Sports carry their own picture, from assets/img/nav. */
+  D.$$('[data-nav-art]').forEach((el) => D.Art.apply(el, 'nav', el.dataset.navArt));
+
   /* ---------------- live wins ---------------- */
-  const USERS = ['Hidden', 'Hidden', 'Crypto_King', 'NightOwl99', 'LuckyJoe', 'Shadowplay', 'GoldRush', 'FastBet', 'DiamondHands', 'Hidden', 'MoonUp', 'Zeljko94'];
   const winsTrack = D.$('#winsTrack');
   let winsMode = 'live';
+
+  // the admin decides how big a simulated win can be; a new one lands every 10s
+  const WINS_TICK_MS = 10000;
+  let winRange = { min: 1, max: 400 };
+
+  D.setWinRange = (range) => {
+    if (!range) return;
+    const min = Math.max(0, Number(range.min) || 0);
+    const max = Math.max(min + 0.01, Number(range.max) || min + 1);
+    winRange = { min: min, max: max };
+    if (winsMode === 'live') seedWins();
+  };
 
   const esc = (value) => String(value == null ? '' : value)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -232,33 +246,38 @@
       '<b>' + esc(game.name.slice(0, 1)) + '</b></span>';
   };
 
+  /**
+   * Win squares look for their own picture in assets/img/wins first, so the
+   * strip can carry different art from the lobby tiles, then fall back to the
+   * tile art and finally to the built-in badge.
+   */
   D.applyThumbArt = (root) => {
     D.$$('[data-thumb]', root || document).forEach((el) => {
       const id = el.dataset.thumb;
-      if (id === 'sports') D.Art.apply(el, 'sports', 'logo');
-      else D.Art.apply(el, 'games', id);
+      if (id === 'sports') { D.Art.apply(el, 'sports', 'logo'); return; }
+      D.Art.apply(el, 'wins', id).then((url) => { if (!url) D.Art.apply(el, 'games', id); });
     });
   };
 
-  function winCard(id, amount, user) {
+  /** Who won is never shown, only what was won and on which game. */
+  function winCard(id, amount) {
     const game = D.games[id] || { name: id === 'sports' ? 'Sports' : '?' };
     return (
-      '<div class="win-card">' +
+      '<div class="win-card" title="' + esc(game.name) + '">' +
         D.thumbHtml(id, game.name) +
         '<div class="win-meta">' +
           '<span class="win-amount">' + D.fmt(amount) + '</span>' +
-          '<span class="win-game">' + esc(game.name) + '</span>' +
-          '<span class="win-user">' + esc(user) + '</span>' +
+          '<span class="win-user">Hidden</span>' +
         '</div>' +
       '</div>'
     );
   }
 
-  function randomWin() {
+  function randomWin(scale) {
     // sports bets show up in the feed too, with the gold sports mark
     const id = D.rand() < 0.15 ? 'sports' : GAME_IDS[D.randInt(GAME_IDS.length)];
-    const amount = D.round2(1 + D.rand() * (winsMode === 'lucky' ? 9000 : 400));
-    return winCard(id, amount, USERS[D.randInt(USERS.length)]);
+    const span = winRange.max - winRange.min;
+    return winCard(id, D.round2(winRange.min + D.rand() * span * (scale || 1)));
   }
 
   function seedWins() {
@@ -267,34 +286,53 @@
     D.applyThumbArt(winsTrack);
   }
 
+  /** Biggest Wins is the real board when there is one, biggest payout first. */
+  function biggestWins() {
+    const simulate = () => {
+      const wins = [];
+      for (let i = 0; i < 14; i++) {
+        wins.push({
+          id: D.rand() < 0.15 ? 'sports' : GAME_IDS[D.randInt(GAME_IDS.length)],
+          amount: D.round2(winRange.min + D.rand() * (winRange.max - winRange.min) * 12),
+        });
+      }
+      winsTrack.innerHTML = wins.sort((a, b) => b.amount - a.amount)
+        .map((win) => winCard(win.id, win.amount)).join('');
+      D.applyThumbArt(winsTrack);
+    };
+
+    if (!D.Wallet.isServer()) { simulate(); return Promise.resolve(); }
+    return D.Api.request('GET', '/api/feed?tab=big&limit=14')
+      .then((data) => {
+        const wins = (data.rows || []).filter((r) => r.payout > r.bet);
+        if (!wins.length) { simulate(); return; }
+        winsTrack.innerHTML = wins.map((r) => winCard(r.gameId, r.payout)).join('');
+        D.applyThumbArt(winsTrack);
+      })
+      .catch(() => { simulate(); });
+  }
+
+  function paintWins() {
+    if (winsMode === 'big') biggestWins();
+    else seedWins();
+  }
+
   D.$$('.wins-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       D.$$('.wins-tab').forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
       winsMode = tab.dataset.wins;
-      seedWins();
+      paintWins();
     });
   });
 
-  /** Real wins once the backend has some; the simulated strip stays as a fallback. */
-  function realWins() {
-    return D.Api.request('GET', '/api/feed?tab=' + (winsMode === 'lucky' ? 'lucky' : 'live') + '&limit=14')
-      .then((data) => {
-        const wins = (data.rows || []).filter((r) => r.payout > r.bet);
-        if (!wins.length) return;
-        winsTrack.innerHTML = wins.map((r) => winCard(r.gameId, r.payout, r.user)).join('');
-        D.applyThumbArt(winsTrack);
-      })
-      .catch(() => {});
-  }
-
   setInterval(() => {
     if (document.hidden || !D.$('#page-casino').classList.contains('active')) return;
-    if (D.Wallet.isServer()) { realWins(); return; }
+    if (winsMode === 'big') { biggestWins(); return; }
     winsTrack.insertAdjacentHTML('afterbegin', randomWin());
     D.applyThumbArt(winsTrack.firstElementChild);
     while (winsTrack.children.length > 16) winsTrack.lastElementChild.remove();
-  }, 3200);
+  }, WINS_TICK_MS);
 
   /* ---------------- navigation ---------------- */
   function navigate(page) {

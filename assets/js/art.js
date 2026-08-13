@@ -1,7 +1,8 @@
 /* ============================================================
    Dicey — swappable artwork
 
-   Anything dropped into assets/img/{banners,games,sports,promo}
+   Anything dropped into assets/img/{banners,games,sports,promo,
+   coins,trending,nav,wins}
    replaces the built-in art for that banner, tile or thumbnail.
    The server lists what is actually there, so nothing is guessed
    and a missing file simply means the default stays.
@@ -10,10 +11,10 @@
 (function (D) {
   'use strict';
 
-  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending'];
+  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins'];
   const EXTENSIONS = ['jpg', 'png', 'webp'];
 
-  const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {}, trending: {} };
+  const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {}, trending: {}, nav: {}, wins: {} };
   const probes = {};
   let ready = null;
   let listed = false;   // true once the server has told us what exists

@@ -103,6 +103,7 @@ function coinNetwork(sym, networkId) {
 const EMPTY_DB = {
   users: [], sessions: {}, rounds: [], transactions: [], sportsBets: [],
   trending: { events: [], watchers: {} },
+  settings: { winMin: 1, winMax: 400 },
   meta: { lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} },
 };
 
@@ -119,6 +120,7 @@ const db = loadDb();
 db.meta = Object.assign({ lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} }, db.meta);
 db.sportsBets = db.sportsBets || [];
 db.trending = Object.assign({ events: [], watchers: {} }, db.trending);
+db.settings = Object.assign({ winMin: 1, winMax: 400 }, db.settings);
 let saveTimer = null;
 
 function save() {
@@ -520,7 +522,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ------------------------------------------------------------------ swappable art */
 
-const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending'];
+const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins'];
 const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
 // friendlier names people are likely to save files under
 const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportslogo: 'logo', levelup: 'levelup' };
@@ -803,6 +805,8 @@ const ROUTES = {
 
     return sendJson(ctx.res, 200, {
       coins: coins,
+      // the range the Live Wins strip invents its amounts from
+      wins: { min: db.settings.winMin, max: db.settings.winMax },
       hdEnabled: !!hdSeed,
       minDeposit: MIN_DEPOSIT_USD,
       confirmations: chain.config.confirmations,
@@ -923,6 +927,7 @@ const ROUTES = {
     }
 
     if (tab === 'high') rounds.sort((a, b) => b.bet - a.bet);
+    else if (tab === 'big') rounds = rounds.filter((r) => r.payout > r.bet).sort((a, b) => b.payout - a.payout);
     else if (tab === 'lucky') rounds = rounds.filter((r) => r.payout > r.bet).sort((a, b) => b.multiplier - a.multiplier);
     else rounds.sort((a, b) => b.ts - a.ts);
 
@@ -1463,6 +1468,19 @@ const ROUTES = {
         .slice(0, 80)
         .map((b) => Object.assign({ email: emails[b.userId] }, b)),
     });
+  },
+
+  /** The range the Live Wins strip invents amounts from. */
+  'POST /api/admin/wins': async (ctx) => {
+    const admin = ctx.requireAdmin();
+    if (!admin) return;
+    const body = await ctx.body();
+    const min = Math.max(0, round2(body.min));
+    const max = Math.max(min + 0.01, round2(body.max));
+    db.settings.winMin = min;
+    db.settings.winMax = max;
+    save();
+    return sendJson(ctx.res, 200, { wins: { min: min, max: max } });
   },
 
   /** What the Trending strip is showing, plus whether it is pinned or automatic. */

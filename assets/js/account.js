@@ -107,6 +107,9 @@
     const signedIn = !!user;
 
     D.$('#authActions').hidden = signedIn;
+    // no account, no money: the balance and the cashier only mean something signed in
+    D.$('#topbarCenter').hidden = !signedIn;
+    D.$('#rewardsBtn').hidden = !signedIn;
     D.$('#logoutBtn').hidden = !signedIn;
     D.$('#topAvatar').hidden = !signedIn;
     D.$('#levelChip').hidden = !signedIn;
@@ -174,6 +177,7 @@
   function loadConfig(user) {
     return Api.request('GET', '/api/config').then((cfg) => {
       D.setCoins(cfg.coins);
+      if (D.setWinRange) D.setWinRange(cfg.wins);
 
       // without a seed there are no real addresses, so say so instead of showing filler
       const missingSeed = user && !cfg.hdEnabled;
