@@ -130,6 +130,18 @@ instead of showing filler.
   events per request, so twenty rows cost two calls instead of twenty, and crests resolve
   in the background. Fixtures cache for 90s and odds for 25s
 
+### Trending Now
+
+Three matches sit at the top of the Sports page with their headline prices, the number of
+markets, and a crowd figure. They fill themselves with the next MLB games, so the strip is
+never empty, and an admin can pin any three matches instead — search a sport by team or
+league in the **Trending Now** panel of the admin dashboard, hit **Pin**, and they take
+over. The same panel edits the number of people watching, and **Back to automatic** hands
+the strip back to the feed. A pinned match drops off by itself once it has started.
+
+Drop any single image into `assets/img/trending/` and it becomes the background of all
+three cards; the filename does not matter.
+
 ### Promo banners
 
 Three banners sit above the sport tabs: the 100% sports bonus, "Sportsbook is live now"
@@ -150,9 +162,17 @@ the top of `assets/js/sports.js`.
 ### Finding a match
 
 The search box above the list scans the first few pages of the chosen sport by team or
-league name. Clicking the `+N` button on a row opens a page for that match alone, with
-both crests, a breadcrumb, a market search box, Main / All markets chips, and Over-Under
-markets laid out as labelled rows.
+league name. Clicking the `+N` button on a row opens a page for that match alone: both
+crests and the kick-off time in a hero card, a breadcrumb, standard-markets and
+same-game-parlay tabs, and a chip row built from what that match actually offers — Main,
+Player Props, Innings (or Halves, Quarters, Periods, Sets), Totals and More — plus a
+magnifier that searches the market names.
+
+Markets that price one thing at several lines are laid out the way a sportsbook does it:
+one row per side, either Over and Under or a crest and team name, with the lines side by
+side. The rows scroll together so a line always sits above its opposite number, and
+**View all lines** wraps every line into view at once. Everything else stays a plain pair
+of buttons with the name on the left and the price on the right.
 
 ### Betting
 
@@ -315,9 +335,12 @@ Visible in the left rail only for admin accounts. It shows:
 * a player table with balance, deposits, withdrawals, wagered, VIP rank, bets, their
   referral code, who referred them, the promo code they signed up with, last IP and last seen
 * unidentified on-chain deposits, with a field to assign them to a player by email
-* a per-player panel with their signup and last IP, the players they invited, their full
-  transaction list and their last 60 rounds, a field to add or subtract balance with a
-  note, and a block switch
+* a per-player panel with their signup and last IP, the players they invited, their deposit
+  address on every chain (click one to copy it), their sports bets with Win / Loss / Void,
+  their full transaction list and their last 60 rounds, a field to add or subtract balance
+  with a note, and a block switch
+* the Trending Now panel, for pinning the three matches on the Sports page and setting how
+  many people each one says are watching
 
 ## Swapping the artwork
 
@@ -332,6 +355,7 @@ means the built-in artwork stays — nothing to configure and nothing breaks.
 | `sports/` | `logo` | thumbnail for sportsbook bets in the feeds |
 | `coins/` | `usdt`, `usdc`, `eth`, `btc`, `sol`, `trx` | currency icons in the cashier, deposit and withdraw |
 | `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
+| `trending/` | any single image | the background behind all three Trending Now cards |
 
 `.jpg .jpeg .png .webp .avif` all work and names are matched loosely, so
 `black-holes.png`, `Dig Dig.webp` or `weekly-race.jpg` are all fine. Each folder

@@ -417,7 +417,8 @@
   /* ---------------- single match view ---------------- */
 
   function openEvent(fi) {
-    const known = state.events.filter((e) => e.id === fi)[0];
+    const known = state.events.filter((e) => e.id === fi)[0] ||
+      state.trending.filter((e) => e.id === fi)[0];
     state.view = 'event';
     state.event = null;
     state.marketFilter = 'main';
@@ -809,7 +810,10 @@
   setInterval(() => {
     if (document.hidden) return;
     if (state.view === 'event' && state.event) {
-      D.Api.request('GET', '/api/sports/event?FI=' + state.event.id)
+      const live = state.event;
+      D.Api.request('GET', '/api/sports/event?FI=' + live.id +
+        '&home=' + encodeURIComponent(live.home) + '&away=' + encodeURIComponent(live.away) +
+        '&league=' + encodeURIComponent(live.league) + '&time=' + live.time)
         .then((data) => {
           const fresh = {};
           data.markets.forEach((m) => m.selections.forEach((s) => { fresh[s.id] = s.odds; }));

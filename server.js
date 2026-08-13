@@ -1026,12 +1026,15 @@ const ROUTES = {
   'GET /api/sports/event': async (ctx) => {
     const fi = String(ctx.query.get('FI') || '').replace(/[^0-9]/g, '');
     if (!fi) return sendJson(ctx.res, 400, { error: 'Missing event id' });
-    const hint = {
-      home: ctx.query.get('home') || 'Home',
-      away: ctx.query.get('away') || 'Away',
-      league: ctx.query.get('league') || '',
-      time: parseInt(ctx.query.get('time'), 10) || 0,
-    };
+    // only pass on what the caller actually knows, so an empty hint cannot
+    // override the team names the feed already told us about
+    const hint = {};
+    ['home', 'away', 'league'].forEach((field) => {
+      const value = ctx.query.get(field);
+      if (value) hint[field] = value;
+    });
+    const time = parseInt(ctx.query.get('time'), 10);
+    if (time) hint.time = time;
     try {
       return sendJson(ctx.res, 200, await sports.eventDetail(fi, hint));
     } catch (err) {
