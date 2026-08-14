@@ -97,7 +97,9 @@ it to your own UTC offset so the day rolls over at the right moment.
 
 Only rakeback shows a figure. Daily, weekly and monthly sit behind a padlock until they
 can be opened, and their amounts never reach the browser at all — the API leaves the
-numbers out rather than hiding them in the page.
+numbers out rather than hiding them in the page. They are still worked out in full on
+every bet: opening one reads the figure on the server, pays it onto the balance, logs a
+`bonus` transaction and resets that window.
 
 ### Promo free bet
 
@@ -359,6 +361,8 @@ means the built-in artwork stays — nothing to configure and nothing breaks.
 | `coins/` | `usdt`, `usdc`, `eth`, `btc`, `sol`, `trx` | currency icons in the cashier, deposit and withdraw |
 | `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
 | `trending/` | any single image | the background behind all three Trending Now cards |
+| `mines/` | `gem`, `mine` | what a Mines tile turns into |
+| `dig/` | `gold`, `rock` | what a Dig Dig tile turns into |
 | `nav/` | `casino`, `sports` | the two picture tiles at the top of the left rail |
 | `wins/` | one per original | the square beside every win in the Live Wins strip, and in that game's header |
 | `logo/` | `mark`, `full` | your own logo: `mark` swaps the square, `full` replaces the whole wordmark |
@@ -374,6 +378,21 @@ on**, not who bet: the picture from `wins/` if there is one, then the game's til
 art from `games/`, then its built-in badge, and a gold sports mark for sportsbook
 bets. That means the strip can carry different artwork from the lobby without
 touching the tiles.
+
+### Sound
+
+Every original makes noise: cards as they are dealt, a chime for a Mines gem or a
+Keno hit, a thud for a mine, and a win, push or loss on every result. It is all
+synthesised with the Web Audio API, so no audio files ship with the site and
+nothing is downloaded. The speaker button in a game's header mutes it, and that
+choice is remembered.
+
+### Loading screens
+
+Two seconds when the site opens, and two more when the sportsbook does — the mark
+spins, green for the site and gold for the sportsbook. Drop **`intro.mp4`** or
+**`sports.mp4`** into `assets/video/` and that clip plays instead of the
+animation.
 
 ### Live Wins strip
 
@@ -458,6 +477,8 @@ assets/js/rewards.js       the rewards popup
 assets/js/race.js          weekly race board and countdown
 assets/js/deposits.js      deposit alerts and the sports free bet
 assets/js/sports.js        sportsbook page, markets and the bet slip
+assets/js/sfx.js           the sounds, synthesised on the spot
+assets/js/loader.js        the two loading screens
 assets/js/docs.js          the footer pages — all of that copy lives here
 assets/js/account.js       register / log in / log out and session UI
 assets/js/admin.js         admin dashboard

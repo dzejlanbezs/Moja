@@ -538,6 +538,14 @@ button svg.bomb-ico { fill: var(--red); stroke: rgba(0, 0, 0, .35); stroke-width
   }
   .bp-note { display: none; }
   .fair-pill { display: none; }
+  /* one line of subtitle, so the header does not eat the board */
+  .game-head-id { min-width: 0; }
+  .game-head-id > div { min-width: 0; }
+  .game-head-sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* boards size to the height they are given rather than overflowing it */
+  .mine-grid { width: min(100%, 44vh); }
+  .dig-tower { width: min(100%, 340px); }
+  .keno-grid { width: min(100%, 92vw); }
   .bj-hand .card { width: 62px; height: 88px; }
   .bj-hand .card .rank { font-size: 15px; }
   .bj-hand .card .suit { font-size: 16px; }
