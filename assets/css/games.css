@@ -573,6 +573,15 @@ button svg.bomb-ico { fill: var(--red); stroke: rgba(0, 0, 0, .35); stroke-width
   .bp-chips { display: none; }
   /* and anything a game marked as only worth the room on a wide screen */
   .bp-block.only-wide, .only-wide { display: none; }
+  /* every control loses a few pixels so a full panel needs no scrolling */
+  .bet-panel { gap: 8px; }
+  .bp-block { gap: 5px; }
+  .bp-label { font-size: 10.5px; }
+  .bp-input, .bp-mini, .bp-pick-btn { height: 36px; }
+  .bp-readout { height: 34px; font-size: 12.5px; }
+  .bp-seg button { height: 30px; }
+  .bp-action { gap: 6px; }
+  .bp-action .btn-lg { height: 42px; font-size: 14px; }
   /* if a panel ever does overflow, the buttons stay pinned to the bottom */
   .bp-action {
     margin-top: 8px; position: sticky; bottom: 0;

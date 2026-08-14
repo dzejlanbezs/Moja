@@ -416,7 +416,6 @@
       if (!size.w || !size.h) return;
 
       const scale = Math.min(1, room.w / size.w, room.h / size.h);
-      if (Math.abs(scale - 1) < 0.01) return;
 
       // scaling happens around the wrapper's middle, so shift whatever is left
       // of the content back onto the middle of the room
@@ -428,6 +427,9 @@
         y: middle(target.top, target.bottom) -
           (middle(box.top, box.bottom) + scale * (middle(content.top, content.bottom) - middle(box.top, box.bottom))),
       };
+
+      // even at full size the content may sit off to one side, so nudge it
+      if (scale > 0.999 && Math.abs(shift.x) < 1 && Math.abs(shift.y) < 1) return;
       stage.style.transform = 'translate(' + shift.x.toFixed(2) + 'px,' + shift.y.toFixed(2) + 'px)' +
         ' scale(' + scale.toFixed(4) + ')';
     };
