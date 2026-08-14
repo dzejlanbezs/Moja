@@ -58,6 +58,11 @@
       const autoLeftBlock = ctx.ui.block('', autoLeft.node);
       autoLeftBlock.classList.add('only-wide');
 
+      // the count sits beside its button, inside the part of the panel that is
+      // always on screen, so a phone never has to scroll for it
+      const autoRow = D.h('<div class="bp-auto-row"><span class="bp-auto-label">Bets</span></div>');
+      autoRow.append(autoField, autoBtn);
+
       // the win chance is the one readout a phone can do without
       const chanceBlock = ctx.ui.block('', chanceOut.node);
       chanceBlock.classList.add('only-wide');
@@ -69,11 +74,10 @@
         ctx.ui.block('', multOut.node),
         chanceBlock,
         ctx.ui.block('', profitOut.node),
-        ctx.ui.block('<span>Number of bets</span>', autoField),
         autoLeftBlock
       );
       const action = D.h('<div class="bp-action"></div>');
-      action.append(rollBtn, autoBtn, ctx.ui.note('Result is generated with the browser crypto RNG.'));
+      action.append(rollBtn, autoRow, ctx.ui.note('Result is generated with the browser crypto RNG.'));
       ctx.panel.appendChild(action);
 
       const chance = () => (mode === 'over' ? 100 - target : target);
