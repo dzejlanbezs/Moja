@@ -376,6 +376,21 @@ function settleRaceIfDue() {
 
 const bonusValue = (rate, wagered, net) => round2(wagered * rate.wager + Math.max(0, net) * rate.loss);
 
+/**
+ * What each bonus is worth right now: a share of everything wagered in the
+ * window plus a share of what was lost in it. Rakeback counts every bet.
+ * These figures stay on the server — the popup only says whether one is ready.
+ */
+function rewardAmounts(user, now) {
+  const r = ensureRewards(user, now);
+  return {
+    rakeback: round2(r.rakeback * REWARD_RATES.rakeback.wager),
+    daily: bonusValue(REWARD_RATES.daily, r.daily.wagered, r.daily.net),
+    weekly: bonusValue(REWARD_RATES.weekly, r.weekly.wagered, r.weekly.net),
+    monthly: bonusValue(REWARD_RATES.monthly, r.monthly.carry.wagered, r.monthly.carry.net),
+  };
+}
+
 /** Everything the rewards popup needs: amounts, whether they can be taken, and when next. */
 function rewardState(user, now) {
   const r = ensureRewards(user, now);
@@ -384,10 +399,8 @@ function rewardState(user, now) {
   const nextWeek = startOfRewardWeek(now) + 7 * DAY;
   const nextMonth = fromUtcParts(local.getUTCFullYear(), local.getUTCMonth() + 1, 1);
 
-  const rakeback = round2(r.rakeback * REWARD_RATES.rakeback.wager);
-  const daily = bonusValue(REWARD_RATES.daily, r.daily.wagered, r.daily.net);
-  const weekly = bonusValue(REWARD_RATES.weekly, r.weekly.wagered, r.weekly.net);
-  const monthly = bonusValue(REWARD_RATES.monthly, r.monthly.carry.wagered, r.monthly.carry.net);
+  const worth = rewardAmounts(user, now);
+  const rakeback = worth.rakeback;
 
   const isSunday = local.getUTCDay() === 0;
   const isFirst = local.getUTCDate() === 1;
@@ -404,21 +417,21 @@ function rewardState(user, now) {
     },
     daily: {
       hidden: true,
-      claimable: daily >= 0.01 && r.daily.claimedAt < r.daily.start,
+      claimable: worth.daily >= 0.01 && r.daily.claimedAt < r.daily.start,
       blurb: 'Unlocks every day at 02:00',
       availableAt: r.daily.claimedAt >= r.daily.start ? nextDay : 0,
       note: 'Sealed until you open it.',
     },
     weekly: {
       hidden: true,
-      claimable: weekly >= 0.01 && isSunday && r.weekly.claimedAt < r.weekly.start,
+      claimable: worth.weekly >= 0.01 && isSunday && r.weekly.claimedAt < r.weekly.start,
       blurb: 'Unlocks Sunday at 02:00',
       availableAt: isSunday && r.weekly.claimedAt < r.weekly.start ? 0 : nextWeek - DAY,
       note: 'Grows through the week. Sealed until you open it.',
     },
     monthly: {
       hidden: true,
-      claimable: monthly >= 0.01 && isFirst && r.monthly.carry.month > 0 && r.monthly.carryClaimed !== r.monthly.carry.month,
+      claimable: worth.monthly >= 0.01 && isFirst && r.monthly.carry.month > 0 && r.monthly.carryClaimed !== r.monthly.carry.month,
       blurb: 'Unlocks on the 1st at 02:00',
       availableAt: isFirst ? 0 : nextMonth,
       note: 'Covers the whole month. Sealed until you open it.',
@@ -840,20 +853,24 @@ const ROUTES = {
     if (!reward) return sendJson(ctx.res, 400, { error: 'Unknown reward' });
     if (!reward.claimable) return sendJson(ctx.res, 400, { error: 'That bonus is not available yet' });
 
+    // the popup never sees the figure for a sealed bonus, so read it here
+    const amount = round2(rewardAmounts(user, now())[type]);
+    if (!(amount >= 0.01)) return sendJson(ctx.res, 400, { error: 'Nothing has built up in that bonus yet' });
+
     const r = user.rewards;
     if (type === 'rakeback') r.rakeback = 0;
     if (type === 'daily') { r.daily.claimedAt = now(); r.daily.wagered = 0; r.daily.net = 0; }
     if (type === 'weekly') { r.weekly.claimedAt = now(); r.weekly.wagered = 0; r.weekly.net = 0; }
     if (type === 'monthly') { r.monthly.carryClaimed = r.monthly.carry.month; r.monthly.carry = { wagered: 0, net: 0, month: r.monthly.carry.month }; }
 
-    user.balance = round2(user.balance + reward.amount);
+    user.balance = round2(user.balance + amount);
     db.transactions.unshift({
       id: id('tx'),
       userId: user.id,
       type: 'bonus',
       coin: 'USD',
       address: '',
-      amount: reward.amount,
+      amount: amount,
       status: 'confirmed',
       note: type.charAt(0).toUpperCase() + type.slice(1) + ' bonus',
       ip: clientIp(ctx.req),
@@ -863,7 +880,7 @@ const ROUTES = {
     save();
 
     return sendJson(ctx.res, 200, {
-      claimed: reward.amount,
+      claimed: amount,
       balance: user.balance,
       rewards: rewardState(user, now()),
     });
