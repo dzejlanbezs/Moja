@@ -364,10 +364,11 @@ means the built-in artwork stays — nothing to configure and nothing breaks.
 | `promo/` | `sports-bonus`, `sportsbook-live`, `level-up` | the three sportsbook banners |
 | `trending/` | any single image | the background behind all three Trending Now cards |
 | `mines/` | `gem`, `mine` | what a Mines tile turns into |
+| `hero/` | one per sport, plus `default` | the background behind the teams on a match page |
 | `dig/` | `gold`, `rock` | what a Dig Dig tile turns into |
 | `nav/` | `casino`, `sports` | the two picture tiles at the top of the left rail |
 | `wins/` | one per original | the square beside every win in the Live Wins strip, and in that game's header |
-| `logo/` | `mark`, `full` | your own logo: `mark` swaps the square, `full` replaces the whole wordmark |
+| `logo/` | `mark`, `full`, `favicon` | your own logo: `mark` swaps the square, `full` replaces the whole wordmark, `favicon` the browser tab |
 
 `.jpg .jpeg .png .webp .avif` all work and names are matched loosely, so
 `black-holes.png`, `Dig Dig.webp` or `weekly-race.jpg` are all fine. Each folder
@@ -389,9 +390,14 @@ Keno, Coinflip, Black Holes and Wheel show a short **WIN** with the multiplier,
 or **LOST**, in the middle of the board. Dice, Limbo and Plinko already show the
 number they landed on, so they say nothing extra.
 
-The board is also scaled to the room it has rather than scrolled, so every
-original fits a phone screen whole, and it refits itself as cards and tiles come
-and go.
+The board fills the room it has and is only scaled down when a game genuinely
+needs more height, so every original fits a phone screen whole — cards and the
+score under them included — and it refits itself as cards and tiles come and go.
+The run of past results is kept only on Dice and Limbo, where the streak is the
+point.
+
+A match page shows its crests without a chip behind them, over a background you
+can set per sport in `assets/img/hero/`.
 
 ### Sound
 
