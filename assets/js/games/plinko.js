@@ -27,7 +27,6 @@
       let raf = 0;
       const balls = [];
 
-      const hist = ctx.historyStrip();
       const wrap = D.h(
         '<div class="stage-center">' +
           '<div class="plinko-wrap">' +
@@ -134,7 +133,6 @@
         const payout = D.round2(ball.bet * mult);
         ctx.settle(ball.bet, payout, mult, { silent: true });
         if (D.Sfx) D.Sfx.play(payout > ball.bet ? 'gem' : 'tick');
-        hist.push(mult + '\u00d7', payout > ball.bet);
         const el = bucketsEl.querySelector('.bucket[data-index="' + ball.bucket + '"]');
         if (el) {
           el.classList.add('hit');

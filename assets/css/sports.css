@@ -303,6 +303,7 @@ body.sports-mode .main { padding-right: 372px; }
 
 .ev-hero { margin-bottom: 16px; }
 .ev-hero-card {
+  position: relative; overflow: hidden;
   display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: center;
   padding: 22px 20px; border-radius: var(--r-lg);
   border: 1px solid var(--line);
@@ -310,7 +311,21 @@ body.sports-mode .main { padding-right: 372px; }
     radial-gradient(70% 130% at 0% 50%, rgba(0, 230, 118, .12), transparent 60%),
     radial-gradient(70% 130% at 100% 50%, rgba(77, 141, 255, .12), transparent 60%),
     var(--surface);
+  background-size: cover; background-position: center;
 }
+/* a picture from assets/img/hero, kept dark enough to read over */
+.ev-hero-card.has-art { background-color: var(--surface); }
+.ev-hero-card.has-art::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(6, 9, 15, .45), rgba(6, 9, 15, .72));
+}
+.ev-hero-card > * { position: relative; z-index: 1; }
+/* on a match page the crest is the crest — no chip behind it */
+.ev-hero-card .sb-badge {
+  background: none; border: 0;
+  color: #fff; font-size: 22px;
+}
+.ev-hero-card .sb-badge img { padding: 0; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .45)); }
 .ev-hero-card.loading { display: block; text-align: center; color: var(--text-3); font-size: 13.5px; }
 .ev-side { display: flex; flex-direction: column; align-items: center; gap: 9px; text-align: center; min-width: 0; }
 .ev-side b { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

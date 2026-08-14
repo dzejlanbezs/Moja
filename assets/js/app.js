@@ -243,6 +243,16 @@
    * lockup, mark.png only the square beside the name.
    */
   D.Art.load().then(() => {
+    // favicon.png in the same folder becomes the tab icon
+    const favicon = D.Art.get('logo', 'favicon');
+    if (favicon) {
+      const link = document.querySelector('link[rel="icon"]');
+      if (link) {
+        link.href = favicon;
+        link.removeAttribute('type');
+      }
+    }
+
     const full = D.Art.get('logo', 'full');
     const mark = D.Art.get('logo', 'mark');
     if (!full && !mark) return;

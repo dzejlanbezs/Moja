@@ -29,7 +29,6 @@
       let drawn = [];
       let values = [];
 
-      const hist = ctx.historyStrip();
       const center = D.h(
         '<div class="stage-center">' +
           '<div class="draw-slots">' +
@@ -121,7 +120,6 @@
         const payout = D.round2(stake * total);
         ctx.settle(stake, payout, total);
         ctx.result(payout > stake ? 'win' : 'lose', payout > stake ? D.fmtMult(total) : '');
-        hist.push(total.toFixed(2) + '\u00d7', payout > stake);
         paint();
       }
 

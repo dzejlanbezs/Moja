@@ -11,11 +11,11 @@
 (function (D) {
   'use strict';
 
-  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo', 'mines', 'dig', 'video'];
+  const FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo', 'mines', 'dig', 'video', 'hero'];
   const EXTENSIONS = ['jpg', 'png', 'webp'];
 
   const manifest = { banners: {}, games: {}, sports: {}, promo: {}, coins: {}, trending: {},
-    nav: {}, wins: {}, logo: {}, mines: {}, dig: {}, video: {} };
+    nav: {}, wins: {}, logo: {}, mines: {}, dig: {}, video: {}, hero: {} };
   const probes = {};
   let ready = null;
   let listed = false;   // true once the server has told us what exists

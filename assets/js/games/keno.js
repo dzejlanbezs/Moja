@@ -28,7 +28,6 @@
       const picked = new Set();
       let busy = false;
 
-      const hist = ctx.historyStrip();
       const center = D.h(
         '<div class="stage-center">' +
           '<div class="keno-grid"></div>' +
@@ -143,7 +142,6 @@
           const payout = D.round2(bet * mult);
           ctx.settle(bet, payout, mult);
           ctx.result(payout > bet ? 'win' : 'lose', payout > bet ? D.fmtMult(mult) : '');
-          hist.push(hitCount + '/' + picked.size, payout > bet);
           paintPayTable(hitCount);
           busy = false;
           playBtn.disabled = false;

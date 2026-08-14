@@ -373,14 +373,18 @@
     current = { def: def, ctx: ctx, unsub: null, watch: null };
     def.mount(ctx);
 
-    /** Shrinks the board just enough to fit the space it has. Never enlarges it. */
+    /**
+     * The board fills its area through CSS; this only shrinks it when the game
+     * needs more height than the area has, so nothing is ever scrolled away.
+     */
     const fitStage = () => {
       stage.style.transform = 'none';
-      const room = { w: stageOuter.clientWidth - 6, h: stageOuter.clientHeight - 6 };
+      const room = { w: stageOuter.clientWidth - 4, h: stageOuter.clientHeight - 4 };
       const size = { w: stage.offsetWidth, h: stage.offsetHeight };
       if (!size.w || !size.h || !room.h) return;
+
       const scale = Math.min(1, room.w / size.w, room.h / size.h);
-      stage.style.transform = scale < 0.995 ? 'scale(' + scale.toFixed(4) + ')' : 'none';
+      stage.style.transform = Math.abs(scale - 1) < 0.02 ? 'none' : 'scale(' + scale.toFixed(4) + ')';
     };
 
     fitStage();

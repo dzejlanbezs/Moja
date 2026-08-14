@@ -39,7 +39,6 @@
       let active = false;
       let stake = 0;
 
-      const hist = ctx.historyStrip();
       const center = D.h(
         '<div class="stage-center">' +
           '<div class="mine-stats">' +
@@ -148,7 +147,6 @@
         active = false;
         ctx.settle(stake, payout, mult);
         ctx.result('win', D.fmtMult(mult));
-        hist.push(D.fmtMult(mult), true);
         for (let l = level + 1; l <= LEVELS; l++) revealRow(l, false);
         paint();
       }
@@ -167,7 +165,6 @@
           active = false;
           ctx.settle(stake, 0, 0);
           ctx.result('lose');
-          hist.push('\u2717', false);
           revealRow(l, false);
           paint();
           return;

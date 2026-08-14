@@ -17,7 +17,6 @@
       let pot = 0;           // current collectable amount
       let spin = 0;          // accumulated rotation so the coin keeps turning
 
-      const hist = ctx.historyStrip();
       const center = D.h(
         '<div class="stage-center">' +
           '<div class="coin-wrap">' +
@@ -105,11 +104,9 @@
             streak += 1;
             pot = D.round2(pot * MULT);
             ctx.result('win', D.fmtMult(D.round2(pot / stake)));
-            hist.push(landed === 'heads' ? 'H' : 'T', true);
           } else {
             ctx.settle(stake, 0, 0, { silent: true });
             ctx.result('lose');
-            hist.push(landed === 'heads' ? 'H' : 'T', false);
             streak = 0; pot = 0; stake = 0;
           }
           busy = false;

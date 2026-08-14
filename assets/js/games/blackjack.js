@@ -87,7 +87,6 @@
       let hideHole = true;
       let dealing = false;
 
-      const hist = ctx.historyStrip();
       const table = D.h(
         '<div class="bj-table">' +
           '<div class="bj-side">' +
@@ -394,12 +393,6 @@
         msg.className = 'bj-msg';
         msg.textContent = '';
         ctx.settle(staked, payout, payout ? D.round2(payout / staked) : 0);
-        hist.push(
-          hands.length > 1
-            ? (profit > 0 ? '+' + D.fmt(profit) : profit < 0 ? D.fmt(profit) : 'push')
-            : (kind === 'win' ? '+' + score(hands[0].cards) : kind === 'push' ? 'push' : String(score(hands[0].cards))),
-          kind === 'win'
-        );
         setBusy(false);
         setPhase('done');
       }

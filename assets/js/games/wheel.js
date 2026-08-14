@@ -26,7 +26,6 @@
       let spinning = false;
       let rotation = 0;
 
-      const hist = ctx.historyStrip();
       const center = D.h(
         '<div class="stage-center">' +
           '<div class="wheel-wrap">' +
@@ -102,7 +101,6 @@
           hub.style.color = color(mult);
           ctx.settle(bet, payout, mult);
           ctx.result(payout > bet ? 'win' : 'lose', payout > bet ? D.fmtMult(mult) : '');
-          hist.push(mult + '\u00d7', payout > bet);
           spinning = false;
           spinBtn.disabled = false;
           amount.disable(false);

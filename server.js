@@ -545,8 +545,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ------------------------------------------------------------------ swappable art */
 
-const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo', 'mines', 'dig'];
-const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
+const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo', 'mines', 'dig', 'hero'];
+const ART_EXT = /\.(jpe?g|png|webp|avif|gif|ico)$/i;
 const VIDEO_EXT = /\.(mp4|webm|mov)$/i;
 // friendlier names people are likely to save files under
 const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportslogo: 'logo', levelup: 'levelup' };

@@ -502,7 +502,7 @@
       (event.league ? '<span>/</span><b>' + esc(event.league) + '</b>' : '');
 
     D.$('#evHero').innerHTML =
-      '<div class="ev-hero-card">' +
+      '<div class="ev-hero-card" data-hero="' + esc(event.sport || '') + '">' +
         '<div class="ev-side">' + crest(event.home, event.homeLogoBig || event.homeLogo, 'big') + '<b>' + esc(event.home) + '</b></div>' +
         '<div class="ev-mid">' +
           '<span class="ev-kick">' + esc(kickoff(event.time)) + '</span>' +
@@ -510,6 +510,12 @@
         '</div>' +
         '<div class="ev-side">' + crest(event.away, event.awayLogoBig || event.awayLogo, 'big') + '<b>' + esc(event.away) + '</b></div>' +
       '</div>';
+
+    // a picture per sport from assets/img/hero, with a shared default
+    const heroCard = D.$('.ev-hero-card');
+    D.Art.apply(heroCard, 'hero', event.sport).then((url) => {
+      if (!url) D.Art.apply(heroCard, 'hero', 'default');
+    });
 
     const sgp = state.evMode === 'sgp';
     const tabs = marketTabs(event);
