@@ -366,7 +366,7 @@
         setTimeout(() => {
           node.classList.add('gone');
           setTimeout(() => node.remove(), 320);
-        }, 1800);
+        }, 2600);
       },
     };
 
