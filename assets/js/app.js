@@ -132,6 +132,38 @@
     shows: 'Game shows are on the roadmap. Meanwhile, spin the Wheel.',
   };
 
+  /* ---------------- how busy each game looks ---------------- */
+  // An admin sets a range per original; a fresh number inside it is drawn every
+  // ten minutes so the lobby keeps moving without anybody touching it.
+  const PLAYING_REFRESH_MS = 600000;
+  let playingRanges = {};
+  let playingNow = {};
+
+  function rollPlaying() {
+    playingNow = {};
+    GAME_IDS.forEach((id) => {
+      const range = playingRanges[id];
+      playingNow[id] = range
+        ? range.min + D.randInt(Math.max(1, range.max - range.min + 1))
+        : D.games[id].players;
+    });
+  }
+
+  const playersOn = (id) => playingNow[id] || D.games[id].players;
+
+  D.setPlaying = (ranges) => {
+    playingRanges = ranges || {};
+    rollPlaying();
+    renderGrid();
+  };
+
+  rollPlaying();
+  setInterval(() => {
+    rollPlaying();
+    if (D.$('#page-casino').classList.contains('active')) renderGrid();
+  }, PLAYING_REFRESH_MS);
+
+  /** The artwork already carries the name, so the tile only adds the crowd. */
   function tileHtml(id) {
     const g = D.games[id];
     return (
@@ -139,8 +171,7 @@
         'aria-label="Play ' + g.name + '" title="' + g.name + ' · RTP ' + g.rtp + '">' +
         g.art +
         '<span class="tile-badge badge-' + g.badge + '">' + g.badge + '</span>' +
-        '<div class="tile-name">' + g.name + '<small>' + g.kicker + '</small></div>' +
-        '<div class="tile-foot"><i class="live-dot"></i>' + g.players.toLocaleString() + ' playing</div>' +
+        '<div class="tile-foot"><i class="live-dot"></i>' + playersOn(id).toLocaleString() + ' playing</div>' +
         '<div class="tile-hover"><button class="btn btn-primary">Play now</button></div>' +
       '</div>'
     );

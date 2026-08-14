@@ -78,7 +78,7 @@
         amount.disable(true);
         targetInput.disabled = true;
         quick.setDisabled(true);
-        ctx.banner('');
+        ctx.result(null);
 
         const r = Math.max(1e-9, D.rand());
         const crash = Math.min(MAX, Math.max(1, D.round2(EDGE / r)));
@@ -103,7 +103,6 @@
 
           const payout = win ? D.round2(bet * target) : 0;
           ctx.settle(bet, payout, win ? target : 0);
-          ctx.banner(win ? 'Win ' + D.fmt(D.round2(payout - bet)) : 'Lost ' + D.fmt(bet), win ? 'win' : 'lose');
           hist.push(crash.toFixed(2) + '\u00d7', win);
 
           busy = false;

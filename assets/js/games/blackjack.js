@@ -238,7 +238,7 @@
         hideHole = true;
         msg.className = 'bj-msg';
         msg.textContent = 'Dealing…';
-        ctx.banner('');
+        ctx.result(null);
         render();
         setPhase('player');
         setBusy(true);
@@ -382,16 +382,18 @@
         const payout = D.round2(results.reduce((sum, r) => sum + r.payout, 0) + insurancePay);
         const profit = D.round2(payout - staked);
 
-        const parts = results.map((r, i) => (hands.length > 1 ? 'Hand ' + (i + 1) + ' ' + r.text : r.text.charAt(0).toUpperCase() + r.text.slice(1)));
-        if (insurance) parts.push(insurancePay ? 'insurance paid ' + D.fmt(insurancePay) : 'insurance lost');
-        const text = parts.join(' · ');
         const kind = profit > 0 ? 'win' : profit < 0 ? 'lose' : 'push';
 
         render();
-        msg.className = 'bj-msg ' + kind;
-        msg.textContent = text;
+        // the cards say it: green outline on a hand that won, red on one that did not
+        results.forEach((r, i) => {
+          const seat = seatsEl.children[i];
+          if (!seat) return;
+          D.$$('.card', seat).forEach((card) => card.classList.add(r.kind === 'win' ? 'win' : r.kind === 'push' ? 'push' : 'lose'));
+        });
+        msg.className = 'bj-msg';
+        msg.textContent = '';
         ctx.settle(staked, payout, payout ? D.round2(payout / staked) : 0);
-        ctx.banner(text, kind === 'win' ? 'win' : kind === 'push' ? '' : 'lose');
         hist.push(
           hands.length > 1
             ? (profit > 0 ? '+' + D.fmt(profit) : profit < 0 ? D.fmt(profit) : 'push')

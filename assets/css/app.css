@@ -461,17 +461,6 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .tile-blob { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .85; }
 .tile-shape { position: absolute; }
 
-.tile-name {
-  position: absolute; left: 12px; right: 12px; bottom: 34px;
-  z-index: 2;
-  font-family: Rajdhani, Inter, sans-serif;
-  font-size: 21px; font-weight: 700; line-height: .96;
-  letter-spacing: .2px; text-transform: uppercase;
-  color: #fff;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, .65);
-}
-.tile-name small { display: block; font-size: 9px; letter-spacing: 1.4px; opacity: .75; margin-top: 4px; font-weight: 600; }
-
 .tile-foot {
   position: absolute; left: 12px; right: 12px; bottom: 11px; z-index: 2;
   display: flex; align-items: center; gap: 6px;
@@ -1077,6 +1066,16 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 }
 .field-inline:focus { border-color: rgba(0, 230, 118, .45); }
 .admin-sub { font-size: 12px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; color: var(--text-2); margin: 20px 0 10px; }
+
+/* one row per original: name, smallest, biggest */
+.playing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px; }
+.playing-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 8px; align-items: center;
+  padding: 7px 10px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.playing-row span { font-size: 12.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playing-row .field-inline { min-width: 0; flex: none; }
 
 .tn-find { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
 .tn-find .field-inline.slim { flex: 0 0 150px; }

@@ -123,7 +123,7 @@
         clearBtn.disabled = true;
         amount.disable(true);
         reset();
-        ctx.banner('');
+        ctx.result(null);
 
         const draw = D.shuffle(Array.from({ length: TOTAL }, (_, i) => i + 1)).slice(0, DRAWN);
         let hits = 0;
@@ -142,10 +142,7 @@
           const mult = PAY[picked.size][hitCount] || 0;
           const payout = D.round2(bet * mult);
           ctx.settle(bet, payout, mult);
-          ctx.banner(
-            hitCount + ' hit' + (hitCount === 1 ? '' : 's') + ' · ' + (mult ? D.fmtMult(mult) : 'no win'),
-            payout > bet ? 'win' : 'lose'
-          );
+          ctx.result(payout > bet ? 'win' : 'lose', payout > bet ? D.fmtMult(mult) : '');
           hist.push(hitCount + '/' + picked.size, payout > bet);
           paintPayTable(hitCount);
           busy = false;

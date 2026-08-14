@@ -91,7 +91,7 @@
         busy = true;
         flipBtn.disabled = true;
         cashBtn.disabled = true;
-        ctx.banner('');
+        ctx.result(null);
 
         const landed = D.rand() < 0.5 ? 'heads' : 'tails';
         const win = landed === side;
@@ -104,13 +104,11 @@
           if (win) {
             streak += 1;
             pot = D.round2(pot * MULT);
-            ctx.banner('Heads or tails? ' + landed.toUpperCase() + ' — streak ' + streak, 'win');
-            D.toast('Landed ' + landed + ' · pot ' + D.fmt(pot), 'win');
+            ctx.result('win', D.fmtMult(D.round2(pot / stake)));
             hist.push(landed === 'heads' ? 'H' : 'T', true);
           } else {
             ctx.settle(stake, 0, 0, { silent: true });
-            D.toast('Landed ' + landed + ' · lost ' + D.fmt(stake), 'lose');
-            ctx.banner('Landed ' + landed.toUpperCase() + ' — run over', 'lose');
+            ctx.result('lose');
             hist.push(landed === 'heads' ? 'H' : 'T', false);
             streak = 0; pot = 0; stake = 0;
           }
@@ -125,7 +123,7 @@
         if (busy || streak === 0) return;
         const mult = D.round2(pot / stake);
         ctx.settle(stake, pot, mult);
-        ctx.banner('Collected ' + D.fmt(pot) + ' at ' + D.fmtMult(mult), 'win');
+        ctx.result('win', D.fmtMult(mult));
         streak = 0; pot = 0; stake = 0;
         paint();
       });

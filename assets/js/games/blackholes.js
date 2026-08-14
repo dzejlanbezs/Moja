@@ -89,7 +89,7 @@
         values = [];
         build();
         D.$$('.hole', grid).forEach((h) => { h.disabled = false; });
-        ctx.banner('');
+        ctx.result(null);
         paint();
       }
 
@@ -120,10 +120,7 @@
         const total = D.round2(values.reduce((a, b) => a + b, 0));
         const payout = D.round2(stake * total);
         ctx.settle(stake, payout, total);
-        ctx.banner(
-          total > 0 ? 'Drew ' + total.toFixed(2) + '\u00d7 · ' + D.fmt(payout) : 'All three holes were empty',
-          payout > stake ? 'win' : 'lose'
-        );
+        ctx.result(payout > stake ? 'win' : 'lose', payout > stake ? D.fmtMult(total) : '');
         hist.push(total.toFixed(2) + '\u00d7', payout > stake);
         paint();
       }

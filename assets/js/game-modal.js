@@ -289,10 +289,14 @@
 
     const overlay = document.getElementById('gameModal');
     const panel = document.getElementById('betPanel');
-    const stage = document.getElementById('gameStage');
+    const stageOuter = document.getElementById('gameStage');
 
     panel.innerHTML = '';
-    stage.innerHTML = '';
+    stageOuter.innerHTML = '';
+    // games build into this wrapper, which is then scaled to whatever room the
+    // board has, so a phone never has to scroll the table to see all of it
+    const stage = D.h('<div class="stage-fit"></div>');
+    stageOuter.appendChild(stage);
     document.getElementById('gameTitle').textContent = def.name;
     document.getElementById('gameSub').textContent = def.sub || 'Virtusjack Original';
     // the header square uses the same picture as the game's win in the strip
@@ -323,13 +327,9 @@
         D.Store.credit(payout);
         D.Store.record({ game: def.name, gameId: id, bet: bet, payout: payout, multiplier: multiplier });
 
-        // every game gets the same result sound without asking for it
-        if (D.Sfx) D.Sfx.play(payout > bet ? (multiplier >= 8 ? 'big' : 'win') : payout > 0 ? 'push' : 'lose');
-        if (opts.silent) return;
-        const profit = D.round2(payout - bet);
-        if (payout > bet) D.toast('Won ' + D.fmt(profit) + ' · ' + D.fmtMult(multiplier), 'win');
-        else if (payout > 0) D.toast('Returned ' + D.fmt(payout), 'info');
-        else D.toast('Lost ' + D.fmt(bet), 'lose');
+        // the result speaks through the game itself, so there is no toast — only sound
+        if (opts.silent || !D.Sfx) return;
+        D.Sfx.play(payout > bet ? (multiplier >= 8 ? 'big' : 'win') : payout > 0 ? 'push' : 'lose');
       },
 
       /** Small strip of recent results in the top-right of the stage. */
@@ -347,18 +347,51 @@
         };
       },
 
-      banner(text, kind) {
-        const old = stage.querySelector('.result-banner');
+      /**
+       * The result, said once and briefly: WIN with the multiplier, or LOST.
+       * Called with no kind it just clears whatever is showing.
+       */
+      result(kind, detail) {
+        const old = stage.querySelector('.result-pop');
         if (old) old.remove();
-        if (!text) return;
-        const node = D.h('<div class="result-banner ' + (kind || '') + '"></div>');
-        node.textContent = text;
+        if (!kind) return;
+
+        const word = kind === 'win' ? 'WIN' : kind === 'push' ? 'PUSH' : 'LOST';
+        const node = D.h('<div class="result-pop ' + kind + '"><b></b><span></span></div>');
+        node.querySelector('b').textContent = word;
+        const tail = node.querySelector('span');
+        if (detail) tail.textContent = detail; else tail.remove();
         stage.appendChild(node);
+
+        setTimeout(() => {
+          node.classList.add('gone');
+          setTimeout(() => node.remove(), 320);
+        }, 1800);
       },
     };
 
-    current = { def: def, ctx: ctx, unsub: null };
+    current = { def: def, ctx: ctx, unsub: null, watch: null };
     def.mount(ctx);
+
+    /** Shrinks the board just enough to fit the space it has. Never enlarges it. */
+    const fitStage = () => {
+      stage.style.transform = 'none';
+      const room = { w: stageOuter.clientWidth - 6, h: stageOuter.clientHeight - 6 };
+      const size = { w: stage.offsetWidth, h: stage.offsetHeight };
+      if (!size.w || !size.h || !room.h) return;
+      const scale = Math.min(1, room.w / size.w, room.h / size.h);
+      stage.style.transform = scale < 0.995 ? 'scale(' + scale.toFixed(4) + ')' : 'none';
+    };
+
+    fitStage();
+    if (window.ResizeObserver) {
+      // cards, tiles and rows come and go mid-round, so refit whenever they do
+      current.watch = new ResizeObserver(fitStage);
+      current.watch.observe(stage);
+      current.watch.observe(stageOuter);
+    }
+    window.addEventListener('resize', fitStage);
+    current.unfit = () => window.removeEventListener('resize', fitStage);
 
     current.unsub = D.Store.onChange(() => {
       const bal = document.getElementById('gameBalance');
@@ -377,6 +410,8 @@
       try { current.ctx.onClose(); } catch (e) { /* keep closing even if a game hiccups */ }
     }
     if (current.unsub) current.unsub();
+    if (current.watch) current.watch.disconnect();
+    if (current.unfit) current.unfit();
     current = null;
     const overlay = document.getElementById('gameModal');
     overlay.hidden = true;

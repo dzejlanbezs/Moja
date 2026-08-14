@@ -89,7 +89,7 @@
         amount.disable(true);
         slider.disabled = true;
         modeSeg.setDisabled(true);
-        ctx.banner('');
+        ctx.result(null);
 
         const roll = D.round2(D.rand() * 100);
         const win = mode === 'over' ? roll > target : roll < target;
@@ -116,7 +116,6 @@
 
           const payout = win ? D.round2(bet * mult) : 0;
           ctx.settle(bet, payout, win ? mult : 0);
-          ctx.banner(win ? 'Win ' + D.fmt(D.round2(payout - bet)) : 'Lost ' + D.fmt(bet), win ? 'win' : 'lose');
           hist.push(roll.toFixed(2), win);
 
           rolling = false;

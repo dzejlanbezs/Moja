@@ -106,7 +106,7 @@ function coinNetwork(sym, networkId) {
 const EMPTY_DB = {
   users: [], sessions: {}, rounds: [], transactions: [], sportsBets: [],
   trending: { events: [], watchers: {} },
-  settings: { winMin: 1, winMax: 400 },
+  settings: { winMin: 1, winMax: 400, playing: {} },
   meta: { lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} },
 };
 
@@ -123,7 +123,7 @@ const db = loadDb();
 db.meta = Object.assign({ lastBlock: 0, seenTx: [], nextWalletIndex: 0, chainState: {} }, db.meta);
 db.sportsBets = db.sportsBets || [];
 db.trending = Object.assign({ events: [], watchers: {} }, db.trending);
-db.settings = Object.assign({ winMin: 1, winMax: 400 }, db.settings);
+db.settings = Object.assign({ winMin: 1, winMax: 400, playing: {} }, db.settings);
 let saveTimer = null;
 
 function save() {
@@ -839,6 +839,8 @@ const ROUTES = {
       coins: coins,
       // the range the Live Wins strip invents its amounts from
       wins: { min: db.settings.winMin, max: db.settings.winMax },
+      // how many players each original claims to have, re-rolled every 10 minutes
+      playing: db.settings.playing || {},
       hdEnabled: !!hdSeed,
       minDeposit: MIN_DEPOSIT_USD,
       confirmations: chain.config.confirmations,
@@ -1517,6 +1519,26 @@ const ROUTES = {
     db.settings.winMax = max;
     save();
     return sendJson(ctx.res, 200, { wins: { min: min, max: max } });
+  },
+
+  /** How busy each original claims to be: a range per game, or none for the default. */
+  'POST /api/admin/playing': async (ctx) => {
+    const admin = ctx.requireAdmin();
+    if (!admin) return;
+    const body = await ctx.body();
+    const incoming = body.ranges && typeof body.ranges === 'object' ? body.ranges : {};
+    const ranges = {};
+
+    Object.keys(incoming).slice(0, 40).forEach((key) => {
+      const id = String(key).replace(/[^a-z0-9-]/gi, '').slice(0, 24);
+      const min = Math.max(0, Math.min(999999, Math.round(Number(incoming[key].min) || 0)));
+      const max = Math.max(min, Math.min(999999, Math.round(Number(incoming[key].max) || 0)));
+      if (id && max > 0) ranges[id] = { min: min, max: max };
+    });
+
+    db.settings.playing = ranges;
+    save();
+    return sendJson(ctx.res, 200, { playing: ranges });
   },
 
   /** What the Trending strip is showing, plus whether it is pinned or automatic. */

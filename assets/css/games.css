@@ -180,12 +180,20 @@
 .game-stage {
   position: relative;
   min-height: 0;
-  padding: 22px;
-  overflow-y: auto;
-  display: flex; flex-direction: column; gap: 18px;
+  padding: 16px;
+  /* the board is scaled to fit instead of scrolled */
+  overflow: hidden;
+  display: grid; place-items: center;
   background:
     radial-gradient(80% 100% at 50% 0%, rgba(255, 255, 255, .035), transparent 70%),
     var(--bg-2);
+}
+.stage-fit {
+  position: relative;
+  width: 100%;
+  display: flex; flex-direction: column; gap: 18px;
+  transform-origin: center center;
+  transition: transform .16s var(--ease);
 }
 
 .stage-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
@@ -200,16 +208,37 @@
 .hist-chip.win { color: var(--green); border-color: rgba(0, 230, 118, .35); background: rgba(0, 230, 118, .1); }
 .hist-chip.lose { color: var(--text-3); }
 
-.result-banner {
-  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
-  padding: 9px 18px; border-radius: 99px;
-  font-size: 13.5px; font-weight: 800;
-  background: var(--surface-2); border: 1px solid var(--line-strong);
-  animation: pop .22s var(--ease);
-  z-index: 5;
+/* WIN or LOST, in the middle of the board, gone in under two seconds */
+.result-pop {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 132px; padding: 14px 22px; border-radius: 16px;
+  background: rgba(10, 14, 22, .9);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, .55);
+  backdrop-filter: blur(4px);
+  z-index: 6; pointer-events: none;
+  animation: resultPop .28s var(--ease);
+  transition: opacity .3s, transform .3s var(--ease);
 }
-.result-banner.win { color: var(--green); border-color: rgba(0, 230, 118, .45); background: rgba(0, 230, 118, .12); }
-.result-banner.lose { color: var(--red); border-color: rgba(255, 71, 87, .4); background: rgba(255, 71, 87, .1); }
+.result-pop b {
+  font-family: Rajdhani, Inter, sans-serif;
+  font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: 1px;
+}
+.result-pop span { font-size: 15px; font-weight: 800; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.result-pop.win { border-color: rgba(0, 230, 118, .5); }
+.result-pop.win b { color: var(--green); }
+.result-pop.win span { color: var(--green); }
+.result-pop.lose { border-color: rgba(255, 71, 87, .45); }
+.result-pop.lose b { color: var(--red); }
+.result-pop.push { border-color: rgba(255, 204, 51, .45); }
+.result-pop.push b { color: var(--gold); }
+.result-pop.gone { opacity: 0; transform: translate(-50%, -62%) scale(.96); }
+@keyframes resultPop {
+  from { opacity: 0; transform: translate(-50%, -42%) scale(.9); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 
 .big-num {
   font-family: Rajdhani, Inter, sans-serif;
@@ -418,6 +447,11 @@ button svg.bomb-ico { fill: var(--red); stroke: rgba(0, 0, 0, .35); stroke-width
 .bj-seats:has(.bj-seat + .bj-seat) .bj-hand .card:not(:first-child) { margin-left: -22px; }
 
 .bj-ins { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* how a settled blackjack hand reads: the cards, not a sentence */
+.card.win { box-shadow: 0 0 0 2.5px var(--green), 0 8px 22px rgba(0, 230, 118, .3); }
+.card.lose { box-shadow: 0 0 0 2.5px var(--red), 0 8px 22px rgba(255, 71, 87, .28); }
+.card.push { box-shadow: 0 0 0 2.5px var(--gold), 0 8px 22px rgba(255, 204, 51, .25); }
 
 .bj-msg { font-size: 15px; font-weight: 800; text-align: center; min-height: 22px; }
 .bj-msg.win { color: var(--green); }

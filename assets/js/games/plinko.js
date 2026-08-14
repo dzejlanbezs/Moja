@@ -133,8 +133,7 @@
         const mult = ball.table[ball.bucket];
         const payout = D.round2(ball.bet * mult);
         ctx.settle(ball.bet, payout, mult, { silent: true });
-        if (payout > ball.bet) D.toast('Plinko ' + D.fmtMult(mult) + ' · +' + D.fmt(D.round2(payout - ball.bet)), 'win');
-        else D.toast('Plinko ' + D.fmtMult(mult) + ' · ' + D.fmt(payout), 'lose');
+        if (D.Sfx) D.Sfx.play(payout > ball.bet ? 'gem' : 'tick');
         hist.push(mult + '\u00d7', payout > ball.bet);
         const el = bucketsEl.querySelector('.bucket[data-index="' + ball.bucket + '"]');
         if (el) {

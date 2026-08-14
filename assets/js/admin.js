@@ -32,6 +32,7 @@
     loadSportsBets();
     loadTrending();
     loadWinRange();
+    loadPlaying();
     return Api.adminOverview()
       .then((data) => {
         renderTotals(data.totals);
@@ -220,6 +221,50 @@
           D.toast('Wins now run ' + D.fmt(data.wins.min) + ' to ' + D.fmt(data.wins.max), 'win');
         })
         .catch((err) => D.toast(err.message || 'Could not save the range', 'lose'));
+    });
+  }
+
+  /* ---------------- players online ---------------- */
+
+  const playingGrid = D.$('#playingGrid');
+
+  function renderPlaying(ranges) {
+    if (!playingGrid) return;
+    playingGrid.innerHTML = Object.keys(D.games).map((id) => {
+      const range = ranges[id] || {};
+      return '<div class="playing-row">' +
+        '<span>' + esc(D.games[id].name) + '</span>' +
+        '<input class="field-inline slim" type="number" min="0" step="1" placeholder="min"' +
+          ' data-playing-min="' + esc(id) + '" value="' + (range.min == null ? '' : range.min) + '">' +
+        '<input class="field-inline slim" type="number" min="0" step="1" placeholder="max"' +
+          ' data-playing-max="' + esc(id) + '" value="' + (range.max == null ? '' : range.max) + '">' +
+      '</div>';
+    }).join('');
+  }
+
+  function loadPlaying() {
+    if (!playingGrid) return Promise.resolve();
+    return Api.request('GET', '/api/config')
+      .then((cfg) => renderPlaying(cfg.playing || {}))
+      .catch(() => renderPlaying({}));
+  }
+
+  if (playingGrid) {
+    D.$('#playingSave').addEventListener('click', () => {
+      const ranges = {};
+      Object.keys(D.games).forEach((id) => {
+        const min = parseInt(D.$('[data-playing-min="' + id + '"]').value, 10);
+        const max = parseInt(D.$('[data-playing-max="' + id + '"]').value, 10);
+        if (!isFinite(max) || max <= 0) return;                 // an empty row keeps the default
+        ranges[id] = { min: isFinite(min) ? min : 0, max: max };
+      });
+      Api.request('POST', '/api/admin/playing', { ranges: ranges })
+        .then((data) => {
+          if (D.setPlaying) D.setPlaying(data.playing);
+          renderPlaying(data.playing || {});
+          D.toast('Players online updated', 'win');
+        })
+        .catch((err) => D.toast(err.message || 'Could not save', 'lose'));
     });
   }
 

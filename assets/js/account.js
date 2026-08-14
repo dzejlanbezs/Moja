@@ -178,6 +178,7 @@
     return Api.request('GET', '/api/config').then((cfg) => {
       D.setCoins(cfg.coins);
       if (D.setWinRange) D.setWinRange(cfg.wins);
+      if (D.setPlaying) D.setPlaying(cfg.playing);
 
       // without a seed there are no real addresses, so say so instead of showing filler
       const missingSeed = user && !cfg.hdEnabled;

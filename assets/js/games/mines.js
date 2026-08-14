@@ -104,7 +104,7 @@
         D.shuffle(Array.from({ length: SIZE }, (_, i) => i)).slice(0, mines).forEach((i) => { field[i] = true; });
         buildBoard();
         D.$$('.cell', grid).forEach((c) => { c.disabled = false; });
-        ctx.banner('');
+        ctx.result(null);
         paint();
       }
 
@@ -129,7 +129,7 @@
         const payout = D.round2(stake * mult);
         active = false;
         ctx.settle(stake, payout, mult);
-        ctx.banner('Cashed out ' + D.fmt(payout) + ' at ' + D.fmtMult(mult), 'win');
+        ctx.result('win', D.fmtMult(mult));
         hist.push(D.fmtMult(mult), true);
         revealAll(-1);
         paint();
@@ -148,7 +148,7 @@
           if (D.Sfx) D.Sfx.play('mine');
           active = false;
           ctx.settle(stake, 0, 0);
-          ctx.banner('Hit a mine — lost ' + D.fmt(stake), 'lose');
+          ctx.result('lose');
           hist.push('\u2717', false);
           revealAll(i);
           paint();

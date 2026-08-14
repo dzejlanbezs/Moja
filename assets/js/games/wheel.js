@@ -89,7 +89,7 @@
         spinBtn.disabled = true;
         amount.disable(true);
         riskSeg.setDisabled(true);
-        ctx.banner('');
+        ctx.result(null);
         hub.textContent = '—';
 
         const base = Math.ceil(rotation / 360) * 360;
@@ -101,7 +101,7 @@
           hub.textContent = mult + '\u00d7';
           hub.style.color = color(mult);
           ctx.settle(bet, payout, mult);
-          ctx.banner(mult ? 'Landed ' + mult + '\u00d7 · ' + D.fmt(payout) : 'Landed on 0\u00d7', payout > bet ? 'win' : 'lose');
+          ctx.result(payout > bet ? 'win' : 'lose', payout > bet ? D.fmtMult(mult) : '');
           hist.push(mult + '\u00d7', payout > bet);
           spinning = false;
           spinBtn.disabled = false;
