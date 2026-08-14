@@ -284,8 +284,6 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 .avatar:hover { border-color: var(--green); }
 
 .only-mobile { display: none; }
-/* the reverse: things a narrow screen is better off without */
-@media (max-width: 900px) { .only-wide { display: none; } }
 
 /* ---------------- main ---------------- */
 .main {

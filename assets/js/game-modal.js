@@ -398,21 +398,35 @@
      */
     const fitStage = () => {
       stage.style.transform = 'none';
-      const room = { w: stageOuter.clientWidth - 4, h: stageOuter.clientHeight - 4 };
-      if (!room.w || !room.h) return;
 
-      const box = stage.getBoundingClientRect();
+      // the room is the stage inside its padding, not including it
+      const outer = stageOuter.getBoundingClientRect();
+      const pad = getComputedStyle(stageOuter);
+      const target = {
+        left: outer.left + parseFloat(pad.paddingLeft),
+        right: outer.right - parseFloat(pad.paddingRight),
+        top: outer.top + parseFloat(pad.paddingTop),
+        bottom: outer.bottom - parseFloat(pad.paddingBottom),
+      };
+      const room = { w: target.right - target.left - 2, h: target.bottom - target.top - 2 };
+      if (room.w <= 0 || room.h <= 0) return;
+
       const content = contentBox();
       const size = { w: content.right - content.left, h: content.bottom - content.top };
       if (!size.w || !size.h) return;
 
       const scale = Math.min(1, room.w / size.w, room.h / size.h);
-      if (Math.abs(scale - 1) < 0.02) return;
+      if (Math.abs(scale - 1) < 0.01) return;
 
-      // the box is centred in the stage, so pull the content's own centre onto it
+      // scaling happens around the wrapper's middle, so shift whatever is left
+      // of the content back onto the middle of the room
+      const box = stage.getBoundingClientRect();
+      const middle = (a, b) => (a + b) / 2;
       const shift = {
-        x: -scale * ((content.left + content.right) / 2 - (box.left + box.right) / 2),
-        y: -scale * ((content.top + content.bottom) / 2 - (box.top + box.bottom) / 2),
+        x: middle(target.left, target.right) -
+          (middle(box.left, box.right) + scale * (middle(content.left, content.right) - middle(box.left, box.right))),
+        y: middle(target.top, target.bottom) -
+          (middle(box.top, box.bottom) + scale * (middle(content.top, content.bottom) - middle(box.top, box.bottom))),
       };
       stage.style.transform = 'translate(' + shift.x.toFixed(2) + 'px,' + shift.y.toFixed(2) + 'px)' +
         ' scale(' + scale.toFixed(4) + ')';

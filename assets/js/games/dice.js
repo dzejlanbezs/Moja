@@ -55,6 +55,8 @@
       const autoField = ctx.ui.stepper(autoInput, { step: 5, min: 1, decimals: 0 });
       const autoBtn = ctx.ui.action('Start Auto', 'btn-ghost');
       const autoLeft = ctx.ui.readout('Bets left');
+      const autoLeftBlock = ctx.ui.block('', autoLeft.node);
+      autoLeftBlock.classList.add('only-wide');
 
       // the win chance is the one readout a phone can do without
       const chanceBlock = ctx.ui.block('', chanceOut.node);
@@ -68,7 +70,7 @@
         chanceBlock,
         ctx.ui.block('', profitOut.node),
         ctx.ui.block('<span>Number of bets</span>', autoField),
-        ctx.ui.block('', autoLeft.node)
+        autoLeftBlock
       );
       const action = D.h('<div class="bp-action"></div>');
       action.append(rollBtn, autoBtn, ctx.ui.note('Result is generated with the browser crypto RNG.'));
@@ -149,7 +151,7 @@
       const auto = { on: false, left: 0, timer: 0 };
 
       function paintAuto() {
-        autoBtn.textContent = auto.on ? 'Stop Auto' : 'Start Auto';
+        autoBtn.textContent = auto.on ? 'Stop Auto · ' + auto.left + ' left' : 'Start Auto';
         autoBtn.classList.toggle('btn-danger', auto.on);
         autoBtn.classList.toggle('btn-ghost', !auto.on);
         autoLeft.set(auto.on ? auto.left + ' to go' : '—');

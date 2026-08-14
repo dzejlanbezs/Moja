@@ -571,6 +571,8 @@ button svg.bomb-ico { fill: var(--red); stroke: rgba(0, 0, 0, .35); stroke-width
   /* the quick-stake buttons go: the field and its stepper are enough, and the
      height they free is what lets the whole board be seen */
   .bp-chips { display: none; }
+  /* and anything a game marked as only worth the room on a wide screen */
+  .bp-block.only-wide, .only-wide { display: none; }
   /* if a panel ever does overflow, the buttons stay pinned to the bottom */
   .bp-action {
     margin-top: 8px; position: sticky; bottom: 0;
