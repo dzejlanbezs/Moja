@@ -344,6 +344,8 @@ Visible in the left rail only for admin accounts. It shows:
   address on every chain (click one to copy it), their sports bets with Win / Loss / Void,
   their full transaction list and their last 60 rounds, a field to add or subtract balance
   with a note, and a block switch
+* the Players online panel, a range per original for the "N playing" line in the lobby
+* the Live Wins strip panel, the range the invented wins fall in
 * the Trending Now panel, for pinning the three matches on the Sports page and setting how
   many people each one says are watching
 
