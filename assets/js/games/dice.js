@@ -50,16 +50,28 @@
 
       const targetRow = D.h('<div class="bp-readout"><span id="tgtLabel">Roll over</span><b id="tgtVal">50.00</b></div>');
 
+      // auto play: a stake, a number of bets, and it works through them itself
+      const autoInput = D.h('<input class="bp-input" type="number" min="1" step="1" value="10">');
+      const autoField = ctx.ui.stepper(autoInput, { step: 5, min: 1, decimals: 0 });
+      const autoBtn = ctx.ui.action('Start Auto', 'btn-ghost');
+      const autoLeft = ctx.ui.readout('Bets left');
+
+      // the win chance is the one readout a phone can do without
+      const chanceBlock = ctx.ui.block('', chanceOut.node);
+      chanceBlock.classList.add('only-wide');
+
       ctx.panel.append(
         amount.node,
         ctx.ui.block('<span>Direction</span>', modeSeg),
         ctx.ui.block('<span>Target</span>', targetRow),
         ctx.ui.block('', multOut.node),
-        ctx.ui.block('', chanceOut.node),
-        ctx.ui.block('', profitOut.node)
+        chanceBlock,
+        ctx.ui.block('', profitOut.node),
+        ctx.ui.block('<span>Number of bets</span>', autoField),
+        ctx.ui.block('', autoLeft.node)
       );
       const action = D.h('<div class="bp-action"></div>');
-      action.append(rollBtn, ctx.ui.note('Result is generated with the browser crypto RNG.'));
+      action.append(rollBtn, autoBtn, ctx.ui.note('Result is generated with the browser crypto RNG.'));
       ctx.panel.appendChild(action);
 
       const chance = () => (mode === 'over' ? 100 - target : target);
@@ -79,20 +91,22 @@
       amount.node.addEventListener('input', refresh);
       amount.node.addEventListener('click', () => setTimeout(refresh, 0));
 
-      rollBtn.addEventListener('click', () => {
-        if (rolling) return;
+      /** One roll. `after` runs once it has settled, which is how auto keeps going. */
+      function roll(after) {
+        if (rolling) return false;
         const bet = amount.get();
-        if (!ctx.bet(bet)) return;
+        if (!ctx.bet(bet)) return false;
 
         rolling = true;
         rollBtn.disabled = true;
+        autoBtn.disabled = !auto.on;
         amount.disable(true);
         slider.disabled = true;
         modeSeg.setDisabled(true);
         ctx.result(null);
 
-        const roll = D.round2(D.rand() * 100);
-        const win = mode === 'over' ? roll > target : roll < target;
+        const rolled = D.round2(D.rand() * 100);
+        const win = mode === 'over' ? rolled > target : rolled < target;
         const mult = multiplier();
 
         // brief scramble so the number feels rolled rather than assigned
@@ -107,27 +121,83 @@
         }, 45);
 
         function finish() {
-          resultEl.textContent = roll.toFixed(2);
+          resultEl.textContent = rolled.toFixed(2);
           resultEl.classList.toggle('win', win);
           resultEl.classList.toggle('lose', !win);
-          marker.style.left = roll + '%';
-          marker.dataset.val = roll.toFixed(2);
+          marker.style.left = rolled + '%';
+          marker.dataset.val = rolled.toFixed(2);
           subEl.textContent = win ? 'Paid ' + D.fmtMult(mult) : 'No win';
 
           const payout = win ? D.round2(bet * mult) : 0;
           ctx.settle(bet, payout, win ? mult : 0);
-          hist.push(roll.toFixed(2), win);
+          hist.push(rolled.toFixed(2), win);
 
           rolling = false;
-          rollBtn.disabled = false;
-          amount.disable(false);
-          slider.disabled = false;
-          modeSeg.setDisabled(false);
+          rollBtn.disabled = auto.on;
+          autoBtn.disabled = false;
+          amount.disable(auto.on);
+          slider.disabled = auto.on;
+          modeSeg.setDisabled(auto.on);
           refresh();
+          if (after) after();
         }
+        return true;
+      }
+
+      /* ---- auto play ---- */
+
+      const auto = { on: false, left: 0, timer: 0 };
+
+      function paintAuto() {
+        autoBtn.textContent = auto.on ? 'Stop Auto' : 'Start Auto';
+        autoBtn.classList.toggle('btn-danger', auto.on);
+        autoBtn.classList.toggle('btn-ghost', !auto.on);
+        autoLeft.set(auto.on ? auto.left + ' to go' : '—');
+        autoInput.disabled = auto.on;
+        rollBtn.disabled = auto.on || rolling;
+      }
+
+      function stopAuto(note) {
+        auto.on = false;
+        auto.left = 0;
+        clearTimeout(auto.timer);
+        amount.disable(false);
+        slider.disabled = false;
+        modeSeg.setDisabled(false);
+        paintAuto();
+        if (note) D.toast(note, 'info');
+      }
+
+      /** Places one bet, waits a beat so it can be watched, then places the next. */
+      function step() {
+        if (!auto.on) return;
+        if (auto.left <= 0) { stopAuto(); return; }
+        if (amount.get() > D.Store.balance + 1e-9) { stopAuto('Auto stopped — not enough balance'); return; }
+
+        auto.left -= 1;
+        paintAuto();
+        const started = roll(() => { auto.timer = setTimeout(step, 700); });
+        if (!started) stopAuto();
+      }
+
+      autoBtn.addEventListener('click', () => {
+        if (auto.on) { stopAuto(); return; }
+        const rounds = Math.max(1, Math.min(1000, parseInt(autoInput.value, 10) || 0));
+        if (amount.get() <= 0) { D.toast('Enter a bet amount', 'info'); return; }
+        auto.on = true;
+        auto.left = rounds;
+        amount.disable(true);
+        slider.disabled = true;
+        modeSeg.setDisabled(true);
+        paintAuto();
+        step();
       });
 
+      rollBtn.addEventListener('click', () => { if (!auto.on) roll(); });
+      ctx.onClose = () => stopAuto();
+
       refresh();
+      paintAuto();
     },
   });
 })(window.Virtusjack);

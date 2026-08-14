@@ -374,17 +374,48 @@
     def.mount(ctx);
 
     /**
-     * The board fills its area through CSS; this only shrinks it when the game
-     * needs more height than the area has, so nothing is ever scrolled away.
+     * Measures what the board actually covers, not the box it was given: a flex
+     * row that has run out of height lets its cards and tiles spill outside its
+     * own box, and those still have to be seen.
+     */
+    const contentBox = () => {
+      const box = stage.getBoundingClientRect();
+      const edges = { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
+      stage.querySelectorAll('*').forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        edges.top = Math.min(edges.top, rect.top);
+        edges.bottom = Math.max(edges.bottom, rect.bottom);
+        edges.left = Math.min(edges.left, rect.left);
+        edges.right = Math.max(edges.right, rect.right);
+      });
+      return edges;
+    };
+
+    /**
+     * Shrinks the board until all of it fits the space it has, and slides it so
+     * what is left sits in the middle. It never enlarges anything.
      */
     const fitStage = () => {
       stage.style.transform = 'none';
       const room = { w: stageOuter.clientWidth - 4, h: stageOuter.clientHeight - 4 };
-      const size = { w: stage.offsetWidth, h: stage.offsetHeight };
-      if (!size.w || !size.h || !room.h) return;
+      if (!room.w || !room.h) return;
+
+      const box = stage.getBoundingClientRect();
+      const content = contentBox();
+      const size = { w: content.right - content.left, h: content.bottom - content.top };
+      if (!size.w || !size.h) return;
 
       const scale = Math.min(1, room.w / size.w, room.h / size.h);
-      stage.style.transform = Math.abs(scale - 1) < 0.02 ? 'none' : 'scale(' + scale.toFixed(4) + ')';
+      if (Math.abs(scale - 1) < 0.02) return;
+
+      // the box is centred in the stage, so pull the content's own centre onto it
+      const shift = {
+        x: -scale * ((content.left + content.right) / 2 - (box.left + box.right) / 2),
+        y: -scale * ((content.top + content.bottom) / 2 - (box.top + box.bottom) / 2),
+      };
+      stage.style.transform = 'translate(' + shift.x.toFixed(2) + 'px,' + shift.y.toFixed(2) + 'px)' +
+        ' scale(' + scale.toFixed(4) + ')';
     };
 
     fitStage();

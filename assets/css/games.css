@@ -568,8 +568,9 @@ button svg.bomb-ico { fill: var(--red); stroke: rgba(0, 0, 0, .35); stroke-width
     order: 2; border-right: none; border-top: 1px solid var(--line);
     max-height: min(64vh, 420px); padding: 12px; gap: 10px;
   }
-  .bp-chips { grid-template-columns: repeat(4, 1fr); }
-  .bp-chip { height: 30px; }
+  /* the quick-stake buttons go: the field and its stepper are enough, and the
+     height they free is what lets the whole board be seen */
+  .bp-chips { display: none; }
   /* if a panel ever does overflow, the buttons stay pinned to the bottom */
   .bp-action {
     margin-top: 8px; position: sticky; bottom: 0;
@@ -582,9 +583,19 @@ button svg.bomb-ico { fill: var(--red); stroke: rgba(0, 0, 0, .35); stroke-width
   .game-head-id > div { min-width: 0; }
   .game-head-sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* boards size to the height they are given rather than overflowing it */
-  .mine-grid { width: min(100%, 44vh); }
-  .dig-tower { width: min(100%, 340px); }
-  .keno-grid { width: min(100%, 92vw); }
+  .mine-grid { width: min(100%, 300px); gap: 7px; }
+  .mine-stats { gap: 7px; }
+  .chip-stat { min-width: 74px; padding: 7px 10px; }
+  .chip-stat b { font-size: 13.5px; }
+  .dig-tower { width: min(100%, 300px); gap: 6px; }
+  .dig-cell { height: 40px; }
+  .dig-row { padding: 4px; gap: 6px; }
+  .keno-grid { width: min(100%, 92vw); gap: 6px; }
+  /* the pay table is reference, not the game — it can be much smaller here */
+  .pay-table { gap: 4px; }
+  .pay-cell { min-width: 38px; padding: 4px 5px; border-radius: 7px; }
+  .pay-cell b { font-size: 10.5px; }
+  .pay-cell span { font-size: 8px; }
   .bj-hand .card { width: 62px; height: 88px; }
   .bj-hand .card .rank { font-size: 15px; }
   .bj-hand .card .suit { font-size: 16px; }
