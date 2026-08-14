@@ -453,7 +453,7 @@ Clicking a lobby tile opens the game in a popup with its own bet panel.
 
 | Game | How it plays | Edge |
 | --- | --- | --- |
-| Dice | Roll over/under a target from 2–98 | 1% |
+| Dice | Roll over/under a target from 2–98, with auto play | 1% |
 | Limbo | Set a target multiplier, the round has to reach it | 1% |
 | Coinflip | Heads or tails at 1.98×, ride the streak or collect | 1% |
 | Mines | 5×5 field, pick your mine count, cash out any time | 1% |
@@ -465,6 +465,18 @@ Clicking a lobby tile opens the game in a popup with its own bet panel.
 | Wheel | 12 segments, three risk levels | 1–5% |
 
 All outcomes come from `crypto.getRandomValues`.
+
+**Dice plays itself if you ask it to.** Set a stake and a number of bets, press
+**Start Auto**, and it works through them about one a second, counting down on the
+button. It stops when the count runs out, when the balance cannot cover the next
+bet, or the moment you press stop.
+
+**On a phone** the quick-stake buttons under the bet field are dropped, Dice hides
+its win chance, and every control gives up a few pixels — so the whole panel and
+the whole board are on screen together, laid out the way they are on a desktop.
+Bet fields step with their own buttons or the mouse wheel rather than the
+browser's spinner, and a dropdown opens a menu of ours, placed so the panel
+cannot clip it.
 
 ## Before using this with real money
 
