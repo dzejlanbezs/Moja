@@ -379,6 +379,18 @@ art from `games/`, then its built-in badge, and a gold sports mark for sportsboo
 bets. That means the strip can carry different artwork from the lobby without
 touching the tiles.
 
+### Telling you what happened
+
+Nothing about a result arrives as a toast any more. Blackjack outlines the cards
+of each hand — green for a win, red for a loss, gold for a push. Mines, Dig Dig,
+Keno, Coinflip, Black Holes and Wheel show a short **WIN** with the multiplier,
+or **LOST**, in the middle of the board. Dice, Limbo and Plinko already show the
+number they landed on, so they say nothing extra.
+
+The board is also scaled to the room it has rather than scrolled, so every
+original fits a phone screen whole, and it refits itself as cards and tiles come
+and go.
+
 ### Sound
 
 Every original makes noise: cards as they are dealt, a chime for a Mines gem or a
@@ -393,6 +405,14 @@ Two seconds when the site opens, and two more when the sportsbook does — the m
 spins, green for the site and gold for the sportsbook. Drop **`intro.mp4`** or
 **`sports.mp4`** into `assets/video/` and that clip plays instead of the
 animation.
+
+### The lobby
+
+Tiles carry the artwork, the badge and one line: how many people are playing.
+The name is not printed over the picture — the artwork already has it — but search
+still finds a game by name. How busy each original looks is set in the admin
+dashboard (*Players online*) as a range per game, and a fresh number inside it is
+drawn every ten minutes.
 
 ### Live Wins strip
 
