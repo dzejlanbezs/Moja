@@ -1005,8 +1005,15 @@
         : '') +
       (clash ? '<div class="slip-warn">Two picks from the same match cannot be combined.</div>' : '') +
       (canFreeBet
-        ? '<label class="slip-freebet"><input type="checkbox" id="slipFreeBet"' + (state.useFreeBet ? ' checked' : '') + '>' +
-            '<span>Use free bet <b>' + money(fb.amount) + '</b></span></label>'
+        ? '<label class="slip-freebet' + (state.useFreeBet ? ' on' : '') + '">' +
+            '<input type="checkbox" id="slipFreeBet"' + (state.useFreeBet ? ' checked' : '') + '>' +
+            '<span class="fb-mark"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span>' +
+            '<span class="fb-copy">' +
+              '<b>Play this one on the house</b>' +
+              '<span>Your ' + money(fb.amount) + ' free bet covers the stake — nothing leaves your balance.</span>' +
+            '</span>' +
+            '<span class="fb-tag">' + money(fb.amount) + '</span>' +
+          '</label>'
         : (fb ? '<div class="slip-note">Free bet ' + money(fb.amount) + ' needs a single at odds ' +
             price(fb.minOdds) + '–' + price(fb.maxOdds) + '.</div>' : '')) +
       '<div class="slip-summary">' +

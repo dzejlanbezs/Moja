@@ -8,6 +8,16 @@
   const GEM = '<svg class="gem-ico" viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9l4-6Z"/></svg>';
   const BOMB = '<svg class="bomb-ico" viewBox="0 0 24 24"><circle cx="10.5" cy="14.5" r="6.5"/><path d="M16 9l4-4M19 4h2v2"/></svg>';
 
+  // gem.png and mine.png in assets/img/mines take over when they are there
+  const art = { gem: '', mine: '' };
+  const picture = (url) => '<span class="cell-img" style="background-image:url(\'' + url + '\')"></span>';
+  const gemHtml = () => (art.gem ? picture(art.gem) : GEM);
+  const mineHtml = () => (art.mine ? picture(art.mine) : BOMB);
+  D.Art.load().then(() => {
+    art.gem = D.Art.get('mines', 'gem');
+    art.mine = D.Art.get('mines', 'mine');
+  });
+
   function comb(n, k) {
     if (k < 0 || k > n) return 0;
     let r = 1;
@@ -104,11 +114,11 @@
           cell.disabled = true;
           if (field[i]) {
             cell.classList.add('bomb');
-            cell.innerHTML = BOMB;
+            cell.innerHTML = mineHtml();
             if (i !== hitIndex) cell.classList.add('dim');
           } else if (!cell.classList.contains('gem')) {
             cell.classList.add('dim');
-            cell.innerHTML = GEM;
+            cell.innerHTML = gemHtml();
           }
         });
       }
@@ -134,7 +144,8 @@
 
         if (field[i]) {
           cell.classList.add('bomb');
-          cell.innerHTML = BOMB;
+          cell.innerHTML = mineHtml();
+          if (D.Sfx) D.Sfx.play('mine');
           active = false;
           ctx.settle(stake, 0, 0);
           ctx.banner('Hit a mine — lost ' + D.fmt(stake), 'lose');
@@ -145,7 +156,8 @@
         }
 
         cell.classList.add('gem');
-        cell.innerHTML = GEM;
+        cell.innerHTML = gemHtml();
+        if (D.Sfx) D.Sfx.play('gem');
         picks += 1;
         paint();
 

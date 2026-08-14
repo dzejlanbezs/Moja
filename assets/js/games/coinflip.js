@@ -78,6 +78,7 @@
       amount.node.addEventListener('click', () => setTimeout(paint, 0));
 
       flipBtn.addEventListener('click', () => {
+        if (D.Sfx) D.Sfx.play('flip');
         if (busy) return;
 
         if (streak === 0) {

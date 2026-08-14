@@ -506,8 +506,15 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.avif': 'image/avif',
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.txt': 'text/plain; charset=utf-8',
 };
 
 function serveStatic(req, res, urlPath) {
@@ -538,8 +545,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ------------------------------------------------------------------ swappable art */
 
-const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo'];
+const ART_FOLDERS = ['banners', 'games', 'sports', 'promo', 'coins', 'trending', 'nav', 'wins', 'logo', 'mines', 'dig'];
 const ART_EXT = /\.(jpe?g|png|webp|avif|gif)$/i;
+const VIDEO_EXT = /\.(mp4|webm|mov)$/i;
 // friendlier names people are likely to save files under
 const ART_ALIASES = { weeklyrace: 'race', viptransfer: 'vip', sportslogo: 'logo', levelup: 'levelup' };
 
@@ -565,6 +573,14 @@ function artManifest() {
     names.filter((name) => ART_EXT.test(name)).forEach((name) => {
       manifest[folder][artKey(name)] = 'assets/img/' + folder + '/' + encodeURIComponent(name);
     });
+  });
+
+  // the loading screens can play a clip instead of the built-in animation
+  manifest.video = {};
+  let clips = [];
+  try { clips = fs.readdirSync(path.join(ROOT, 'assets', 'video')); } catch (err) { clips = []; }
+  clips.filter((name) => VIDEO_EXT.test(name)).forEach((name) => {
+    manifest.video[artKey(name)] = 'assets/video/' + encodeURIComponent(name);
   });
 
   artCache = { at: Date.now(), value: manifest };

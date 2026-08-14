@@ -15,6 +15,20 @@
 </head>
 <body>
 
+<!-- ============ LOADING SCREEN (swap in a clip via assets/video) ============ -->
+<div class="loader" id="bootLoader" role="status" aria-label="Loading">
+  <div class="loader-inner">
+    <span class="loader-mark logo">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="2" y="2" width="60" height="60" rx="17" fill="#00e676"/>
+        <circle cx="22" cy="22" r="5.2" fill="#04150c"/><circle cx="42" cy="22" r="5.2" fill="#04150c"/>
+        <circle cx="22" cy="42" r="5.2" fill="#04150c"/><circle cx="42" cy="42" r="5.2" fill="#04150c"/>
+      </svg>
+    </span>
+    <span class="loader-ring"></span>
+  </div>
+</div>
+
 <!-- ============ SIDEBAR ============ -->
 <aside class="sidebar" id="sidebar">
   <button class="rail-btn rail-toggle" id="sidebarToggle" aria-label="Toggle menu">
@@ -107,9 +121,9 @@
       <span class="wallet-amount" id="walletAmount">$0.00</span>
       <svg class="wallet-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <button class="btn btn-primary btn-cashier" id="cashierBtn">
+    <button class="btn btn-primary btn-cashier" id="cashierBtn" title="Cashier">
       <svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M2.5 10.5h19"/></svg>
-      Cashier
+      <span class="btn-cashier-text">Cashier</span>
     </button>
   </div>
 
@@ -455,70 +469,6 @@
     <div id="docBody"></div>
   </section>
 
-  <!-- ===== FOOTER ===== -->
-  <footer class="footer">
-    <div class="footer-cols">
-      <div class="footer-brand" data-logo="1">
-        <span class="footer-logo">virtusjack</span>
-        <span class="footer-sub">crypto casino &amp; sportsbook</span>
-      </div>
-
-      <nav class="footer-col">
-        <h3>Support</h3>
-        <a data-doc="help">Help Center</a>
-        <a data-doc="responsible">Responsible Gaming</a>
-      </nav>
-
-      <nav class="footer-col">
-        <h3>Platform</h3>
-        <a data-doc="fair">Provably Fair</a>
-      </nav>
-
-      <nav class="footer-col">
-        <h3>Legal</h3>
-        <a data-doc="terms">Terms of Service</a>
-        <a data-doc="aml">AML Policy</a>
-        <a data-doc="privacy">Privacy Policy</a>
-        <a data-doc="sports-rules">Sports Rules &amp; Policies</a>
-        <a data-doc="cookies">Cookie Preferences</a>
-      </nav>
-
-      <nav class="footer-col footer-social">
-        <h3>Community</h3>
-        <div class="footer-icons">
-          <button class="footer-ico" id="socialX" aria-label="X">
-            <svg viewBox="0 0 24 24"><path d="M4 4l7.6 9.7L4.4 20h2.3l6-6.6 4.9 6.6H20l-7.8-10L19.4 4h-2.3l-5.5 6L7.1 4H4Z" fill="currentColor" stroke="none"/></svg>
-          </button>
-          <button class="footer-ico" id="socialDiscord" aria-label="Discord">
-            <svg viewBox="0 0 24 24"><path d="M8.5 6.5A12 12 0 0 1 12 6c1.2 0 2.4.2 3.5.5L16.6 5c2.2.6 4 1.9 4 1.9 1.4 2.6 2 5.5 1.8 8.4-1.6 1.9-3.9 3-6.3 3.2l-.9-1.7"/><path d="M7.4 16.8l-.9 1.7C4.1 18.3 1.8 17.2.2 15.3 0 12.4.6 9.5 2 6.9c0 0 1.8-1.3 4-1.9l1.1 1.5" transform="translate(1.4)"/><circle cx="9.2" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="14.8" cy="13" r="1.3" fill="currentColor" stroke="none"/></svg>
-          </button>
-          <button class="footer-ico" id="socialInstagram" aria-label="Instagram">
-            <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4.6"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r="1.1" fill="currentColor" stroke="none"/></svg>
-          </button>
-        </div>
-      </nav>
-    </div>
-
-    <div class="footer-mission">Virtusjack is building the next era of web3 as the Leader in Crypto Entertainment.</div>
-    <div class="footer-copy">© 2026 Virtusjack.com | All Rights Reserved.</div>
-
-    <p class="footer-legal">
-      Virtusjack is operated by 3-102-943011 S.R.L. with registration number 3102943011. Virtusjack is licensed and
-      regulated by the Government of the Autonomous Island of Anjouan, Union of Comoros and operates under
-      License No. ALSI-202511054-FI2. Virtusjack has passed all regulatory compliance and is legally authorized to
-      conduct gaming operations for any and all games of chance and wagering. Virtusjack may be contacted at
-      contact@virtusjack.com.
-    </p>
-
-    <div class="footer-badges">
-      <span class="footer-badge age">18+</span>
-      <span class="footer-badge cert">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l3.1 2.6 4-.2-1 3.9 2.2 3.4-3.2 2.4-.9 3.9-3.8-1.2-3.8 1.2-.9-3.9L4.5 13.3 6.7 9.9l-1-3.9 4 .2L12 3.6Z"/></svg>
-        Provably fair
-      </span>
-    </div>
-  </footer>
-
   <!-- ===== BET SLIP (shared by the sportsbook pages) ===== -->
   <aside class="slip" id="slip" hidden>
     <div class="slip-tabs">
@@ -583,6 +533,70 @@
       </div>
     </div>
   </section>
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-cols">
+      <div class="footer-brand" data-logo="1">
+        <span class="footer-logo">virtusjack</span>
+        <span class="footer-sub">crypto casino &amp; sportsbook</span>
+      </div>
+
+      <nav class="footer-col">
+        <h3>Support</h3>
+        <a data-doc="help">Help Center</a>
+        <a data-doc="responsible">Responsible Gaming</a>
+      </nav>
+
+      <nav class="footer-col">
+        <h3>Platform</h3>
+        <a data-doc="fair">Provably Fair</a>
+      </nav>
+
+      <nav class="footer-col">
+        <h3>Legal</h3>
+        <a data-doc="terms">Terms of Service</a>
+        <a data-doc="aml">AML Policy</a>
+        <a data-doc="privacy">Privacy Policy</a>
+        <a data-doc="sports-rules">Sports Rules &amp; Policies</a>
+        <a data-doc="cookies">Cookie Preferences</a>
+      </nav>
+
+      <nav class="footer-col footer-social">
+        <h3>Community</h3>
+        <div class="footer-icons">
+          <button class="footer-ico" id="socialX" aria-label="X">
+            <svg viewBox="0 0 24 24"><path d="M4 4l7.6 9.7L4.4 20h2.3l6-6.6 4.9 6.6H20l-7.8-10L19.4 4h-2.3l-5.5 6L7.1 4H4Z" fill="currentColor" stroke="none"/></svg>
+          </button>
+          <button class="footer-ico" id="socialDiscord" aria-label="Discord">
+            <svg viewBox="0 0 24 24"><path d="M8.5 6.5A12 12 0 0 1 12 6c1.2 0 2.4.2 3.5.5L16.6 5c2.2.6 4 1.9 4 1.9 1.4 2.6 2 5.5 1.8 8.4-1.6 1.9-3.9 3-6.3 3.2l-.9-1.7"/><path d="M7.4 16.8l-.9 1.7C4.1 18.3 1.8 17.2.2 15.3 0 12.4.6 9.5 2 6.9c0 0 1.8-1.3 4-1.9l1.1 1.5" transform="translate(1.4)"/><circle cx="9.2" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="14.8" cy="13" r="1.3" fill="currentColor" stroke="none"/></svg>
+          </button>
+          <button class="footer-ico" id="socialInstagram" aria-label="Instagram">
+            <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4.6"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+
+    <div class="footer-mission">Virtusjack is building the next era of web3 as the Leader in Crypto Entertainment.</div>
+    <div class="footer-copy">© 2026 Virtusjack.com | All Rights Reserved.</div>
+
+    <p class="footer-legal">
+      Virtusjack is operated by 3-102-943011 S.R.L. with registration number 3102943011. Virtusjack is licensed and
+      regulated by the Government of the Autonomous Island of Anjouan, Union of Comoros and operates under
+      License No. ALSI-202511054-FI2. Virtusjack has passed all regulatory compliance and is legally authorized to
+      conduct gaming operations for any and all games of chance and wagering. Virtusjack may be contacted at
+      contact@virtusjack.com.
+    </p>
+
+    <div class="footer-badges">
+      <span class="footer-badge age">18+</span>
+      <span class="footer-badge cert">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l3.1 2.6 4-.2-1 3.9 2.2 3.4-3.2 2.4-.9 3.9-3.8-1.2-3.8 1.2-.9-3.9L4.5 13.3 6.7 9.9l-1-3.9 4 .2L12 3.6Z"/></svg>
+        Provably fair
+      </span>
+    </div>
+  </footer>
+
 </main>
 
 <!-- ============ CASHIER MODAL ============ -->
@@ -790,6 +804,13 @@
           <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
           Provably random
         </span>
+        <button class="icon-btn sfx-btn" id="sfxBtn" title="Sound" aria-label="Sound">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 10v4h3l4.5 3.5V6.5L7 10H4Z"/>
+            <path class="sfx-wave" d="M15.5 9.2a4 4 0 0 1 0 5.6M18 6.8a7.4 7.4 0 0 1 0 10.4"/>
+            <path class="sfx-mute" d="M15.5 10l5 4M20.5 10l-5 4"/>
+          </svg>
+        </button>
         <span class="game-head-balance" id="gameBalance">$0.00</span>
         <button class="icon-btn close" data-close aria-label="Close game">
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -809,6 +830,8 @@
 <script src="assets/js/qr.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/art.js"></script>
+<script src="assets/js/sfx.js"></script>
+<script src="assets/js/loader.js"></script>
 <script src="assets/js/game-modal.js"></script>
 <script src="assets/js/games/dice.js"></script>
 <script src="assets/js/games/limbo.js"></script>

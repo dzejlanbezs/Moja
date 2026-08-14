@@ -53,6 +53,19 @@ body.modal-open { overflow: hidden; }
 [hidden] { display: none !important; }
 
 button, input, select { font: inherit; color: inherit; }
+
+/* every remaining native dropdown gets our arrow instead of the OS one */
+select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237b8798' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9.5l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 15px 15px;
+  cursor: pointer;
+}
+select:focus { border-color: rgba(0, 230, 118, .45); outline: none; }
+select option { background: #131924; color: #e9eef7; }
 button { background: none; border: none; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
@@ -1101,6 +1114,40 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
 @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
 @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
 
+/* ---------------- loading screens ---------------- */
+.loader {
+  position: fixed; inset: 0; z-index: 900;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(70% 60% at 50% 40%, rgba(0, 230, 118, .1), transparent 70%),
+    var(--bg);
+  transition: opacity .36s var(--ease);
+}
+.loader.gone { opacity: 0; pointer-events: none; }
+.loader-inner { position: relative; display: grid; place-items: center; width: 168px; height: 168px; }
+
+.loader-mark { width: 78px; height: 78px; display: block; animation: loaderSpin 1.6s cubic-bezier(.66, .12, .3, .93) infinite; }
+.loader-mark svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 10px 26px rgba(0, 230, 118, .35)); }
+.loader-mark.sports svg { filter: drop-shadow(0 10px 26px rgba(255, 204, 51, .35)); }
+@keyframes loaderSpin {
+  0% { transform: rotateY(0) scale(1); }
+  50% { transform: rotateY(180deg) scale(1.07); }
+  100% { transform: rotateY(360deg) scale(1); }
+}
+
+/* the ring sweeping around the mark */
+.loader-ring {
+  position: absolute; inset: 0; border-radius: 99px;
+  border: 2px solid rgba(255, 255, 255, .06);
+  border-top-color: var(--green);
+  animation: loaderRing 1s linear infinite;
+}
+.loader-inner:has(.loader-mark.sports) .loader-ring { border-top-color: var(--gold); }
+@keyframes loaderRing { to { transform: rotate(360deg); } }
+
+/* an operator clip fills the screen instead */
+.loader-clip { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
 /* ---------------- footer ---------------- */
 /* bleeds past the main padding so it spans the content area edge to edge */
 .footer {
@@ -1183,9 +1230,16 @@ button svg, .search svg, .empty-icon svg, .vip-crown svg,
   .topbar { left: 0; padding: 0 12px; gap: 8px; }
   .only-mobile { display: inline-flex; }
   .topbar-center { position: static; transform: none; margin: 0 0 0 auto; }
+  /* chat and notifications go, so the avatar and the log-out button both fit */
   #notifBtn, #chatBtn { display: none; }
+  .btn-cashier { width: 38px; padding: 0; }
+  .btn-cashier-text { display: none; }
+  .wallet { height: 36px; padding: 0 10px; gap: 7px; }
+  .wallet-amount { font-size: 13px; }
+  .avatar { width: 34px; height: 34px; border-radius: 10px; }
+  .rewards-btn, #logoutBtn { flex: none; }
   /* both auth buttons stay whole rather than being squeezed off the edge */
-  .topbar-right { gap: 8px; }
+  .topbar-right { gap: 7px; }
   .auth-actions { gap: 6px; }
   .auth-actions .btn { flex: none; height: 36px; padding: 0 13px; font-size: 12.5px; white-space: nowrap; }
   .main { padding: calc(var(--top) + 16px) 14px 60px; }

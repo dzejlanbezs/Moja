@@ -99,6 +99,7 @@
         let ticks = 0;
         const spin = setInterval(() => {
           resultEl.textContent = (D.rand() * 100).toFixed(2);
+          if (D.Sfx) D.Sfx.play('tick');
           if (++ticks > 7) {
             clearInterval(spin);
             finish();

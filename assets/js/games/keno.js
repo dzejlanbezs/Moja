@@ -132,8 +132,8 @@
         const timer = setInterval(() => {
           const n = draw[i++];
           const cell = grid.querySelector('.keno-cell[data-n="' + n + '"]');
-          if (picked.has(n)) { cell.classList.add('hit'); hits++; }
-          else cell.classList.add('drawn');
+          if (picked.has(n)) { cell.classList.add('hit'); hits++; if (D.Sfx) D.Sfx.play('gem'); }
+          else { cell.classList.add('drawn'); if (D.Sfx) D.Sfx.play('tick'); }
           paintPayTable(hits);
           if (i >= draw.length) { clearInterval(timer); finish(hits); }
         }, 110);

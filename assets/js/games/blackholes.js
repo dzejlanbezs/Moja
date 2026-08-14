@@ -101,6 +101,7 @@
         hole.classList.add('open');
         hole.classList.toggle('zero', value === 0);
         hole.classList.toggle('big', value >= 5);
+        if (D.Sfx) D.Sfx.play(value === 0 ? 'mine' : 'gem');
         hole.textContent = value === 0 ? '0\u00d7' : value + '\u00d7';
 
         drawn.push(+hole.dataset.index);

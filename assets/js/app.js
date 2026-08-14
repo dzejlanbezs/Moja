@@ -361,6 +361,12 @@
   function navigate(page) {
     const target = D.$('#page-' + page);
     if (!target) return;
+
+    // the sportsbook gets its own two second splash on the way in
+    const leavingSportsbook = D.$('#page-sports').classList.contains('active') ||
+      D.$('#page-event').classList.contains('active');
+    if (page === 'sports' && !leavingSportsbook && D.Loader) D.Loader.show('sports');
+
     D.$$('.page').forEach((p) => p.classList.remove('active'));
     target.classList.add('active');
     D.$$('.rail-btn[data-nav]').forEach((b) => {
@@ -614,6 +620,17 @@
   D.$('#gameModal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget || e.target.closest('[data-close]')) D.closeGame();
   });
+
+  /* ---------------- sound ---------------- */
+  const sfxBtn = D.$('#sfxBtn');
+  if (sfxBtn && D.Sfx) {
+    const paintSfx = () => {
+      sfxBtn.classList.toggle('muted', !D.Sfx.enabled);
+      sfxBtn.title = D.Sfx.enabled ? 'Sound on' : 'Sound off';
+    };
+    sfxBtn.addEventListener('click', () => { D.Sfx.toggle(); paintSfx(); });
+    paintSfx();
+  }
 
   /* ---------------- keyboard ---------------- */
   document.addEventListener('keydown', (e) => {

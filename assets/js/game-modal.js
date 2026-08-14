@@ -42,6 +42,9 @@
 
       const input = node.querySelector('.bp-input');
       const maxLabel = node.querySelector('.bp-max');
+      // the browser's spinner is replaced by our own stepper
+      const row = node.querySelector('.bp-input-row');
+      row.insertBefore(ui.stepper(input, { min: 0 }), row.firstChild);
       input.value = D.round2(Math.min(lastBet, Math.max(0.1, D.Store.balance))).toFixed(2);
 
       const api = {
@@ -111,17 +114,154 @@
       return node;
     },
 
+    /**
+     * A dropdown of our own rather than the browser's: the panel is positioned
+     * on open so the bet panel cannot clip it, and it closes on a click
+     * outside, on Escape or on a scroll. `node.disabled = true` still works,
+     * so games drive it exactly like the old select.
+     */
     select(options, onPick, value) {
-      const node = D.h('<select class="bp-select"></select>');
-      options.forEach((o) => {
-        const opt = document.createElement('option');
-        opt.value = o.value;
-        opt.textContent = o.label;
-        if (String(o.value) === String(value)) opt.selected = true;
-        node.appendChild(opt);
+      const node = D.h(
+        '<div class="bp-pick">' +
+          '<button class="bp-pick-btn" type="button" aria-haspopup="listbox" aria-expanded="false">' +
+            '<span class="bp-pick-label"></span>' +
+            '<svg class="bp-pick-caret" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></svg>' +
+          '</button>' +
+          '<div class="bp-pick-menu" role="listbox"></div>' +
+        '</div>'
+      );
+
+      const button = node.querySelector('.bp-pick-btn');
+      const label = node.querySelector('.bp-pick-label');
+      const menu = node.querySelector('.bp-pick-menu');
+      let current = String(value);
+      let open = false;
+
+      menu.innerHTML = options.map((o) =>
+        '<button class="bp-pick-option" type="button" role="option" data-value="' + String(o.value)
+          .replace(/"/g, '&quot;') + '">' +
+          '<span>' + o.label + '</span>' +
+          '<svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg>' +
+        '</button>').join('');
+
+      const paint = () => {
+        const picked = options.filter((o) => String(o.value) === current)[0] || options[0];
+        label.textContent = picked ? picked.label : '';
+        D.$$('.bp-pick-option', menu).forEach((opt) => {
+          opt.classList.toggle('on', opt.dataset.value === current);
+        });
+      };
+
+      /** Sits the menu against the button in screen space, flipping up if needed. */
+      const place = () => {
+        const box = button.getBoundingClientRect();
+        const height = Math.min(menu.scrollHeight, 240);
+        const below = window.innerHeight - box.bottom - 12;
+        menu.style.width = box.width + 'px';
+        menu.style.left = box.left + 'px';
+        if (below < height && box.top > height + 12) {
+          menu.style.top = (box.top - height - 6) + 'px';
+        } else {
+          menu.style.top = (box.bottom + 6) + 'px';
+        }
+      };
+
+      const close = () => {
+        if (!open) return;
+        open = false;
+        node.classList.remove('open');
+        button.setAttribute('aria-expanded', 'false');
+      };
+
+      const toggle = () => {
+        if (node.classList.contains('is-disabled')) return;
+        open = !open;
+        node.classList.toggle('open', open);
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) place();
+      };
+
+      button.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+      menu.addEventListener('click', (e) => {
+        const option = e.target.closest('.bp-pick-option');
+        if (!option) return;
+        current = option.dataset.value;
+        paint();
+        close();
+        onPick(current);
       });
-      node.addEventListener('change', () => onPick(node.value));
+
+      document.addEventListener('click', (e) => { if (!node.contains(e.target)) close(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+      window.addEventListener('scroll', close, true);
+      window.addEventListener('resize', close);
+
+      Object.defineProperty(node, 'disabled', {
+        get() { return node.classList.contains('is-disabled'); },
+        set(state) {
+          node.classList.toggle('is-disabled', !!state);
+          button.disabled = !!state;
+          if (state) close();
+        },
+      });
+      node.setValue = (next) => { current = String(next); paint(); };
+
+      paint();
       return node;
+    },
+
+    /**
+     * Wraps a number input in a stepper: two buttons, the mouse wheel while
+     * focused, and none of the browser's own spinner. Returns the wrapper to
+     * drop into the panel.
+     */
+    stepper(input, opts) {
+      opts = opts || {};
+      const field = D.h(
+        '<div class="bp-field">' +
+          '<span class="bp-steps">' +
+            '<button class="bp-step" type="button" tabindex="-1" data-step="up" aria-label="More">' +
+              '<svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5"/></svg></button>' +
+            '<button class="bp-step" type="button" tabindex="-1" data-step="down" aria-label="Less">' +
+              '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></button>' +
+          '</span>' +
+        '</div>'
+      );
+      field.insertBefore(input, field.firstChild);
+
+      // a step that suits the number on screen, unless the game asked for one
+      const stepFor = (value) => {
+        if (opts.step) return opts.step;
+        const size = Math.abs(value);
+        if (size < 10) return 1;
+        if (size < 100) return 5;
+        if (size < 1000) return 10;
+        return 50;
+      };
+
+      const nudge = (direction) => {
+        if (input.disabled) return;
+        const value = parseFloat(input.value) || 0;
+        const next = D.round2(value + direction * stepFor(value));
+        const min = opts.min == null ? 0 : opts.min;
+        input.value = Math.max(min, next).toFixed(opts.decimals == null ? 2 : opts.decimals);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        if (D.Sfx) D.Sfx.play('click');
+      };
+
+      field.addEventListener('click', (e) => {
+        const step = e.target.closest('[data-step]');
+        if (step) nudge(step.dataset.step === 'up' ? 1 : -1);
+      });
+
+      // scrolling only counts once the field has focus, so the page still scrolls
+      input.addEventListener('wheel', (e) => {
+        if (document.activeElement !== input) return;
+        e.preventDefault();
+        nudge(e.deltaY < 0 ? 1 : -1);
+      }, { passive: false });
+
+      return field;
     },
 
     action(label, kind) {
@@ -182,6 +322,9 @@
         opts = opts || {};
         D.Store.credit(payout);
         D.Store.record({ game: def.name, gameId: id, bet: bet, payout: payout, multiplier: multiplier });
+
+        // every game gets the same result sound without asking for it
+        if (D.Sfx) D.Sfx.play(payout > bet ? (multiplier >= 8 ? 'big' : 'win') : payout > 0 ? 'push' : 'lose');
         if (opts.silent) return;
         const profit = D.round2(payout - bet);
         if (payout > bet) D.toast('Won ' + D.fmt(profit) + ' · ' + D.fmtMult(multiplier), 'win');

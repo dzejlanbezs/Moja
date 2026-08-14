@@ -75,6 +75,7 @@
       }
 
       spinBtn.addEventListener('click', () => {
+        if (D.Sfx) D.Sfx.play('spin');
         if (spinning) return;
         const bet = amount.get();
         if (!ctx.bet(bet)) return;

@@ -15,6 +15,16 @@
   const GOLD = '<svg class="gem-ico" viewBox="0 0 24 24"><path d="M4 8h16l-2 11H6L4 8Zm2-3h12l1 3H5l1-3Z"/></svg>';
   const ROCK = '<svg class="bomb-ico" viewBox="0 0 24 24"><path d="M5 15l3-7 5-2 6 4-1 7H6l-1-2Z"/></svg>';
 
+  // gold.png and rock.png in assets/img/dig take over when they are there
+  const art = { gold: '', rock: '' };
+  const picture = (url) => '<span class="cell-img" style="background-image:url(\'' + url + '\')"></span>';
+  const goldHtml = () => (art.gold ? picture(art.gold) : GOLD);
+  const rockHtml = () => (art.rock ? picture(art.rock) : ROCK);
+  D.Art.load().then(() => {
+    art.gold = D.Art.get('dig', 'gold');
+    art.rock = D.Art.get('dig', 'rock');
+  });
+
   const multAt = (mode, level) => (level === 0 ? 1 : D.round2(EDGE * Math.pow(MODES[mode].tiles / (MODES[mode].tiles - MODES[mode].rocks), level)));
 
   D.registerGame({
@@ -126,8 +136,8 @@
         if (!row) return;
         D.$$('.dig-cell', row).forEach((cell) => {
           const isRock = layout[l - 1].indexOf(+cell.dataset.tile) > -1;
-          if (isRock) { cell.classList.add('rock'); cell.innerHTML = ROCK; }
-          else if (showAll) { cell.classList.add('safe'); cell.innerHTML = GOLD; }
+          if (isRock) { cell.classList.add('rock'); cell.innerHTML = rockHtml(); }
+          else if (showAll) { cell.classList.add('safe'); cell.innerHTML = goldHtml(); }
         });
       }
 
@@ -152,7 +162,8 @@
 
         if (layout[l - 1].indexOf(tile) > -1) {
           cell.classList.add('rock', 'cell-pop');
-          cell.innerHTML = ROCK;
+          cell.innerHTML = rockHtml();
+          if (D.Sfx) D.Sfx.play('mine');
           active = false;
           ctx.settle(stake, 0, 0);
           ctx.banner('Hit a rock — lost ' + D.fmt(stake), 'lose');
@@ -163,7 +174,8 @@
         }
 
         cell.classList.add('safe', 'cell-pop');
-        cell.innerHTML = GOLD;
+        cell.innerHTML = goldHtml();
+        if (D.Sfx) D.Sfx.play('gem');
         revealRow(l, false);
         level = l;
         paint();

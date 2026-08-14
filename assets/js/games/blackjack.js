@@ -216,6 +216,7 @@
 
       async function slide(cards, card, faceDown) {
         cards.push(card);
+        if (D.Sfx) D.Sfx.play('card');
         render();
         await wait(faceDown ? 340 : 520);
       }

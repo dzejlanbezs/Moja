@@ -41,7 +41,7 @@
 
       ctx.panel.append(
         amount.node,
-        ctx.ui.block('<span>Target multiplier</span>', targetInput),
+        ctx.ui.block('<span>Target multiplier</span>', ctx.ui.stepper(targetInput, { step: 0.5, min: 1.01 })),
         ctx.ui.block('', quick),
         ctx.ui.block('', chanceOut.node),
         ctx.ui.block('', profitOut.node)
@@ -67,6 +67,7 @@
       amount.node.addEventListener('click', () => setTimeout(refresh, 0));
 
       playBtn.addEventListener('click', () => {
+        if (D.Sfx) D.Sfx.play('drop');
         if (busy) return;
         readTarget();
         const bet = amount.get();

@@ -430,6 +430,9 @@ body.sports-mode .main { padding-right: 372px; }
 .slip-collapse svg { width: 16px; height: 16px; }
 
 .slip-body { padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+/* a long slip scrolls; the summary and the buttons keep their full height
+   instead of being squeezed by the extra picks */
+.slip-body > * { flex: 0 0 auto; }
 
 .slip-mode { display: flex; gap: 6px; }
 .slip-mode-btn {
@@ -499,14 +502,39 @@ body.sports-mode .main { padding-right: 372px; }
 .slip-warn { color: var(--red); background: rgba(255, 71, 87, .1); border: 1px solid rgba(255, 71, 87, .25); }
 .slip-note { color: var(--text-2); background: var(--surface); border: 1px solid var(--line); }
 
+/* the free bet offer, with a round tick of its own */
 .slip-freebet {
-  display: flex; align-items: center; gap: 9px;
-  padding: 10px 12px; border-radius: 10px;
-  background: rgba(255, 204, 51, .1); border: 1px solid rgba(255, 204, 51, .3);
-  font-size: 12.5px; color: #f0dca8; cursor: pointer;
+  position: relative;
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center; gap: 11px;
+  padding: 12px 13px; border-radius: 13px;
+  background: linear-gradient(135deg, rgba(255, 204, 51, .14), rgba(255, 204, 51, .05));
+  border: 1px solid rgba(255, 204, 51, .3);
+  cursor: pointer; transition: border-color .18s, background .18s, box-shadow .18s;
 }
-.slip-freebet input { accent-color: var(--gold); width: 15px; height: 15px; }
-.slip-freebet b { color: var(--gold); }
+.slip-freebet:hover { border-color: rgba(255, 204, 51, .5); }
+.slip-freebet.on { border-color: rgba(255, 204, 51, .75); box-shadow: 0 0 0 1px rgba(255, 204, 51, .25) inset; }
+.slip-freebet input { position: absolute; opacity: 0; pointer-events: none; }
+
+.fb-mark {
+  width: 22px; height: 22px; border-radius: 99px;
+  display: grid; place-items: center;
+  background: rgba(0, 0, 0, .28); border: 1.5px solid rgba(255, 204, 51, .55);
+  transition: background .2s var(--ease), border-color .2s, transform .2s var(--ease);
+}
+.fb-mark svg { width: 13px; height: 13px; fill: none; stroke: #241800; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 22; stroke-dashoffset: 22; transition: stroke-dashoffset .26s var(--ease) .04s; }
+.slip-freebet.on .fb-mark { background: linear-gradient(160deg, #ffe27a, #e0a100); border-color: #ffd75e; transform: scale(1.06); }
+.slip-freebet.on .fb-mark svg { stroke-dashoffset: 0; }
+
+.fb-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fb-copy b { font-size: 12.5px; font-weight: 800; color: #ffe7a8; }
+.fb-copy span { font-size: 11px; line-height: 1.45; color: rgba(255, 231, 168, .72); }
+.fb-tag {
+  flex: none; padding: 5px 9px; border-radius: 99px;
+  font-size: 12px; font-weight: 800; color: #241800;
+  background: linear-gradient(160deg, #ffe27a, #e0a100);
+}
 
 .slip-summary { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .slip-row { display: flex; justify-content: space-between; font-size: 13px; }

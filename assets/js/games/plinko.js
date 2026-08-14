@@ -144,6 +144,7 @@
       }
 
       dropBtn.addEventListener('click', () => {
+        if (D.Sfx) D.Sfx.play('drop');
         const bet = amount.get();
         if (!ctx.bet(bet)) return;
 
@@ -163,7 +164,7 @@
           x: W / 2,
           y: topY,
           start: performance.now(),
-          rowMs: 78,
+          rowMs: 132,          // a slower, more watchable drop
         });
 
         if (!raf) raf = requestAnimationFrame(tick);
