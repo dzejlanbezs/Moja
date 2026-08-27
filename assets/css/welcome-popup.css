@@ -84,7 +84,7 @@ body.vj-pop-lock { overflow: hidden; }
 }
 .vj-pop-logo svg .fill { fill: currentColor; stroke: none; }
 /* drop in assets/img/logo/mark.png instead and it lands centred */
-.vj-pop-logo img { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255, 204, 51, .45)); }
+.vj-pop-logo img { width: 56px; height: 56px; object-fit: contain; animation: vjPopGlow 1.9s ease-in-out infinite; }
 
 /* ---------------- headline ---------------- */
 .vj-pop-kicker {
@@ -263,7 +263,7 @@ body.vj-pop-lock { overflow: hidden; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vj-pop, .vj-pop-card, .vj-pop-logo, .vj-pop-logo svg,
+  .vj-pop, .vj-pop-card, .vj-pop-logo, .vj-pop-logo svg, .vj-pop-logo img,
   .vj-pop-logo::before, .vj-pop-logo::after { animation: none; }
   .vj-pop-cta { transition: none; }
 }
