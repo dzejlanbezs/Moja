@@ -62,23 +62,23 @@ body.vj-pop-lock { overflow: hidden; }
   display: grid; place-items: center;
   border-radius: 50%;
   color: var(--gold, #ffcc33);
-  border: 1px solid rgba(255, 204, 51, .5);
+  border: 2px solid rgba(255, 204, 51, .5);
   background: radial-gradient(circle at 50% 34%, rgba(255, 204, 51, .3), rgba(255, 204, 51, .07) 72%);
-  animation: vjPopBeat 2.4s ease-in-out infinite;
+  animation: vjPopBeat 1.9s ease-in-out infinite;
 }
 /* two rings leaving the mark, half a beat apart */
 .vj-pop-logo::before,
 .vj-pop-logo::after {
-  content: ""; position: absolute; inset: -1px;
+  content: ""; position: absolute; inset: -2px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 204, 51, .55);
-  animation: vjPopRing 2.4s ease-out infinite;
+  border: 2px solid rgba(255, 204, 51, .7);
+  animation: vjPopRing 1.9s ease-out infinite;
 }
-.vj-pop-logo::after { animation-delay: 1.2s; }
+.vj-pop-logo::after { animation-delay: .95s; }
 .vj-pop-logo svg {
   width: 50px; height: 50px;
   fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
-  filter: drop-shadow(0 0 10px rgba(255, 204, 51, .55));
+  animation: vjPopGlow 1.9s ease-in-out infinite;
 }
 .vj-pop-logo svg .fill { fill: currentColor; stroke: none; }
 /* drop in assets/img/logo/mark.png instead and it lands centred */
@@ -203,12 +203,16 @@ body.vj-pop-lock { overflow: hidden; }
 @keyframes vjPopFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vjPopIn { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes vjPopBeat {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 22px rgba(255, 204, 51, .2); }
-  50% { transform: scale(1.06); box-shadow: 0 0 40px rgba(255, 204, 51, .45); }
+  0%, 100% { transform: scale(1); border-color: rgba(255, 204, 51, .45); box-shadow: 0 0 16px rgba(255, 204, 51, .16); }
+  50% { transform: scale(1.11); border-color: rgba(255, 226, 122, .95); box-shadow: 0 0 46px rgba(255, 204, 51, .6); }
 }
 @keyframes vjPopRing {
-  0% { transform: scale(1); opacity: .7; }
-  100% { transform: scale(1.6); opacity: 0; }
+  0% { transform: scale(.98); opacity: .85; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes vjPopGlow {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(255, 204, 51, .35)); }
+  50% { filter: drop-shadow(0 0 17px rgba(255, 226, 122, .95)); }
 }
 
 /* ---------------- phones ---------------- */
@@ -257,7 +261,7 @@ body.vj-pop-lock { overflow: hidden; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vj-pop, .vj-pop-card, .vj-pop-logo,
+  .vj-pop, .vj-pop-card, .vj-pop-logo, .vj-pop-logo svg,
   .vj-pop-logo::before, .vj-pop-logo::after { animation: none; }
   .vj-pop-cta { transition: none; }
 }
