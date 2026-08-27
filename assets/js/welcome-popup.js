@@ -51,7 +51,8 @@
     lastFocus = document.activeElement;
     pop.hidden = false;
     document.body.classList.add('vj-pop-lock');
-    if (cta) cta.focus();
+    /* the card, not the button — a focused button would wear a ring */
+    (card || cta || pop).focus();
   }
 
   function close() {

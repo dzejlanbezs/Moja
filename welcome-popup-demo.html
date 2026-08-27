@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Virtusjack — welcome popup preview</title>
+<link rel="icon" href="data:,">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -61,7 +63,7 @@
 <!-- copy of welcome-popup.html -->
 <div class="vj-pop" id="vjWelcomePopup" hidden
      data-delay="700" data-repeat="24" data-claim-url="#register">
-  <div class="vj-pop-card" role="dialog" aria-modal="true" aria-labelledby="vjPopTitle">
+  <div class="vj-pop-card" role="dialog" aria-modal="true" aria-labelledby="vjPopTitle" tabindex="-1">
 
     <button class="vj-pop-close" type="button" data-vj-pop-close aria-label="Close">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
