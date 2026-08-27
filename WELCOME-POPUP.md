@@ -42,7 +42,11 @@ Sve ide preko `data-` atributa na `<div class="vj-pop" id="vjWelcomePopup">`:
 | `data-delay` | `700` | Koliko ms posle ucitavanja strane da se pojavi |
 | `data-repeat` | `24` | Posle koliko sati sme opet. `0` = svaki put, `never` = samo jednom |
 | `data-claim-url` | `#register` | Gde vodi zlatno dugme. Ostavi prazno (`""`) da nikuda ne vodi |
+| `data-wait-for` | `.loader` | Ceka da ovaj element nestane pre otvaranja (tvoj `#bootLoader`), najduze 15 s |
 | `data-auto` | — | Stavi `false` ako ne zelis automatsko otvaranje |
+
+Popup stoji na `z-index: 800` — iznad tvojih modala (`200`) i toastova (`400`),
+a ispod ekrana za ucitavanje (`900`), pa se nikad ne pojavi preko njega.
 
 ## Iz koda
 

@@ -9,10 +9,11 @@
        data-delay="700"       koliko ms posle ucitavanja da se pojavi
        data-repeat="24"       posle koliko sati sme ponovo (0 = svaki put, "never" = samo jednom)
        data-claim-url="#register"   gde vodi zlatno dugme ("" = nikuda)
+       data-wait-for=".loader"     ceka da ekran za ucitavanje nestane
        data-auto="false"      iskljucuje automatsko otvaranje
      ============================================================ -->
 <div class="vj-pop" id="vjWelcomePopup" hidden
-     data-delay="700" data-repeat="24" data-claim-url="#register">
+     data-delay="700" data-repeat="24" data-claim-url="#register" data-wait-for=".loader">
   <div class="vj-pop-card" role="dialog" aria-modal="true" aria-labelledby="vjPopTitle" tabindex="-1">
 
     <button class="vj-pop-close" type="button" data-vj-pop-close aria-label="Close">

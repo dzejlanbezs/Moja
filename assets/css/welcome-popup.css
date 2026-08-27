@@ -4,8 +4,10 @@
    works on its own and picks up app.css tokens when they exist.
    ============================================================ */
 
+/* 800 clears app.css modals (200) and toasts (400) but stays under the
+   loading screen (900), so a slow boot never shows the offer through it */
 .vj-pop {
-  position: fixed; inset: 0; z-index: 900;
+  position: fixed; inset: 0; z-index: 800;
   display: grid; place-items: center;
   padding: 18px;
   background: rgba(3, 5, 9, .82);

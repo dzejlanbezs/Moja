@@ -24,6 +24,8 @@
   const repeat = (pop.dataset.repeat || '24').trim().toLowerCase();
   const delay = parseInt(pop.dataset.delay, 10) || 0;
   const claimUrl = pop.dataset.claimUrl || '';
+  const waitFor = pop.dataset.waitFor || '';
+  const WAIT_LIMIT = 15000;
 
   let lastFocus = null;
 
@@ -91,6 +93,25 @@
     },
   };
 
+  /* anything still covering the screen — the boot loader, a splash — gets
+     to finish first, otherwise the offer lands on top of it */
+  function covered() {
+    if (!waitFor) return false;
+    const nodes = document.querySelectorAll(waitFor);
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
+      if (el.hidden) continue;
+      const s = window.getComputedStyle(el);
+      if (s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) > 0.05) return true;
+    }
+    return false;
+  }
+
+  function openWhenClear(waited) {
+    if (!covered() || waited >= WAIT_LIMIT) { open(); return; }
+    window.setTimeout(function () { openWhenClear(waited + 200); }, 200);
+  }
+
   if (pop.dataset.auto === 'false' || seenRecently()) return;
-  window.setTimeout(open, delay);
+  window.setTimeout(function () { openWhenClear(0); }, delay);
 })();
