@@ -130,7 +130,7 @@ export default async function HomePage() {
                   </div>
                 );
               })}
-              <div className="glass-strong absolute -bottom-9 -left-8 z-40 flex items-center gap-3 rounded-2xl px-4 py-3">
+              <div className="glass-strong absolute -bottom-16 -left-6 z-40 flex items-center gap-3 rounded-2xl px-4 py-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/15">
                   <ShieldCheck className="h-4.5 w-4.5 text-emerald-300" />
                 </span>
