@@ -95,7 +95,7 @@ export function ConversationList({ initial, viewer, activeId, basePath }: Props)
                   alt={title}
                   width={52}
                   height={52}
-                  className="h-13 w-13 rounded-2xl object-cover"
+                  className="h-13 w-13 rounded-2xl object-cover object-[center_18%]"
                 />
               ) : (
                 <span className="flex h-13 w-13 items-center justify-center rounded-2xl bg-gradient-to-br from-blush-500 to-violet-500 text-sm font-semibold text-white">

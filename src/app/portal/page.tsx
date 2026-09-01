@@ -35,7 +35,7 @@ export default async function PortalPage() {
                 alt={model.name}
                 width={72}
                 height={72}
-                className="h-18 w-18 rounded-3xl object-cover"
+                className="h-18 w-18 rounded-3xl object-cover object-[center_18%]"
               />
             )}
             <div>

@@ -130,7 +130,7 @@ export default async function HomePage() {
                   </div>
                 );
               })}
-              <div className="glass-strong absolute -bottom-4 -left-6 z-40 flex items-center gap-3 rounded-2xl px-4 py-3">
+              <div className="glass-strong absolute -bottom-9 -left-8 z-40 flex items-center gap-3 rounded-2xl px-4 py-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/15">
                   <ShieldCheck className="h-4.5 w-4.5 text-emerald-300" />
                 </span>
@@ -152,7 +152,13 @@ export default async function HomePage() {
                 href={`/model/${model.slug}`}
                 className="group relative h-28 w-44 shrink-0 overflow-hidden rounded-2xl border border-white/8"
               >
-                <Image src={model.cover} alt={model.name} fill sizes="176px" className="object-cover opacity-80 transition group-hover:opacity-100" />
+                <Image
+                  src={model.cover}
+                  alt={model.name}
+                  fill
+                  sizes="176px"
+                  className="object-cover object-[center_18%] opacity-80 transition group-hover:opacity-100"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 to-transparent" />
                 <p className="absolute bottom-2 left-3 text-xs font-medium text-white">
                   {model.name.split(" ")[0]} · {formatPrice(model.priceCents)}

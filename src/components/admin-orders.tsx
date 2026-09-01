@@ -77,7 +77,7 @@ export function AdminOrders({ orders }: { orders: OrderView[] }) {
                   alt={order.modelName}
                   width={64}
                   height={64}
-                  className="h-16 w-16 rounded-2xl object-cover"
+                  className="h-16 w-16 rounded-2xl object-cover object-[center_18%]"
                 />
               )}
               <div className="min-w-0">

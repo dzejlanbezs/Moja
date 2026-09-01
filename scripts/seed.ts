@@ -72,6 +72,15 @@ async function main() {
   });
   console.log(`admin #${adminId}, demo user #${demoUserId}`);
 
+  const hasHistory = db
+    .prepare("SELECT COUNT(*) AS count FROM transactions WHERE user_id = ?")
+    .get(demoUserId) as { count: number };
+  if (hasHistory.count === 0) {
+    db.prepare(
+      "INSERT INTO transactions (user_id, amount_cents, kind, note, created_at) VALUES (?, ?, 'topup', ?, ?)",
+    ).run(demoUserId, 25_000, "Welcome balance added by admin", Date.now() - 90_000_000);
+  }
+
   let created = 0;
   let renderedPhotos = 0;
 

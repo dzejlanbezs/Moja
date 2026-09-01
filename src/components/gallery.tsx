@@ -78,7 +78,7 @@ export function Gallery({ photos, name }: { photos: string[]; name: string }) {
                   : "border-white/8 opacity-70 hover:opacity-100"
               }`}
             >
-              <Image src={photo} alt="" fill sizes="120px" className="object-cover" />
+              <Image src={photo} alt="" fill sizes="120px" className="object-cover object-[center_18%]" />
             </button>
           ))}
         </div>

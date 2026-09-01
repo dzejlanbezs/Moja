@@ -103,7 +103,7 @@ export default async function AdminPage() {
                       alt={order.modelName}
                       width={44}
                       height={44}
-                      className="h-11 w-11 rounded-xl object-cover"
+                      className="h-11 w-11 rounded-xl object-cover object-[center_18%]"
                     />
                   )}
                   <div className="min-w-0 flex-1">

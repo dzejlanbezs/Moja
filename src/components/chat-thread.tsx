@@ -36,17 +36,29 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
   const bottom = useRef<HTMLDivElement | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
   const lastId = useRef(0);
+  const polling = useRef(false);
   const stickToBottom = useRef(true);
 
   const poll = useCallback(async () => {
-    const response = await fetch(`/api/conversations/${conversationId}/messages?after=${lastId.current}`, {
-      cache: "no-store",
-    });
-    if (!response.ok) return;
-    const data = (await response.json()) as { messages: ChatMessage[] };
-    if (data.messages.length === 0) return;
-    lastId.current = data.messages[data.messages.length - 1].id;
-    setMessages((current) => [...current, ...data.messages]);
+    // Overlapping polls (send + timer, or a remount) would otherwise append the same rows twice.
+    if (polling.current) return;
+    polling.current = true;
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/messages?after=${lastId.current}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { messages: ChatMessage[] };
+      if (data.messages.length === 0) return;
+      lastId.current = Math.max(lastId.current, data.messages[data.messages.length - 1].id);
+      setMessages((current) => {
+        const seen = new Set(current.map((message) => message.id));
+        const fresh = data.messages.filter((message) => !seen.has(message.id));
+        return fresh.length > 0 ? [...current, ...fresh] : current;
+      });
+    } finally {
+      polling.current = false;
+    }
   }, [conversationId]);
 
   useEffect(() => {
@@ -95,6 +107,10 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
       setText("");
       setFile(null);
       stickToBottom.current = true;
+      // A timer poll may be mid-flight; wait for it so the new message shows immediately.
+      for (let attempt = 0; attempt < 20 && polling.current; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
       await poll();
     } catch {
       setError("Network error — please try again");
@@ -117,7 +133,7 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
             alt={partner.name}
             width={44}
             height={44}
-            className="h-11 w-11 rounded-2xl object-cover"
+            className="h-11 w-11 rounded-2xl object-cover object-[center_18%]"
           />
         ) : (
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blush-500 to-violet-500 text-sm font-semibold text-white">

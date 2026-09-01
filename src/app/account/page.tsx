@@ -99,7 +99,7 @@ export default async function AccountPage() {
                       alt={order.modelName}
                       width={56}
                       height={56}
-                      className="h-14 w-14 rounded-2xl object-cover"
+                      className="h-14 w-14 rounded-2xl object-cover object-[center_18%]"
                     />
                   )}
                   <div className="min-w-0 flex-1">
