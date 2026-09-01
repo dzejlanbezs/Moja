@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CheckCircle2, CreditCard, Loader2, Lock, ShieldCheck, Wallet } from "lucide-react";
 
@@ -28,7 +27,6 @@ function brandOf(value: string) {
 }
 
 export function PaymentPanel({ model, balanceCents }: Props) {
-  const router = useRouter();
   const [method, setMethod] = useState<"card" | "balance">("card");
   const [number, setNumber] = useState("");
   const [name, setName] = useState("");
@@ -62,8 +60,9 @@ export function PaymentPanel({ model, balanceCents }: Props) {
         setError(data.error ?? "Payment could not be submitted");
         return;
       }
+      // No router.refresh() here: this route redirects once an order is pending,
+      // which would replace the confirmation screen the member needs to see.
       setDone({ code: data.code! });
-      router.refresh();
     } catch {
       setError("Network error — please try again");
     } finally {
