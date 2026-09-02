@@ -7,6 +7,10 @@ full gallery and details, then tap **“Talk to Her!”** to pay by card or from
 payment lands in the admin panel; when an admin approves it, a private conversation opens between the
 member and that profile. The profile answers from her own separate portal — messages and photos both ways.
 
+Inside a chat, money flows in both directions: the profile can ask for a tip and the member pays it with one
+button, and the member can send a gift with a note. Members refill their wallet themselves through a top-up
+flow, and an admin sets every catalog price — including free profiles, which open instantly.
+
 ## Stack
 
 | Layer    | Choice                                                    |
@@ -40,18 +44,38 @@ Every seeded profile has a talent account at `<firstname>@aurea.chat`.
 
 ## The three portals
 
-- **Member** — catalog, profiles, checkout, wallet, `/chat` inbox.
-- **Admin** (`/admin`) — pending payments with approve/reject, revenue and platform stats, member balance
-  top-ups. Approving a payment is what creates the conversation.
-- **Talent** (`/portal`) — the inbox for one profile: every member who paid to talk to her.
+- **Member** — catalog, profiles, checkout, wallet with self-service top-ups, `/chat` inbox.
+- **Admin** (`/admin`) — pending payments with approve/reject, balance top-up approvals, catalog prices for
+  every profile, revenue and platform stats, manual member balance adjustments. Approving a payment is what
+  creates the conversation.
+- **Talent** (`/portal`) — the inbox for one profile: every member who paid to talk to her, plus the tips
+  and gifts she earns.
 
 ## Payments
 
-Two methods, both reviewed by an admin before the chat opens:
+Unlocking a chat has two methods, both reviewed by an admin before the chat opens:
 
 - **Card** — a demo checkout. The number is validated with the Luhn algorithm and only the brand and last
   four digits are stored. No real charge ever happens and no PAN is persisted.
 - **Balance** — the amount is held immediately; rejecting the payment refunds it automatically.
+
+A profile priced at **$0** skips all of it: the catalog shows FREE in green and “Talk to Her!” creates the
+conversation on the spot, without an entry in the approval queue.
+
+### Wallet top-ups
+
+The balance pill in the header has a **Top up** button. The member enters any amount (minimum $25), confirms
+it, then pays that exact amount by card. The request waits in the admin panel under *Balance top-ups* and the
+money only reaches the wallet once an admin approves it — rejecting it credits nothing.
+
+### Money inside a chat
+
+- **Tip request** — the profile enters an amount and an optional note; the member sees a card in the thread
+  with a **PAY** button and one tap moves the money from their balance to hers.
+- **Gift** — the member sends any amount with an optional note, straight from their balance.
+
+Both are refused when the balance is too low, with a link to the top-up page, and both are recorded as
+transactions on the member's and the profile's side.
 
 ## Profile imagery
 

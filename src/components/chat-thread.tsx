@@ -344,6 +344,10 @@ export function ChatThread({ conversationId, viewer, partner, backHref, balanceC
                             alt="Shared photo"
                             width={420}
                             height={420}
+                            // A photo growing into place after the scroll would hide the newest messages.
+                            onLoad={() => {
+                              if (stickToBottom.current) bottom.current?.scrollIntoView({ block: "end" });
+                            }}
                             className="max-h-80 w-full cursor-zoom-in object-cover"
                           />
                         </button>

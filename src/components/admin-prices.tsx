@@ -141,7 +141,7 @@ export function AdminPrices({ models }: { models: AdminModelRow[] }) {
                 <button
                   onClick={() => save(model)}
                   disabled={busy === model.id || !dirty}
-                  className="btn-primary h-9 !px-4 text-xs"
+                  className={`${dirty ? "btn-primary" : "btn-soft"} h-9 !px-4 text-xs`}
                 >
                   {busy === model.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   Save
