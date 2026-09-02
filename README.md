@@ -20,6 +20,7 @@ flow, and an admin sets every catalog price — including free profiles, which o
 | Database | SQLite via `better-sqlite3` (file at `data/app.db`)        |
 | Auth     | HMAC-signed session cookie, `bcryptjs` password hashes     |
 | Media    | `sharp` — uploads normalised to webp, served from `data/`  |
+| Crypto   | `qrcode` — deposit QR codes rendered server-side           |
 | Realtime | Short polling (messages every 2.5 s, lists every 5 s)      |
 
 ## Getting started
@@ -65,8 +66,13 @@ conversation on the spot, without an entry in the approval queue.
 ### Wallet top-ups
 
 The balance pill in the header has a **Top up** button. The member enters any amount (minimum $25), confirms
-it, then pays that exact amount by card. The request waits in the admin panel under *Balance top-ups* and the
+it, then pays by card or with crypto. The request waits in the admin panel under *Balance top-ups* and the
 money only reaches the wallet once an admin approves it — rejecting it credits nothing.
+
+**Crypto** accepts ETH, USDC (ERC-20), USDT (ERC-20), BTC and SOL. Each coin shows its deposit address, a
+scannable QR code containing exactly that address, and a copy button. Crypto top-ups carry a 0.5% fee: the
+net amount is quoted before sending, stored with the request and credited on approval. Wallet addresses live
+in `src/lib/crypto-wallets.ts` — change them there and the QR codes follow automatically.
 
 ### Money inside a chat
 
