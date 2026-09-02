@@ -1,7 +1,7 @@
 import { fail, json, saveImageUpload } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { resolveChatViewer } from "@/lib/chat-access";
-import { insertMessage, listMessages, markRead } from "@/lib/queries";
+import { insertMessage, listMessages, listMoneyStatuses, markRead } from "@/lib/queries";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,9 +21,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       senderRole: row.sender_role,
       body: row.body,
       imageUrl: row.image_url,
+      kind: row.kind ?? "text",
+      amountCents: row.amount_cents,
+      status: row.status,
       createdAt: row.created_at,
       mine: row.sender_role === viewer.role,
     })),
+    // Tip requests change state after they are sent, so pollers get their current status too.
+    money: listMoneyStatuses(conversationId),
+    balanceCents: viewer.role === "user" ? viewer.conversation.userBalanceCents : undefined,
   });
 }
 

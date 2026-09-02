@@ -172,7 +172,7 @@ export type OrderView = {
   id: number;
   code: string;
   amountCents: number;
-  method: "card" | "balance";
+  method: "card" | "balance" | "free";
   status: "pending" | "approved" | "rejected";
   cardBrand: string | null;
   cardLast4: string | null;
@@ -242,11 +242,14 @@ export function createOrder(input: {
     | undefined;
   if (!user) throw new OrderError("User not found");
 
+  // A free profile skips the queue entirely: the chat opens on the spot.
+  const isFree = model.price_cents === 0;
+  const method = isFree ? "free" : input.method;
   const code = `AUR-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
   const now = Date.now();
 
   const run = db.transaction(() => {
-    if (input.method === "balance") {
+    if (method === "balance") {
       if (user.balance_cents < model.price_cents) throw new OrderError("Not enough balance");
       db.prepare("UPDATE users SET balance_cents = balance_cents - ? WHERE id = ?").run(
         model.price_cents,
@@ -259,25 +262,37 @@ export function createOrder(input: {
 
     const info = db
       .prepare(
-        `INSERT INTO orders (code, user_id, model_id, amount_cents, method, status, card_brand, card_last4, card_name, created_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+        `INSERT INTO orders (code, user_id, model_id, amount_cents, method, status, card_brand, card_last4, card_name,
+           created_at, decided_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         code,
         user.id,
         model.id,
         model.price_cents,
-        input.method,
+        method,
+        isFree ? "approved" : "pending",
         input.card?.brand ?? null,
         input.card?.last4 ?? null,
         input.card?.name ?? null,
         now,
+        isFree ? now : null,
       );
-    return Number(info.lastInsertRowid);
+    const orderId = Number(info.lastInsertRowid);
+
+    if (!isFree) return { orderId, conversationId: null as number | null };
+
+    const conversation = db
+      .prepare(
+        "INSERT INTO conversations (user_id, model_id, order_id, created_at, last_message_at) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run(user.id, model.id, orderId, now, now);
+    return { orderId, conversationId: Number(conversation.lastInsertRowid) };
   });
 
-  const orderId = run();
-  return { orderId, code };
+  const { orderId, conversationId } = run();
+  return { orderId, code, conversationId, free: isFree };
 }
 
 export function approveOrder(orderId: number, adminId: number) {
@@ -336,6 +351,98 @@ export function rejectOrder(orderId: number, adminId: number) {
   })();
 }
 
+/* ----------------------------------- top-ups --------------------------------- */
+
+export const MIN_TOPUP_CENTS = 2_500;
+export const MAX_TOPUP_CENTS = 500_000;
+
+export type TopupView = {
+  id: number;
+  code: string;
+  amountCents: number;
+  status: "pending" | "approved" | "rejected";
+  cardBrand: string | null;
+  cardLast4: string | null;
+  cardName: string | null;
+  createdAt: number;
+  decidedAt: number | null;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  userBalanceCents: number;
+};
+
+const TOPUP_SELECT = `
+  SELECT t.id, t.code, t.amount_cents AS amountCents, t.status, t.card_brand AS cardBrand,
+         t.card_last4 AS cardLast4, t.card_name AS cardName, t.created_at AS createdAt, t.decided_at AS decidedAt,
+         u.id AS userId, u.display_name AS userName, u.email AS userEmail, u.balance_cents AS userBalanceCents
+  FROM topups t
+  JOIN users u ON u.id = t.user_id
+`;
+
+export function listTopups(filter: { status?: "pending" | "approved" | "rejected"; userId?: number } = {}) {
+  const where: string[] = [];
+  const params: Record<string, unknown> = {};
+  if (filter.status) {
+    where.push("t.status = :status");
+    params.status = filter.status;
+  }
+  if (filter.userId) {
+    where.push("t.user_id = :userId");
+    params.userId = filter.userId;
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  return db.prepare(`${TOPUP_SELECT} ${whereSql} ORDER BY t.created_at DESC`).all(params) as TopupView[];
+}
+
+export function createTopup(input: {
+  userId: number;
+  amountCents: number;
+  card: { brand: string; last4: string; name: string };
+}) {
+  if (!Number.isFinite(input.amountCents)) throw new OrderError("Enter an amount");
+  if (input.amountCents < MIN_TOPUP_CENTS) {
+    throw new OrderError(`The minimum top-up is ${(MIN_TOPUP_CENTS / 100).toFixed(0)} dollars`);
+  }
+  if (input.amountCents > MAX_TOPUP_CENTS) throw new OrderError("That amount is too large");
+
+  const code = `TOP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  const info = db
+    .prepare(
+      `INSERT INTO topups (code, user_id, amount_cents, status, card_brand, card_last4, card_name, created_at)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)`,
+    )
+    .run(code, input.userId, input.amountCents, input.card.brand, input.card.last4, input.card.name, Date.now());
+  return { topupId: Number(info.lastInsertRowid), code };
+}
+
+export function decideTopup(topupId: number, adminId: number, action: "approve" | "reject") {
+  const topup = db.prepare("SELECT * FROM topups WHERE id = ?").get(topupId) as
+    | { id: number; user_id: number; amount_cents: number; status: string; code: string }
+    | undefined;
+  if (!topup) throw new OrderError("Top-up not found");
+  if (topup.status !== "pending") throw new OrderError("Top-up already decided");
+
+  const now = Date.now();
+  db.transaction(() => {
+    db.prepare("UPDATE topups SET status = ?, decided_at = ?, decided_by = ? WHERE id = ?").run(
+      action === "approve" ? "approved" : "rejected",
+      now,
+      adminId,
+      topupId,
+    );
+    if (action === "approve") {
+      db.prepare("UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?").run(
+        topup.amount_cents,
+        topup.user_id,
+      );
+      db.prepare(
+        "INSERT INTO transactions (user_id, amount_cents, kind, note, created_at) VALUES (?, ?, 'topup', ?, ?)",
+      ).run(topup.user_id, topup.amount_cents, `Card top-up ${topup.code}`, now);
+    }
+  })();
+}
+
 export function topUpBalance(userId: number, amountCents: number, note: string) {
   const now = Date.now();
   db.transaction(() => {
@@ -359,6 +466,7 @@ export type ConversationView = {
   userId: number;
   userName: string;
   userEmail: string;
+  userBalanceCents: number;
   lastMessageAt: number;
   lastBody: string | null;
   lastImage: string | null;
@@ -371,7 +479,7 @@ const CONVERSATION_SELECT = `
   SELECT c.id, c.last_message_at AS lastMessageAt,
          m.id AS modelId, m.name AS modelName, m.slug AS modelSlug, m.is_online AS modelOnline, m.accent AS modelAccent,
          (SELECT url FROM model_photos p WHERE p.model_id = m.id ORDER BY p.position LIMIT 1) AS modelCover,
-         u.id AS userId, u.display_name AS userName, u.email AS userEmail,
+         u.id AS userId, u.display_name AS userName, u.email AS userEmail, u.balance_cents AS userBalanceCents,
          (SELECT body FROM messages ms WHERE ms.conversation_id = c.id ORDER BY ms.id DESC LIMIT 1) AS lastBody,
          (SELECT image_url FROM messages ms WHERE ms.conversation_id = c.id ORDER BY ms.id DESC LIMIT 1) AS lastImage,
          (SELECT sender_role FROM messages ms WHERE ms.conversation_id = c.id ORDER BY ms.id DESC LIMIT 1) AS lastSender,
@@ -404,6 +512,9 @@ export type MessageRow = {
   sender_role: "user" | "model";
   body: string | null;
   image_url: string | null;
+  kind: "text" | "request" | "gift";
+  amount_cents: number | null;
+  status: string | null;
   created_at: number;
 };
 
@@ -418,12 +529,16 @@ export function insertMessage(input: {
   senderRole: "user" | "model";
   body?: string | null;
   imageUrl?: string | null;
+  kind?: "text" | "request" | "gift";
+  amountCents?: number | null;
+  status?: string | null;
 }) {
   const now = Date.now();
   const info = db
     .prepare(
-      `INSERT INTO messages (conversation_id, sender_role, body, image_url, created_at, read_by_user, read_by_model)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO messages (conversation_id, sender_role, body, image_url, created_at, read_by_user, read_by_model,
+         kind, amount_cents, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       input.conversationId,
@@ -433,9 +548,19 @@ export function insertMessage(input: {
       now,
       input.senderRole === "user" ? 1 : 0,
       input.senderRole === "model" ? 1 : 0,
+      input.kind ?? "text",
+      input.amountCents ?? null,
+      input.status ?? null,
     );
   db.prepare("UPDATE conversations SET last_message_at = ? WHERE id = ?").run(now, input.conversationId);
   return Number(info.lastInsertRowid);
+}
+
+/** Statuses of every money message in a thread, so pollers can refresh paid/pending state. */
+export function listMoneyStatuses(conversationId: number) {
+  return db
+    .prepare("SELECT id, status FROM messages WHERE conversation_id = ? AND kind != 'text'")
+    .all(conversationId) as { id: number; status: string | null }[];
 }
 
 export function markRead(conversationId: number, viewer: "user" | "model") {
@@ -448,6 +573,155 @@ export function markRead(conversationId: number, viewer: "user" | "model") {
       conversationId,
     );
   }
+}
+
+/* ------------------------------- money in chat ------------------------------- */
+
+export const MIN_MONEY_CENTS = 100;
+export const MAX_MONEY_CENTS = 500_000;
+
+function assertAmount(amountCents: number) {
+  if (!Number.isFinite(amountCents) || amountCents < MIN_MONEY_CENTS) {
+    throw new OrderError("Enter an amount of at least $1");
+  }
+  if (amountCents > MAX_MONEY_CENTS) throw new OrderError("That amount is too large");
+}
+
+type ConversationParties = { id: number; user_id: number; model_id: number; model_user_id: number | null; model_name: string };
+
+function conversationParties(conversationId: number): ConversationParties {
+  const row = db
+    .prepare(
+      `SELECT c.id, c.user_id, c.model_id, m.user_id AS model_user_id, m.name AS model_name
+       FROM conversations c JOIN models m ON m.id = c.model_id WHERE c.id = ?`,
+    )
+    .get(conversationId) as ConversationParties | undefined;
+  if (!row) throw new OrderError("Conversation not found");
+  return row;
+}
+
+/** Moves money from the member to the profile and writes both sides of the ledger. */
+function transferToModel(parties: ConversationParties, userId: number, amountCents: number, label: string) {
+  const user = db.prepare("SELECT balance_cents FROM users WHERE id = ?").get(userId) as
+    | { balance_cents: number }
+    | undefined;
+  if (!user) throw new OrderError("Member not found");
+  if (user.balance_cents < amountCents) {
+    throw new OrderError("Not enough balance — top up your wallet and try again");
+  }
+
+  const now = Date.now();
+  db.prepare("UPDATE users SET balance_cents = balance_cents - ? WHERE id = ?").run(amountCents, userId);
+  db.prepare(
+    "INSERT INTO transactions (user_id, amount_cents, kind, note, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run(userId, -amountCents, label, `${label === "gift" ? "Gift to" : "Tip to"} ${parties.model_name}`, now);
+
+  if (parties.model_user_id) {
+    db.prepare("UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?").run(
+      amountCents,
+      parties.model_user_id,
+    );
+    db.prepare(
+      "INSERT INTO transactions (user_id, amount_cents, kind, note, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(parties.model_user_id, amountCents, label, label === "gift" ? "Gift received" : "Tip received", now);
+  }
+}
+
+/** The profile asks the member for money; it lands in the thread with a PAY button. */
+export function requestPayment(input: { conversationId: number; amountCents: number; note?: string | null }) {
+  assertAmount(input.amountCents);
+  conversationParties(input.conversationId);
+  return insertMessage({
+    conversationId: input.conversationId,
+    senderRole: "model",
+    body: input.note?.trim() || null,
+    kind: "request",
+    amountCents: input.amountCents,
+    status: "pending",
+  });
+}
+
+export function payRequest(messageId: number, userId: number) {
+  const message = db
+    .prepare(
+      `SELECT m.id, m.conversation_id, m.kind, m.status, m.amount_cents, c.user_id
+       FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE m.id = ?`,
+    )
+    .get(messageId) as
+    | { id: number; conversation_id: number; kind: string; status: string | null; amount_cents: number; user_id: number }
+    | undefined;
+
+  if (!message || message.kind !== "request") throw new OrderError("Payment request not found");
+  if (message.user_id !== userId) throw new OrderError("Payment request not found");
+  if (message.status !== "pending") throw new OrderError("This request was already paid");
+
+  const parties = conversationParties(message.conversation_id);
+  db.transaction(() => {
+    transferToModel(parties, userId, message.amount_cents, "tip");
+    db.prepare("UPDATE messages SET status = 'paid' WHERE id = ?").run(messageId);
+  })();
+
+  return message.amount_cents;
+}
+
+/** The member sends money on their own, with an optional note. */
+export function sendGift(input: {
+  conversationId: number;
+  userId: number;
+  amountCents: number;
+  note?: string | null;
+}) {
+  assertAmount(input.amountCents);
+  const parties = conversationParties(input.conversationId);
+  if (parties.user_id !== input.userId) throw new OrderError("Conversation not found");
+
+  return db.transaction(() => {
+    transferToModel(parties, input.userId, input.amountCents, "gift");
+    return insertMessage({
+      conversationId: input.conversationId,
+      senderRole: "user",
+      body: input.note?.trim() || null,
+      kind: "gift",
+      amountCents: input.amountCents,
+      status: "sent",
+    });
+  })();
+}
+
+/* --------------------------------- admin tools -------------------------------- */
+
+export function setModelPrice(modelId: number, priceCents: number) {
+  if (!Number.isFinite(priceCents) || priceCents < 0) throw new OrderError("Enter a valid price");
+  if (priceCents > MAX_MONEY_CENTS) throw new OrderError("That price is too high");
+  const info = db.prepare("UPDATE models SET price_cents = ? WHERE id = ?").run(Math.round(priceCents), modelId);
+  if (info.changes === 0) throw new OrderError("Profile not found");
+}
+
+export type AdminModelRow = {
+  id: number;
+  name: string;
+  slug: string;
+  city: string;
+  country: string;
+  priceCents: number;
+  cover: string | null;
+  unlocks: number;
+};
+
+export function listModelsForAdmin(): AdminModelRow[] {
+  return db
+    .prepare(
+      `SELECT m.id, m.name, m.slug, m.city, m.country, m.price_cents AS priceCents,
+              (SELECT url FROM model_photos p WHERE p.model_id = m.id ORDER BY p.position LIMIT 1) AS cover,
+              (SELECT COUNT(*) FROM conversations c WHERE c.model_id = m.id) AS unlocks
+       FROM models m ORDER BY m.name`,
+    )
+    .all() as AdminModelRow[];
+}
+
+export function pendingTopupsCount() {
+  return (db.prepare("SELECT COUNT(*) AS count FROM topups WHERE status = 'pending'").get() as { count: number })
+    .count;
 }
 
 export function unreadCountForUser(userId: number) {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { CheckCircle2, CreditCard, Loader2, Lock, ShieldCheck, Wallet } from "lucide-react";
 
+import { CardForm, emptyCard, type CardState } from "@/components/card-form";
 import { formatPrice } from "@/lib/format";
 
 type Props = {
@@ -12,26 +13,9 @@ type Props = {
   balanceCents: number;
 };
 
-function formatCardNumber(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 19);
-  return digits.replace(/(.{4})/g, "$1 ").trim();
-}
-
-function brandOf(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (/^4/.test(digits)) return "VISA";
-  if (/^5[1-5]/.test(digits)) return "MASTERCARD";
-  if (/^3[47]/.test(digits)) return "AMEX";
-  if (/^6/.test(digits)) return "DISCOVER";
-  return "CARD";
-}
-
 export function PaymentPanel({ model, balanceCents }: Props) {
   const [method, setMethod] = useState<"card" | "balance">("card");
-  const [number, setNumber] = useState("");
-  const [name, setName] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvc, setCvc] = useState("");
+  const [card, setCard] = useState<CardState>(emptyCard);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ code: string } | null>(null);
@@ -49,10 +33,10 @@ export function PaymentPanel({ model, balanceCents }: Props) {
         body: JSON.stringify({
           slug: model.slug,
           method,
-          cardNumber: number,
-          cardName: name,
-          expiry,
-          cvc,
+          cardNumber: card.number,
+          cardName: card.name,
+          expiry: card.expiry,
+          cvc: card.cvc,
         }),
       });
       const data = (await response.json()) as { error?: string; code?: string };
@@ -118,89 +102,7 @@ export function PaymentPanel({ model, balanceCents }: Props) {
 
         {method === "card" ? (
           <div className="mt-7 space-y-5">
-            <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-blush-600 via-[#8b2bd6] to-violet-500 p-6 shadow-[0_30px_60px_-30px_rgba(255,61,127,0.8)]">
-              <div className="absolute -top-16 -right-10 h-44 w-44 rounded-full bg-white/12 blur-2xl" />
-              <div className="flex items-start justify-between">
-                <div className="h-9 w-12 rounded-md bg-gradient-to-br from-amber-200/90 to-amber-400/70" />
-                <span className="text-sm font-semibold tracking-[0.18em] text-white/90">{brandOf(number)}</span>
-              </div>
-              <p className="mt-7 font-mono text-lg tracking-[0.14em] text-white">
-                {formatCardNumber(number) || "•••• •••• •••• ••••"}
-              </p>
-              <div className="mt-6 flex items-end justify-between text-white/85">
-                <div>
-                  <p className="text-[10px] tracking-[0.14em] uppercase opacity-70">Card holder</p>
-                  <p className="text-sm tracking-wide uppercase">{name || "YOUR NAME"}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] tracking-[0.14em] uppercase opacity-70">Expires</p>
-                  <p className="text-sm">{expiry || "MM/YY"}</p>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="label" htmlFor="card-number">
-                Card number
-              </label>
-              <input
-                id="card-number"
-                inputMode="numeric"
-                autoComplete="cc-number"
-                className="field font-mono tracking-widest"
-                placeholder="4242 4242 4242 4242"
-                value={formatCardNumber(number)}
-                onChange={(event) => setNumber(event.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="label" htmlFor="card-name">
-                Name on card
-              </label>
-              <input
-                id="card-name"
-                autoComplete="cc-name"
-                className="field"
-                placeholder="Alex Morgan"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label" htmlFor="card-expiry">
-                  Expiry
-                </label>
-                <input
-                  id="card-expiry"
-                  inputMode="numeric"
-                  autoComplete="cc-exp"
-                  className="field"
-                  placeholder="09/28"
-                  value={expiry}
-                  onChange={(event) => {
-                    const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
-                    setExpiry(digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits);
-                  }}
-                />
-              </div>
-              <div>
-                <label className="label" htmlFor="card-cvc">
-                  CVC
-                </label>
-                <input
-                  id="card-cvc"
-                  inputMode="numeric"
-                  autoComplete="cc-csc"
-                  className="field"
-                  placeholder="123"
-                  value={cvc}
-                  onChange={(event) => setCvc(event.target.value.replace(/\D/g, "").slice(0, 4))}
-                />
-              </div>
-            </div>
+            <CardForm value={card} onChange={setCard} idPrefix="checkout" />
           </div>
         ) : (
           <div className="mt-7">

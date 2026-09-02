@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, Menu, MessageCircle, Wallet, X } from "lucide-react";
+import { LogOut, Menu, MessageCircle, Plus, Wallet, X } from "lucide-react";
 
 import { Logo } from "@/components/logo";
 import { formatPrice, initials } from "@/lib/format";
@@ -84,13 +84,18 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
 
         <div className="ml-auto flex items-center gap-2">
           {user?.role === "user" && (
-            <Link
-              href="/account"
-              className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-2 text-sm text-mist-100 transition hover:bg-white/10 sm:flex"
-            >
-              <Wallet className="h-4 w-4 text-blush-400" />
-              {formatPrice(balance)}
-            </Link>
+            <div className="hidden items-center rounded-full border border-white/10 bg-white/5 pr-1 pl-3.5 sm:flex">
+              <Link href="/account" className="flex items-center gap-2 py-2 text-sm text-mist-100 hover:text-white">
+                <Wallet className="h-4 w-4 text-blush-400" />
+                {formatPrice(balance)}
+              </Link>
+              <Link
+                href="/topup"
+                className="ml-2.5 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blush-500 to-violet-500 px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110"
+              >
+                <Plus className="h-3.5 w-3.5" /> Top up
+              </Link>
+            </div>
           )}
 
           {user ? (
@@ -154,7 +159,16 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
                 <span className="flex items-center gap-2 text-mist-300">
                   <Wallet className="h-4 w-4 text-blush-400" /> Balance
                 </span>
-                <span className="font-medium">{formatPrice(balance)}</span>
+                <span className="flex items-center gap-3">
+                  <span className="font-medium">{formatPrice(balance)}</span>
+                  <Link
+                    href="/topup"
+                    onClick={() => setOpen(false)}
+                    className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blush-500 to-violet-500 px-3 py-1.5 text-xs font-medium text-white"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Top up
+                  </Link>
+                </span>
               </div>
             )}
             {!user && (

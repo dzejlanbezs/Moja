@@ -1,13 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Clock, CreditCard, MessageCircle, Wallet } from "lucide-react";
+import { Clock, CreditCard, MessageCircle, Plus, Wallet } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDateTime, formatPrice } from "@/lib/format";
-import { listConversationsForUser, listOrders } from "@/lib/queries";
+import { listConversationsForUser, listOrders, listTopups } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Account" };
@@ -24,6 +24,7 @@ export default async function AccountPage() {
   if (user.role !== "user") redirect("/");
 
   const orders = listOrders({ userId: user.id });
+  const topups = listTopups({ userId: user.id });
   const conversations = listConversationsForUser(user.id);
   const transactions = db
     .prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 12")
@@ -49,7 +50,9 @@ export default async function AccountPage() {
             </span>
             <p className="mt-5 text-xs tracking-[0.14em] text-mist-500 uppercase">Balance</p>
             <p className="mt-1 font-display text-4xl">{formatPrice(user.balanceCents)}</p>
-            <p className="mt-2 text-xs text-mist-500">Top-ups are added by an admin.</p>
+            <Link href="/topup" className="btn-primary mt-4 !px-5 !py-2.5 text-sm">
+              <Plus className="h-4 w-4" /> Top up balance
+            </Link>
           </div>
 
           <div className="card p-6">
@@ -106,9 +109,11 @@ export default async function AccountPage() {
                     <p className="font-medium text-mist-100">{order.modelName}</p>
                     <p className="text-xs text-mist-500">
                       {order.code} · {formatDateTime(order.createdAt)} ·{" "}
-                      {order.method === "card"
-                        ? `${order.cardBrand} ••${order.cardLast4}`
-                        : "Aurea balance"}
+                      {order.method === "free"
+                        ? "Free profile"
+                        : order.method === "card"
+                          ? `${order.cardBrand} ••${order.cardLast4}`
+                          : "Aurea balance"}
                     </p>
                   </div>
                   <p className="font-medium">{formatPrice(order.amountCents)}</p>
@@ -125,6 +130,34 @@ export default async function AccountPage() {
           </section>
 
           <section className="card p-6 sm:p-7">
+            {topups.length > 0 && (
+              <div className="mb-8">
+                <h2 className="font-display text-3xl">Top-ups</h2>
+                <div className="mt-5 space-y-3">
+                  {topups.slice(0, 5).map((topup) => (
+                    <div
+                      key={topup.id}
+                      className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/3 p-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-mist-100">{formatPrice(topup.amountCents)}</p>
+                        <p className="truncate text-xs text-mist-500">
+                          {topup.code} · {formatDateTime(topup.createdAt)}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-medium capitalize ${
+                          STATUS_STYLE[topup.status]
+                        }`}
+                      >
+                        {topup.status === "pending" ? "Awaiting approval" : topup.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <h2 className="font-display text-3xl">Wallet activity</h2>
             <div className="mt-6 space-y-4">
               {transactions.length === 0 && <p className="text-sm text-mist-500">No wallet activity yet.</p>}

@@ -79,12 +79,17 @@ export type ModelDetail = CatalogModel & {
 
 export type OrderStatus = "pending" | "approved" | "rejected";
 
+export type MessageKind = "text" | "request" | "gift";
+
 export type ChatMessage = {
   id: number;
   conversationId: number;
   senderRole: "user" | "model";
   body: string | null;
   imageUrl: string | null;
+  kind: MessageKind;
+  amountCents: number | null;
+  status: string | null;
   createdAt: number;
   mine: boolean;
 };

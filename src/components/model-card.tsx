@@ -43,9 +43,15 @@ export function ModelCard({ model, priority = false }: { model: CatalogItem; pri
               </span>
             )}
           </div>
-          <span className="rounded-full bg-ink-950/60 px-3 py-1.5 text-sm font-semibold text-white backdrop-blur-md ring-1 ring-white/15">
-            {formatPrice(model.priceCents)}
-          </span>
+          {model.priceCents === 0 ? (
+            <span className="rounded-full bg-emerald-400/15 px-3 py-1.5 text-sm font-bold tracking-wide text-emerald-300 backdrop-blur-md ring-1 ring-emerald-300/40">
+              FREE
+            </span>
+          ) : (
+            <span className="rounded-full bg-ink-950/60 px-3 py-1.5 text-sm font-semibold text-white backdrop-blur-md ring-1 ring-white/15">
+              {formatPrice(model.priceCents)}
+            </span>
+          )}
         </div>
 
         <div className="absolute inset-x-0 bottom-0 p-5">

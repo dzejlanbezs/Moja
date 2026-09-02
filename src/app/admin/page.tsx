@@ -4,11 +4,13 @@ import { BellRing, CircleDollarSign, MessagesSquare, Users } from "lucide-react"
 
 import { AdminBalance } from "@/components/admin-balance";
 import { AdminOrders } from "@/components/admin-orders";
+import { AdminPrices } from "@/components/admin-prices";
+import { AdminTopups } from "@/components/admin-topups";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDateTime, formatPrice } from "@/lib/format";
-import { listOrders } from "@/lib/queries";
+import { listModelsForAdmin, listOrders, listTopups } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin panel" };
@@ -21,6 +23,9 @@ export default async function AdminPage() {
   const pending = listOrders({ status: "pending" });
   const approved = listOrders({ status: "approved" }).slice(0, 8);
   const rejected = listOrders({ status: "rejected" }).slice(0, 4);
+  const pendingTopups = listTopups({ status: "pending" });
+  const catalogModels = listModelsForAdmin();
+  const freeCount = catalogModels.filter((model) => model.priceCents === 0).length;
 
   const revenue = (
     db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS total FROM orders WHERE status = 'approved'").get() as {
@@ -45,7 +50,7 @@ export default async function AdminPage() {
   );
 
   const stats = [
-    { icon: BellRing, label: "Awaiting approval", value: String(pending.length), accent: "text-amber-300" },
+    { icon: BellRing, label: "Awaiting approval", value: String(pending.length + pendingTopups.length), accent: "text-amber-300" },
     { icon: CircleDollarSign, label: "Approved revenue", value: formatPrice(revenue), accent: "text-emerald-300" },
     { icon: Users, label: "Members", value: String(memberCount), accent: "text-violet-300" },
     { icon: MessagesSquare, label: "Chats / messages", value: `${conversationCount} / ${messageCount}`, accent: "text-blush-400" },
@@ -85,9 +90,35 @@ export default async function AdminPage() {
         <section className="mt-12">
           <h2 className="font-display text-3xl">Pending payments</h2>
           <p className="mt-1 mb-6 text-sm text-mist-500">
-            Every unlock lands here first — approving creates the private conversation.
+            Every unlock lands here first — approving creates the private conversation. Free profiles skip this
+            queue.
           </p>
           <AdminOrders orders={pending} />
+        </section>
+
+        <section className="mt-12">
+          <h2 className="font-display text-3xl">Balance top-ups</h2>
+          <p className="mt-1 mb-6 text-sm text-mist-500">
+            Members pay by card and the money is credited only once you approve it here.
+          </p>
+          <AdminTopups topups={pendingTopups} />
+        </section>
+
+        <section className="mt-12">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-3xl">Catalog prices</h2>
+              <p className="mt-1 text-sm text-mist-500">
+                Set what every profile costs in the catalog, or make her free.
+              </p>
+            </div>
+            <span className="chip">
+              {catalogModels.length} profiles · {freeCount} free
+            </span>
+          </div>
+          <div className="card mt-6 p-5 sm:p-6">
+            <AdminPrices models={catalogModels} />
+          </div>
         </section>
 
         <div className="mt-12 grid gap-6 lg:grid-cols-2">

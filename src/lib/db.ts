@@ -70,7 +70,7 @@ function migrate(database: Database.Database) {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       model_id INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
       amount_cents INTEGER NOT NULL,
-      method TEXT NOT NULL CHECK (method IN ('card', 'balance')),
+      method TEXT NOT NULL CHECK (method IN ('card', 'balance', 'free')),
       status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
       card_brand TEXT,
       card_last4 TEXT,
@@ -107,14 +107,85 @@ function migrate(database: Database.Database) {
       image_url TEXT,
       created_at INTEGER NOT NULL,
       read_by_user INTEGER NOT NULL DEFAULT 0,
-      read_by_model INTEGER NOT NULL DEFAULT 0
+      read_by_model INTEGER NOT NULL DEFAULT 0,
+      kind TEXT NOT NULL DEFAULT 'text',
+      amount_cents INTEGER,
+      status TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS topups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+      card_brand TEXT,
+      card_last4 TEXT,
+      card_name TEXT,
+      created_at INTEGER NOT NULL,
+      decided_at INTEGER,
+      decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_photos_model ON model_photos (model_id, position);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_orders_user ON orders (user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages (conversation_id, id);
+    CREATE INDEX IF NOT EXISTS idx_topups_status ON topups (status, created_at DESC);
   `);
+
+  addMissingColumns(database);
+  allowFreeOrders(database);
+}
+
+/** Columns added after the first release, for databases seeded before then. */
+function addMissingColumns(database: Database.Database) {
+  const columns = new Set(
+    (database.prepare("PRAGMA table_info(messages)").all() as { name: string }[]).map((c) => c.name),
+  );
+  if (!columns.has("kind")) database.exec("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
+  if (!columns.has("amount_cents")) database.exec("ALTER TABLE messages ADD COLUMN amount_cents INTEGER");
+  if (!columns.has("status")) database.exec("ALTER TABLE messages ADD COLUMN status TEXT");
+}
+
+/** Free profiles need a third payment method, which means rebuilding the CHECK constraint. */
+function allowFreeOrders(database: Database.Database) {
+  const schema = (
+    database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'orders'").get() as
+      | { sql: string }
+      | undefined
+  )?.sql;
+  if (!schema || schema.includes("'free'")) return;
+
+  database.pragma("foreign_keys = OFF");
+  database.pragma("legacy_alter_table = ON");
+  database.transaction(() => {
+    database.exec(`
+      CREATE TABLE orders_rebuilt (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        model_id INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+        amount_cents INTEGER NOT NULL,
+        method TEXT NOT NULL CHECK (method IN ('card', 'balance', 'free')),
+        status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+        card_brand TEXT,
+        card_last4 TEXT,
+        card_name TEXT,
+        created_at INTEGER NOT NULL,
+        decided_at INTEGER,
+        decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+      );
+      INSERT INTO orders_rebuilt SELECT id, code, user_id, model_id, amount_cents, method, status,
+             card_brand, card_last4, card_name, created_at, decided_at, decided_by FROM orders;
+      DROP TABLE orders;
+      ALTER TABLE orders_rebuilt RENAME TO orders;
+      CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_orders_user ON orders (user_id, created_at DESC);
+    `);
+  })();
+  database.pragma("legacy_alter_table = OFF");
+  database.pragma("foreign_keys = ON");
 }
 
 declare global {

@@ -12,6 +12,7 @@ import {
   Star,
 } from "lucide-react";
 
+import { FreeUnlockButton } from "@/components/free-unlock-button";
 import { ModelCard } from "@/components/model-card";
 import { Gallery } from "@/components/gallery";
 import { SiteFooter } from "@/components/site-footer";
@@ -119,8 +120,17 @@ export default async function ModelPage({ params }: { params: Promise<{ slug: st
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-xs tracking-[0.14em] text-mist-500 uppercase">Private chat access</p>
-                  <p className="mt-2 font-display text-4xl text-white">{formatPrice(model.priceCents)}</p>
-                  <p className="mt-1 text-sm text-mist-500">One-time payment · unlimited messages & photos</p>
+                  {model.priceCents === 0 ? (
+                    <>
+                      <p className="mt-2 font-display text-4xl text-emerald-300">FREE</p>
+                      <p className="mt-1 text-sm text-mist-500">No payment needed · unlimited messages & photos</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mt-2 font-display text-4xl text-white">{formatPrice(model.priceCents)}</p>
+                      <p className="mt-1 text-sm text-mist-500">One-time payment · unlimited messages & photos</p>
+                    </>
+                  )}
                 </div>
 
                 {access.status === "unlocked" && access.conversationId ? (
@@ -134,9 +144,15 @@ export default async function ModelPage({ params }: { params: Promise<{ slug: st
                       Track it
                     </Link>
                   </div>
+                ) : model.priceCents === 0 && user?.role === "user" ? (
+                  <FreeUnlockButton slug={model.slug} name={model.name} />
                 ) : (
                   <Link
-                    href={user ? `/unlock/${model.slug}` : `/login?next=/unlock/${model.slug}`}
+                    href={
+                      user
+                        ? `/unlock/${model.slug}`
+                        : `/login?next=${model.priceCents === 0 ? `/model/${model.slug}` : `/unlock/${model.slug}`}`
+                    }
                     className="btn-primary !px-9 !py-4 text-base"
                   >
                     Talk to Her! <MessageCircle className="h-5 w-5" />
@@ -145,9 +161,19 @@ export default async function ModelPage({ params }: { params: Promise<{ slug: st
               </div>
 
               <div className="mt-6 grid gap-3 border-t border-white/8 pt-5 text-xs text-mist-500 sm:grid-cols-3">
-                <p>✓ Card or Aurea balance</p>
-                <p>✓ Manually approved by our team</p>
-                <p>✓ Photos and messages both ways</p>
+                {model.priceCents === 0 ? (
+                  <>
+                    <p>✓ Free profile</p>
+                    <p>✓ Chat opens instantly</p>
+                    <p>✓ Photos and messages both ways</p>
+                  </>
+                ) : (
+                  <>
+                    <p>✓ Card or Aurea balance</p>
+                    <p>✓ Manually approved by our team</p>
+                    <p>✓ Photos and messages both ways</p>
+                  </>
+                )}
               </div>
             </div>
           </div>

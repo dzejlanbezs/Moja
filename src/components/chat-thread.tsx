@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ImagePlus, Loader2, Send, X } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Gift, ImagePlus, Loader2, Send, Wallet, X } from "lucide-react";
 
-import { formatTime, initials } from "@/lib/format";
+import { formatPrice, formatTime, initials } from "@/lib/format";
 import type { ChatMessage } from "@/lib/types";
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
   viewer: "user" | "model";
   partner: { name: string; avatar: string | null; subtitle: string; online?: boolean; profileHref?: string };
   backHref: string;
+  balanceCents?: number;
 };
 
 function dayLabel(ts: number) {
@@ -24,7 +25,7 @@ function dayLabel(ts: number) {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 }
 
-export function ChatThread({ conversationId, viewer, partner, backHref }: Props) {
+export function ChatThread({ conversationId, viewer, partner, backHref, balanceCents = 0 }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -32,6 +33,13 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [balance, setBalance] = useState(balanceCents);
+  const [money, setMoney] = useState<null | "request" | "gift">(null);
+  const [moneyAmount, setMoneyAmount] = useState("");
+  const [moneyNote, setMoneyNote] = useState("");
+  const [moneyBusy, setMoneyBusy] = useState(false);
+  const [moneyError, setMoneyError] = useState<string | null>(null);
+  const [paying, setPaying] = useState<number | null>(null);
 
   const bottom = useRef<HTMLDivElement | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
@@ -48,13 +56,31 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
         cache: "no-store",
       });
       if (!response.ok) return;
-      const data = (await response.json()) as { messages: ChatMessage[] };
-      if (data.messages.length === 0) return;
-      lastId.current = Math.max(lastId.current, data.messages[data.messages.length - 1].id);
+      const data = (await response.json()) as {
+        messages: ChatMessage[];
+        money?: { id: number; status: string | null }[];
+        balanceCents?: number;
+      };
+      if (typeof data.balanceCents === "number") setBalance(data.balanceCents);
+
+      if (data.messages.length > 0) {
+        lastId.current = Math.max(lastId.current, data.messages[data.messages.length - 1].id);
+      }
       setMessages((current) => {
         const seen = new Set(current.map((message) => message.id));
         const fresh = data.messages.filter((message) => !seen.has(message.id));
-        return fresh.length > 0 ? [...current, ...fresh] : current;
+        const merged = fresh.length > 0 ? [...current, ...fresh] : current;
+        // A tip request flips to "paid" long after it was sent, so statuses come along on every poll.
+        const statuses = new Map((data.money ?? []).map((entry) => [entry.id, entry.status]));
+        if (statuses.size === 0) return merged;
+        let changed = fresh.length > 0;
+        const next = merged.map((message) => {
+          const status = statuses.get(message.id);
+          if (status === undefined || status === message.status) return message;
+          changed = true;
+          return { ...message, status };
+        });
+        return changed ? next : current;
       });
     } finally {
       polling.current = false;
@@ -107,15 +133,74 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
       setText("");
       setFile(null);
       stickToBottom.current = true;
-      // A timer poll may be mid-flight; wait for it so the new message shows immediately.
-      for (let attempt = 0; attempt < 20 && polling.current; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 80));
-      }
-      await poll();
+      await flush();
     } catch {
       setError("Network error — please try again");
     } finally {
       setSending(false);
+    }
+  }
+
+  /** A timer poll may be mid-flight; wait it out so a just-sent message shows immediately. */
+  async function flush() {
+    for (let attempt = 0; attempt < 20 && polling.current; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+    await poll();
+  }
+
+  async function submitMoney(event: React.FormEvent) {
+    event.preventDefault();
+    if (!money) return;
+    const cents = Math.round(Number(moneyAmount.replace(",", ".")) * 100);
+    if (!Number.isFinite(cents) || cents < 100) {
+      setMoneyError("Enter an amount of at least $1");
+      return;
+    }
+    setMoneyBusy(true);
+    setMoneyError(null);
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/money`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: money, amountCents: cents, note: moneyNote }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setMoneyError(data.error ?? "Could not send that");
+        return;
+      }
+      if (money === "gift") setBalance((current) => current - cents);
+      setMoney(null);
+      setMoneyAmount("");
+      setMoneyNote("");
+      stickToBottom.current = true;
+      await flush();
+    } catch {
+      setMoneyError("Network error — please try again");
+    } finally {
+      setMoneyBusy(false);
+    }
+  }
+
+  async function payRequest(messageId: number) {
+    setPaying(messageId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/messages/${messageId}/pay`, { method: "POST" });
+      const data = (await response.json()) as { error?: string; amountCents?: number };
+      if (!response.ok) {
+        setError(data.error ?? "Payment failed");
+        return;
+      }
+      setMessages((current) =>
+        current.map((message) => (message.id === messageId ? { ...message, status: "paid" } : message)),
+      );
+      setBalance((current) => current - (data.amountCents ?? 0));
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setPaying(null);
     }
   }
 
@@ -197,26 +282,75 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
 
               <div className={`flex animate-pop ${message.mine ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[78%] sm:max-w-[68%] ${message.mine ? "items-end" : "items-start"}`}>
-                  <div
-                    className={`overflow-hidden rounded-3xl text-[15px] leading-relaxed shadow-lg ${
-                      message.mine
-                        ? "rounded-br-lg bg-gradient-to-br from-blush-500 to-violet-500 text-white"
-                        : "rounded-bl-lg border border-white/10 bg-white/8 text-mist-100 backdrop-blur"
-                    }`}
-                  >
-                    {message.imageUrl && (
-                      <button onClick={() => setLightbox(message.imageUrl)} className="block">
-                        <Image
-                          src={message.imageUrl}
-                          alt="Shared photo"
-                          width={420}
-                          height={420}
-                          className="max-h-80 w-full cursor-zoom-in object-cover"
-                        />
-                      </button>
-                    )}
-                    {message.body && <p className="px-4 py-2.5 whitespace-pre-wrap">{message.body}</p>}
-                  </div>
+                  {message.kind === "request" ? (
+                    <div className="overflow-hidden rounded-3xl border border-amber-300/30 bg-amber-400/10 shadow-lg backdrop-blur">
+                      <div className="flex items-center gap-2 border-b border-amber-300/20 px-4 py-2 text-[11px] font-medium tracking-[0.14em] text-amber-200 uppercase">
+                        <BadgeDollarSign className="h-3.5 w-3.5" />
+                        {message.mine ? "You asked for a tip" : `${partner.name.split(" ")[0]} asks for a tip`}
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="font-display text-4xl text-white">{formatPrice(message.amountCents ?? 0)}</p>
+                        {message.body && (
+                          <p className="mt-1.5 text-[15px] whitespace-pre-wrap text-mist-100">{message.body}</p>
+                        )}
+
+                        {message.status === "paid" ? (
+                          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-medium text-emerald-300">
+                            ✓ Paid
+                          </p>
+                        ) : viewer === "user" ? (
+                          <button
+                            onClick={() => payRequest(message.id)}
+                            disabled={paying === message.id}
+                            className="btn-primary mt-3 w-full !py-2.5 text-sm"
+                          >
+                            {paying === message.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Wallet className="h-4 w-4" />
+                            )}
+                            PAY {formatPrice(message.amountCents ?? 0)}
+                          </button>
+                        ) : (
+                          <p className="mt-3 text-xs text-amber-200/80">Waiting for payment</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : message.kind === "gift" ? (
+                    <div className="overflow-hidden rounded-3xl border border-violet-300/30 bg-violet-500/15 shadow-lg backdrop-blur">
+                      <div className="flex items-center gap-2 border-b border-violet-300/20 px-4 py-2 text-[11px] font-medium tracking-[0.14em] text-violet-200 uppercase">
+                        <Gift className="h-3.5 w-3.5" />
+                        {message.mine ? "Gift sent" : "Gift received"}
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="font-display text-4xl text-white">{formatPrice(message.amountCents ?? 0)}</p>
+                        {message.body && (
+                          <p className="mt-1.5 text-[15px] whitespace-pre-wrap text-mist-100">{message.body}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`overflow-hidden rounded-3xl text-[15px] leading-relaxed shadow-lg ${
+                        message.mine
+                          ? "rounded-br-lg bg-gradient-to-br from-blush-500 to-violet-500 text-white"
+                          : "rounded-bl-lg border border-white/10 bg-white/8 text-mist-100 backdrop-blur"
+                      }`}
+                    >
+                      {message.imageUrl && (
+                        <button onClick={() => setLightbox(message.imageUrl)} className="block">
+                          <Image
+                            src={message.imageUrl}
+                            alt="Shared photo"
+                            width={420}
+                            height={420}
+                            className="max-h-80 w-full cursor-zoom-in object-cover"
+                          />
+                        </button>
+                      )}
+                      {message.body && <p className="px-4 py-2.5 whitespace-pre-wrap">{message.body}</p>}
+                    </div>
+                  )}
                   <p
                     className={`mt-1 px-1 text-[11px] text-mist-500 ${message.mine ? "text-right" : "text-left"}`}
                   >
@@ -242,7 +376,16 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
           </div>
         )}
 
-        {error && <p className="mb-3 text-sm text-blush-400">{error}</p>}
+        {error && (
+          <p className="mb-3 text-sm text-blush-400">
+            {error}
+            {error.toLowerCase().includes("balance") && viewer === "user" && (
+              <Link href="/topup" className="ml-1 font-medium underline underline-offset-4">
+                Top up your balance
+              </Link>
+            )}
+          </p>
+        )}
 
         <div className="flex items-end gap-2">
           <label className="btn-ghost h-11 w-11 shrink-0 cursor-pointer !px-0" title="Send a photo">
@@ -254,6 +397,34 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
           </label>
+
+          {viewer === "model" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMoney("request");
+                setMoneyError(null);
+              }}
+              className="btn h-11 shrink-0 border border-amber-300/30 bg-amber-400/10 !px-4 text-amber-200 hover:bg-amber-400/18"
+              title="Ask for a tip"
+            >
+              <BadgeDollarSign className="h-4.5 w-4.5" />
+              <span className="hidden sm:inline">Tip</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setMoney("gift");
+                setMoneyError(null);
+              }}
+              className="btn h-11 shrink-0 border border-violet-300/30 bg-violet-500/15 !px-4 text-violet-200 hover:bg-violet-500/25"
+              title="Send a gift"
+            >
+              <Gift className="h-4.5 w-4.5" />
+              <span className="hidden sm:inline">Gift</span>
+            </button>
+          )}
 
           <textarea
             value={text}
@@ -279,9 +450,110 @@ export function ChatThread({ conversationId, viewer, partner, backHref }: Props)
           </button>
         </div>
         <p className="mt-2 hidden px-1 text-[11px] text-mist-500 sm:block">
-          Enter to send · Shift + Enter for a new line · {viewer === "model" ? "you are replying as talent" : "photos are private"}
+          Enter to send · Shift + Enter for a new line ·{" "}
+          {viewer === "model" ? "you are replying as talent" : `balance ${formatPrice(balance)}`}
         </p>
       </form>
+
+      {money && (
+        <div
+          className="fixed inset-0 z-100 flex items-end justify-center bg-ink-950/80 p-4 backdrop-blur-md sm:items-center"
+          onClick={() => !moneyBusy && setMoney(null)}
+        >
+          <form
+            onSubmit={submitMoney}
+            onClick={(event) => event.stopPropagation()}
+            className="glass-strong w-full max-w-md animate-pop rounded-[28px] p-6 sm:p-7"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="chip">{money === "request" ? "Tip request" : "Send a gift"}</span>
+                <h3 className="mt-3 font-display text-3xl">
+                  {money === "request"
+                    ? `Ask ${partner.name.split(" ")[0]} for a tip`
+                    : `Gift ${partner.name.split(" ")[0]}`}
+                </h3>
+                <p className="mt-1 text-sm text-mist-500">
+                  {money === "request"
+                    ? "She sees the amount in the chat with a PAY button."
+                    : `Sent straight from your balance of ${formatPrice(balance)}.`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMoney(null)}
+                className="btn-ghost h-9 w-9 shrink-0 !px-0"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="relative mt-6">
+              <span className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 font-display text-3xl text-mist-500">
+                $
+              </span>
+              <input
+                autoFocus
+                inputMode="decimal"
+                value={moneyAmount}
+                onChange={(event) => setMoneyAmount(event.target.value.replace(/[^\d.,]/g, ""))}
+                placeholder="20"
+                aria-label="Amount in dollars"
+                className="field !rounded-2xl !py-4 !pl-12 font-display !text-3xl"
+              />
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[10, 20, 50, 100].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setMoneyAmount(String(preset))}
+                  className="btn-soft !px-4 !py-2 text-xs"
+                >
+                  ${preset}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5">
+              <label className="label" htmlFor="money-note">
+                Note {money === "gift" ? "(optional)" : "(optional)"}
+              </label>
+              <input
+                id="money-note"
+                value={moneyNote}
+                onChange={(event) => setMoneyNote(event.target.value)}
+                placeholder={money === "gift" ? "Have a great evening!" : "For the photo set"}
+                className="field"
+              />
+            </div>
+
+            {moneyError && (
+              <p className="mt-4 rounded-2xl border border-blush-500/30 bg-blush-500/10 px-4 py-3 text-sm text-blush-400">
+                {moneyError}
+                {moneyError.toLowerCase().includes("balance") && (
+                  <Link href="/topup" className="ml-1 underline underline-offset-4">
+                    Top up now
+                  </Link>
+                )}
+              </p>
+            )}
+
+            <button type="submit" disabled={moneyBusy} className="btn-primary mt-6 w-full !py-3.5">
+              {moneyBusy ? (
+                <Loader2 className="h-4.5 w-4.5 animate-spin" />
+              ) : money === "request" ? (
+                <BadgeDollarSign className="h-4.5 w-4.5" />
+              ) : (
+                <Gift className="h-4.5 w-4.5" />
+              )}
+              {money === "request" ? "Send request" : "Send gift"}
+            </button>
+          </form>
+        </div>
+      )}
 
       {lightbox && (
         <div

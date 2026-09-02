@@ -68,8 +68,8 @@ export default async function HomePage() {
 
               <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-mist-300">
                 A curated catalog of {feed.total} verified companions. Browse freely, unlock the one you like from{" "}
-                {cheapest ? formatPrice(cheapest.priceCents) : "$16.50"}, and talk privately — messages and photos,
-                straight from her.
+                {!cheapest ? "$16.50" : cheapest.priceCents === 0 ? "free" : formatPrice(cheapest.priceCents)}, and
+                talk privately — messages and photos, straight from her.
               </p>
 
               <div className="mt-9 flex flex-wrap items-center gap-3">
@@ -122,8 +122,14 @@ export default async function HomePage() {
                         <p className="text-sm font-medium text-white">
                           {model.name.split(" ")[0]}, {model.age}
                         </p>
-                        <span className="rounded-full bg-white/12 px-2 py-0.5 text-[11px] text-white backdrop-blur">
-                          {formatPrice(model.priceCents)}
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] backdrop-blur ${
+                            model.priceCents === 0
+                              ? "bg-emerald-400/20 font-semibold text-emerald-300"
+                              : "bg-white/12 text-white"
+                          }`}
+                        >
+                          {model.priceCents === 0 ? "FREE" : formatPrice(model.priceCents)}
                         </span>
                       </div>
                     </div>
@@ -161,7 +167,12 @@ export default async function HomePage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 to-transparent" />
                 <p className="absolute bottom-2 left-3 text-xs font-medium text-white">
-                  {model.name.split(" ")[0]} · {formatPrice(model.priceCents)}
+                  {model.name.split(" ")[0]} ·{" "}
+                  {model.priceCents === 0 ? (
+                    <span className="font-semibold text-emerald-300">FREE</span>
+                  ) : (
+                    formatPrice(model.priceCents)
+                  )}
                 </p>
               </Link>
             ))}

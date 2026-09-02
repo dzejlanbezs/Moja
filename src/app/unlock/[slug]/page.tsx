@@ -24,6 +24,8 @@ export default async function UnlockPage({ params }: { params: Promise<{ slug: s
   const access = getAccess(user.id, model.id);
   if (access.status === "unlocked") redirect(`/chat/${access.conversationId}`);
   if (access.status === "pending") redirect("/account");
+  // Free profiles have no checkout at all; the one-click CTA lives on her profile.
+  if (model.priceCents === 0) redirect(`/model/${model.slug}`);
 
   return (
     <>
