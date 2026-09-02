@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { TopupPanel } from "@/components/topup-panel";
 import { getSessionUser } from "@/lib/auth";
+import { cryptoAssetsWithQr } from "@/lib/qr";
 import { MIN_TOPUP_CENTS } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ export default async function TopupPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=/topup");
   if (user.role !== "user") redirect("/");
+
+  const assets = await cryptoAssetsWithQr();
 
   return (
     <>
@@ -31,12 +34,12 @@ export default async function TopupPage() {
             Top up your <span className="text-gradient">balance</span>
           </h1>
           <p className="mt-3 max-w-xl text-[15px] text-mist-300">
-            Choose an amount, confirm it, then pay by card. The money is added to your wallet as soon as our team
-            approves the payment.
+            Choose an amount, confirm it, then pay by card or with crypto. The money is added to your wallet as
+            soon as the payment is confirmed.
           </p>
         </div>
 
-        <TopupPanel balanceCents={user.balanceCents} minCents={MIN_TOPUP_CENTS} />
+        <TopupPanel balanceCents={user.balanceCents} minCents={MIN_TOPUP_CENTS} assets={assets} />
       </main>
 
       <SiteFooter />

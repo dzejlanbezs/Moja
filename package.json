@@ -11,11 +11,13 @@
     "reset": "rm -rf data/app.db data/uploads && tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^13.0.3",
     "lucide-react": "^0.548.0",
     "motion": "^12.23.24",
     "next": "16.3.4",
+    "qrcode": "^1.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "server-only": "^0.0.1",

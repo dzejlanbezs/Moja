@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Check, CreditCard, Loader2, X } from "lucide-react";
 
+import { findCryptoAsset } from "@/lib/crypto-wallets";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import type { TopupView } from "@/lib/queries";
 
@@ -31,7 +32,7 @@ export function AdminTopups({ topups }: { topups: TopupView[] }) {
       setList((current) => current.filter((item) => item.id !== topup.id));
       setFlash(
         action === "approve"
-          ? `${formatPrice(topup.amountCents)} added to ${topup.userName}'s balance.`
+          ? `${formatPrice(topup.creditCents)} added to ${topup.userName}'s balance.`
           : `Top-up ${topup.code} was rejected.`,
       );
       router.refresh();
@@ -63,44 +64,71 @@ export function AdminTopups({ topups }: { topups: TopupView[] }) {
         </p>
       )}
 
-      {list.map((topup) => (
-        <div
-          key={topup.id}
-          className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/8 bg-white/3 p-4"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-xs tracking-[0.14em] text-mist-500 uppercase">{topup.code}</p>
-            <p className="mt-1 truncate font-medium text-mist-100">{topup.userName}</p>
-            <p className="truncate text-xs text-mist-500">
-              {topup.userEmail} · {formatDateTime(topup.createdAt)} · balance {formatPrice(topup.userBalanceCents)}
-            </p>
-          </div>
+      {list.map((topup) => {
+        const asset = topup.method === "crypto" ? findCryptoAsset(topup.asset) : undefined;
+        return (
+          <div
+            key={topup.id}
+            className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/8 bg-white/3 p-4"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-xs tracking-[0.14em] text-mist-500 uppercase">{topup.code}</p>
+              <p className="mt-1 truncate font-medium text-mist-100">{topup.userName}</p>
+              <p className="truncate text-xs text-mist-500">
+                {topup.userEmail} · {formatDateTime(topup.createdAt)} · balance{" "}
+                {formatPrice(topup.userBalanceCents)}
+              </p>
+              {asset && (
+                <p className="mt-1 truncate font-mono text-[11px] text-mist-500">{topup.address}</p>
+              )}
+            </div>
 
-          <span className="chip !py-1.5">
-            <CreditCard className="h-3.5 w-3.5" /> {topup.cardBrand} ••{topup.cardLast4}
-          </span>
-          <p className="font-display text-3xl">{formatPrice(topup.amountCents)}</p>
+            {asset ? (
+              <span className="chip !py-1.5">
+                <span
+                  className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                  style={{ background: asset.accent }}
+                >
+                  {asset.symbol.slice(0, 1)}
+                </span>
+                {asset.symbol} · {asset.network}
+              </span>
+            ) : (
+              <span className="chip !py-1.5">
+                <CreditCard className="h-3.5 w-3.5" /> {topup.cardBrand} ••{topup.cardLast4}
+              </span>
+            )}
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => decide(topup, "approve")}
-              disabled={busy === topup.id}
-              className="btn-primary !px-5 !py-2.5 text-sm"
-            >
-              {busy === topup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Add to balance
-            </button>
-            <button
-              onClick={() => decide(topup, "reject")}
-              disabled={busy === topup.id}
-              className="btn-ghost !px-3.5 !py-2.5"
-              title="Reject top-up"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="text-right">
+              <p className="font-display text-3xl">{formatPrice(topup.creditCents)}</p>
+              {topup.feeCents > 0 && (
+                <p className="text-[11px] text-mist-500">
+                  {formatPrice(topup.amountCents)} − {formatPrice(topup.feeCents)} fee
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => decide(topup, "approve")}
+                disabled={busy === topup.id}
+                className="btn-primary !px-5 !py-2.5 text-sm"
+              >
+                {busy === topup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Add to balance
+              </button>
+              <button
+                onClick={() => decide(topup, "reject")}
+                disabled={busy === topup.id}
+                className="btn-ghost !px-3.5 !py-2.5"
+                title="Reject top-up"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

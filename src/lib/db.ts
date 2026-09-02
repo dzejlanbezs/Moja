@@ -124,7 +124,12 @@ function migrate(database: Database.Database) {
       card_name TEXT,
       created_at INTEGER NOT NULL,
       decided_at INTEGER,
-      decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+      decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      method TEXT NOT NULL DEFAULT 'card',
+      asset TEXT,
+      address TEXT,
+      fee_cents INTEGER NOT NULL DEFAULT 0,
+      credit_cents INTEGER
     );
 
     CREATE INDEX IF NOT EXISTS idx_photos_model ON model_photos (model_id, position);
@@ -140,12 +145,20 @@ function migrate(database: Database.Database) {
 
 /** Columns added after the first release, for databases seeded before then. */
 function addMissingColumns(database: Database.Database) {
-  const columns = new Set(
-    (database.prepare("PRAGMA table_info(messages)").all() as { name: string }[]).map((c) => c.name),
-  );
-  if (!columns.has("kind")) database.exec("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
-  if (!columns.has("amount_cents")) database.exec("ALTER TABLE messages ADD COLUMN amount_cents INTEGER");
-  if (!columns.has("status")) database.exec("ALTER TABLE messages ADD COLUMN status TEXT");
+  const columnsOf = (table: string) =>
+    new Set((database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
+
+  const messages = columnsOf("messages");
+  if (!messages.has("kind")) database.exec("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
+  if (!messages.has("amount_cents")) database.exec("ALTER TABLE messages ADD COLUMN amount_cents INTEGER");
+  if (!messages.has("status")) database.exec("ALTER TABLE messages ADD COLUMN status TEXT");
+
+  const topups = columnsOf("topups");
+  if (!topups.has("method")) database.exec("ALTER TABLE topups ADD COLUMN method TEXT NOT NULL DEFAULT 'card'");
+  if (!topups.has("asset")) database.exec("ALTER TABLE topups ADD COLUMN asset TEXT");
+  if (!topups.has("address")) database.exec("ALTER TABLE topups ADD COLUMN address TEXT");
+  if (!topups.has("fee_cents")) database.exec("ALTER TABLE topups ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0");
+  if (!topups.has("credit_cents")) database.exec("ALTER TABLE topups ADD COLUMN credit_cents INTEGER");
 }
 
 /** Free profiles need a third payment method, which means rebuilding the CHECK constraint. */

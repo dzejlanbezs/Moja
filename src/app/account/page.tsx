@@ -5,6 +5,7 @@ import { Clock, CreditCard, MessageCircle, Plus, Wallet } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
+import { findCryptoAsset } from "@/lib/crypto-wallets";
 import { db } from "@/lib/db";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { listConversationsForUser, listOrders, listTopups } from "@/lib/queries";
@@ -140,7 +141,15 @@ export default async function AccountPage() {
                       className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/3 p-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-mist-100">{formatPrice(topup.amountCents)}</p>
+                        <p className="text-sm font-medium text-mist-100">
+                          {formatPrice(topup.amountCents)}
+                          {topup.method === "crypto" && (
+                            <span className="ml-1.5 text-xs text-mist-500">
+                              in {findCryptoAsset(topup.asset)?.symbol ?? "crypto"} · {formatPrice(topup.creditCents)}{" "}
+                              after fee
+                            </span>
+                          )}
+                        </p>
                         <p className="truncate text-xs text-mist-500">
                           {topup.code} · {formatDateTime(topup.createdAt)}
                         </p>

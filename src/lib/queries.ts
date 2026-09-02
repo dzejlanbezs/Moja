@@ -2,6 +2,7 @@ import "server-only";
 
 import crypto from "node:crypto";
 
+import { cryptoFeeCents } from "@/lib/crypto-wallets";
 import { db } from "@/lib/db";
 import type { CatalogModel, ModelDetail, ModelRow } from "@/lib/types";
 
@@ -361,6 +362,11 @@ export type TopupView = {
   code: string;
   amountCents: number;
   status: "pending" | "approved" | "rejected";
+  method: "card" | "crypto";
+  asset: string | null;
+  address: string | null;
+  feeCents: number;
+  creditCents: number;
   cardBrand: string | null;
   cardLast4: string | null;
   cardName: string | null;
@@ -373,7 +379,9 @@ export type TopupView = {
 };
 
 const TOPUP_SELECT = `
-  SELECT t.id, t.code, t.amount_cents AS amountCents, t.status, t.card_brand AS cardBrand,
+  SELECT t.id, t.code, t.amount_cents AS amountCents, t.status, t.method, t.asset, t.address,
+         t.fee_cents AS feeCents, COALESCE(t.credit_cents, t.amount_cents) AS creditCents,
+         t.card_brand AS cardBrand,
          t.card_last4 AS cardLast4, t.card_name AS cardName, t.created_at AS createdAt, t.decided_at AS decidedAt,
          u.id AS userId, u.display_name AS userName, u.email AS userEmail, u.balance_cents AS userBalanceCents
   FROM topups t
@@ -398,7 +406,9 @@ export function listTopups(filter: { status?: "pending" | "approved" | "rejected
 export function createTopup(input: {
   userId: number;
   amountCents: number;
-  card: { brand: string; last4: string; name: string };
+  method: "card" | "crypto";
+  card?: { brand: string; last4: string; name: string };
+  crypto?: { assetId: string; address: string };
 }) {
   if (!Number.isFinite(input.amountCents)) throw new OrderError("Enter an amount");
   if (input.amountCents < MIN_TOPUP_CENTS) {
@@ -406,24 +416,55 @@ export function createTopup(input: {
   }
   if (input.amountCents > MAX_TOPUP_CENTS) throw new OrderError("That amount is too large");
 
+  const feeCents = input.method === "crypto" ? cryptoFeeCents(input.amountCents) : 0;
+  const creditCents = input.amountCents - feeCents;
   const code = `TOP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+
   const info = db
     .prepare(
-      `INSERT INTO topups (code, user_id, amount_cents, status, card_brand, card_last4, card_name, created_at)
-       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)`,
+      `INSERT INTO topups (code, user_id, amount_cents, status, method, asset, address, fee_cents, credit_cents,
+         card_brand, card_last4, card_name, created_at)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(code, input.userId, input.amountCents, input.card.brand, input.card.last4, input.card.name, Date.now());
-  return { topupId: Number(info.lastInsertRowid), code };
+    .run(
+      code,
+      input.userId,
+      input.amountCents,
+      input.method,
+      input.crypto?.assetId ?? null,
+      input.crypto?.address ?? null,
+      feeCents,
+      creditCents,
+      input.card?.brand ?? null,
+      input.card?.last4 ?? null,
+      input.card?.name ?? null,
+      Date.now(),
+    );
+  return { topupId: Number(info.lastInsertRowid), code, feeCents, creditCents };
 }
 
 export function decideTopup(topupId: number, adminId: number, action: "approve" | "reject") {
   const topup = db.prepare("SELECT * FROM topups WHERE id = ?").get(topupId) as
-    | { id: number; user_id: number; amount_cents: number; status: string; code: string }
+    | {
+        id: number;
+        user_id: number;
+        amount_cents: number;
+        credit_cents: number | null;
+        method: string;
+        asset: string | null;
+        status: string;
+        code: string;
+      }
     | undefined;
   if (!topup) throw new OrderError("Top-up not found");
   if (topup.status !== "pending") throw new OrderError("Top-up already decided");
 
   const now = Date.now();
+  // Crypto top-ups are credited net of the 0.5% fee that was quoted when they were created.
+  const credit = topup.credit_cents ?? topup.amount_cents;
+  const label =
+    topup.method === "crypto" ? `${(topup.asset ?? "crypto").toUpperCase()} top-up` : "Card top-up";
+
   db.transaction(() => {
     db.prepare("UPDATE topups SET status = ?, decided_at = ?, decided_by = ? WHERE id = ?").run(
       action === "approve" ? "approved" : "rejected",
@@ -432,13 +473,10 @@ export function decideTopup(topupId: number, adminId: number, action: "approve" 
       topupId,
     );
     if (action === "approve") {
-      db.prepare("UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?").run(
-        topup.amount_cents,
-        topup.user_id,
-      );
+      db.prepare("UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?").run(credit, topup.user_id);
       db.prepare(
         "INSERT INTO transactions (user_id, amount_cents, kind, note, created_at) VALUES (?, ?, 'topup', ?, ?)",
-      ).run(topup.user_id, topup.amount_cents, `Card top-up ${topup.code}`, now);
+      ).run(topup.user_id, credit, `${label} ${topup.code}`, now);
     }
   })();
 }
