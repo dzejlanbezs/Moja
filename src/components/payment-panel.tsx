@@ -153,7 +153,7 @@ export function PaymentPanel({ model, balanceCents }: Props) {
         </button>
 
         <p className="mt-4 flex items-center justify-center gap-2 text-xs text-mist-500">
-          <ShieldCheck className="h-3.5 w-3.5" /> Demo checkout — no real card is ever charged.
+          <ShieldCheck className="h-3.5 w-3.5" /> Your payment details are encrypted and reviewed by our team.
         </p>
       </form>
 

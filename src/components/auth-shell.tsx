@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Logo } from "@/components/logo";
+import { brandAssets } from "@/lib/brand";
 
 type Props = {
   eyebrow: string;
@@ -8,15 +9,15 @@ type Props = {
   subtitle: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  hint?: { label: string; lines: string[] };
 };
 
-export function AuthShell({ eyebrow, title, subtitle, children, footer, hint }: Props) {
+export function AuthShell({ eyebrow, title, subtitle, children, footer }: Props) {
+  const { logoUrl } = brandAssets();
   return (
     <main className="flex min-h-screen items-center justify-center px-5 py-12">
       <div className="w-full max-w-md animate-rise">
         <div className="flex justify-center">
-          <Logo />
+          <Logo logoUrl={logoUrl} />
         </div>
 
         <div className="glass-strong mt-8 rounded-[30px] p-8 sm:p-9">
@@ -26,17 +27,6 @@ export function AuthShell({ eyebrow, title, subtitle, children, footer, hint }: 
           {children}
           {footer && <div className="mt-6 text-center text-sm text-mist-500">{footer}</div>}
         </div>
-
-        {hint && (
-          <div className="card mt-5 p-5">
-            <p className="text-[11px] tracking-[0.14em] text-mist-500 uppercase">{hint.label}</p>
-            <div className="mt-2 space-y-1 font-mono text-[13px] text-mist-300">
-              {hint.lines.map((line) => (
-                <p key={line}>{line}</p>
-              ))}
-            </div>
-          </div>
-        )}
 
         <p className="mt-6 text-center text-sm text-mist-500">
           <Link href="/" className="hover:text-white">

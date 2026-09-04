@@ -6,7 +6,8 @@ import { OrderError, requestPayment, sendGift } from "@/lib/queries";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const conversationId = Number(id);
-  const viewer = resolveChatViewer(await getSessionUser(), conversationId);
+  const sessionUser = await getSessionUser();
+  const viewer = resolveChatViewer(sessionUser, conversationId);
   if (!viewer) return fail("Conversation not found", 404);
 
   const body = (await request.json().catch(() => null)) as
@@ -24,6 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (body?.action === "gift") {
       if (viewer.role !== "user") return fail("Only members can send gifts", 403);
+      if (sessionUser?.isGuest) return fail("Create a free account to send gifts", 403);
       const messageId = sendGift({
         conversationId,
         userId: viewer.conversation.userId,

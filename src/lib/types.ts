@@ -9,6 +9,7 @@ export type UserRow = {
   balance_cents: number;
   avatar_url: string | null;
   created_at: number;
+  is_guest: number;
 };
 
 export type SessionUser = {
@@ -18,6 +19,8 @@ export type SessionUser = {
   role: Role;
   balanceCents: number;
   avatarUrl: string | null;
+  /** Guests chat with free profiles without registering; their session is the only thing tying them to it. */
+  isGuest: boolean;
 };
 
 export type ModelRow = {
@@ -87,6 +90,7 @@ export type ChatMessage = {
   senderRole: "user" | "model";
   body: string | null;
   imageUrl: string | null;
+  imageLocked?: boolean;
   kind: MessageKind;
   amountCents: number | null;
   status: string | null;

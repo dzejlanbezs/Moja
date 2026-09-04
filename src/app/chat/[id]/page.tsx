@@ -40,6 +40,7 @@ export default async function ChatThreadPage({ params }: { params: Promise<{ id:
             viewer="user"
             backHref="/chat"
             balanceCents={user.balanceCents}
+            guest={user.isGuest}
             partner={{
               name: viewer.conversation.modelName,
               avatar: viewer.conversation.modelCover,

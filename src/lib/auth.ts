@@ -11,6 +11,8 @@ import type { Role, SessionUser, UserRow } from "@/lib/types";
 
 export const SESSION_COOKIE = "aurea_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+/** Guests only exist as a cookie, so theirs lasts a year. */
+const GUEST_TTL_MS = 1000 * 60 * 60 * 24 * 365;
 
 function secret(): string {
   if (process.env.AUREA_SECRET) return process.env.AUREA_SECRET;
@@ -26,10 +28,8 @@ function sign(payload: string) {
   return crypto.createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
-function encodeToken(userId: number) {
-  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: Date.now() + SESSION_TTL_MS })).toString(
-    "base64url",
-  );
+function encodeToken(userId: number, ttlMs: number) {
+  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: Date.now() + ttlMs })).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
@@ -66,6 +66,7 @@ export function toSessionUser(row: UserRow): SessionUser {
     role: row.role,
     balanceCents: row.balance_cents,
     avatarUrl: row.avatar_url,
+    isGuest: !!row.is_guest,
   };
 }
 
@@ -77,15 +78,36 @@ export function findUserById(id: number): UserRow | undefined {
   return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
 }
 
-export async function startSession(userId: number) {
+export async function startSession(userId: number, options: { guest?: boolean } = {}) {
+  const ttl = options.guest ? GUEST_TTL_MS : SESSION_TTL_MS;
   const store = await cookies();
-  store.set(SESSION_COOKIE, encodeToken(userId), {
+  store.set(SESSION_COOKIE, encodeToken(userId, ttl), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_TTL_MS / 1000,
+    maxAge: ttl / 1000,
     secure: process.env.NODE_ENV === "production",
   });
+}
+
+/** Creates the throwaway account that backs a guest chat and signs them into it. */
+export async function startGuestSession() {
+  const suffix = crypto.randomBytes(4).toString("hex");
+  const info = db
+    .prepare(
+      `INSERT INTO users (email, password_hash, display_name, role, balance_cents, avatar_url, created_at, is_guest)
+       VALUES (?, ?, ?, 'user', 0, NULL, ?, 1)`,
+    )
+    .run(
+      `guest-${suffix}@guests.aurea`,
+      hashPassword(crypto.randomBytes(24).toString("hex")),
+      `Guest ${suffix.slice(0, 4).toUpperCase()}`,
+      Date.now(),
+    );
+
+  const userId = Number(info.lastInsertRowid);
+  await startSession(userId, { guest: true });
+  return findUserById(userId)!;
 }
 
 export async function endSession() {

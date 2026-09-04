@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Instrument_Serif } from "next/font/google";
 
+import { brandAssets } from "@/lib/brand";
+
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
@@ -11,14 +13,19 @@ const display = Instrument_Serif({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Aurea — private conversations, curated",
-    template: "%s · Aurea",
-  },
-  description:
-    "A curated catalog of companions. Browse profiles, unlock a private chat and talk directly — no noise, no bots.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { faviconUrl } = brandAssets();
+  return {
+    title: {
+      default: "Aurea — private conversations, curated",
+      template: "%s · Aurea",
+    },
+    description:
+      "A curated catalog of companions. Browse profiles, unlock a private chat and talk directly — no noise, no bots.",
+    // Drop favicon.png into public/ to replace the default icon.
+    icons: faviconUrl ? { icon: faviconUrl, apple: faviconUrl } : undefined,
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#05040a",

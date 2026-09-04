@@ -6,7 +6,8 @@ import { insertMessage, listMessages, listMoneyStatuses, markRead } from "@/lib/
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const conversationId = Number(id);
-  const viewer = resolveChatViewer(await getSessionUser(), conversationId);
+  const sessionUser = await getSessionUser();
+  const viewer = resolveChatViewer(sessionUser, conversationId);
   if (!viewer) return fail("Conversation not found", 404);
 
   const url = new URL(request.url);
@@ -14,13 +15,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const rows = listMessages(conversationId, after);
   markRead(conversationId, viewer.role);
 
+  // Photos are a members-only perk: a guest sees that one arrived, not the picture itself.
+  const locked = !!sessionUser?.isGuest;
+
   return json({
     messages: rows.map((row) => ({
       id: row.id,
       conversationId: row.conversation_id,
       senderRole: row.sender_role,
       body: row.body,
-      imageUrl: row.image_url,
+      imageUrl: locked ? null : row.image_url,
+      imageLocked: locked && !!row.image_url,
       kind: row.kind ?? "text",
       amountCents: row.amount_cents,
       status: row.status,
@@ -36,7 +41,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const conversationId = Number(id);
-  const viewer = resolveChatViewer(await getSessionUser(), conversationId);
+  const sessionUser = await getSessionUser();
+  const viewer = resolveChatViewer(sessionUser, conversationId);
   if (!viewer) return fail("Conversation not found", 404);
 
   const form = await request.formData().catch(() => null);
@@ -47,6 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let imageUrl: string | null = null;
 
   if (file instanceof File && file.size > 0) {
+    if (sessionUser?.isGuest) return fail("Create a free account to send photos", 403);
     try {
       imageUrl = await saveImageUpload(file);
     } catch (error) {

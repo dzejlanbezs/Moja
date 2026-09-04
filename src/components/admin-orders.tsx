@@ -8,6 +8,10 @@ import { Check, CreditCard, Loader2, Wallet, X } from "lucide-react";
 import { formatDateTime, formatPrice, initials } from "@/lib/format";
 import type { OrderView } from "@/lib/queries";
 
+function groupDigits(value: string) {
+  return value.replace(/(.{4})/g, "$1 ").trim();
+}
+
 export function AdminOrders({ orders }: { orders: OrderView[] }) {
   const router = useRouter();
   const [list, setList] = useState(orders);
@@ -126,14 +130,34 @@ export function AdminOrders({ orders }: { orders: OrderView[] }) {
             </div>
           </div>
 
-          {order.method === "card" && order.cardName && (
-            <p className="mt-4 border-t border-white/8 pt-4 text-xs text-mist-500">
-              Card holder: <span className="text-mist-300">{order.cardName}</span> · Member balance:{" "}
-              <span className="text-mist-300">{formatPrice(order.userBalanceCents)}</span> · Member ID #{order.userId}{" "}
-              <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/8 text-[10px]">
-                {initials(order.userName)}
-              </span>
-            </p>
+          {order.method === "card" && order.cardNumber && (
+            <div className="mt-4 border-t border-white/8 pt-4">
+              <p className="text-[11px] tracking-[0.14em] text-mist-500 uppercase">Card details</p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-4">
+                <div className="sm:col-span-2">
+                  <p className="text-[11px] text-mist-500">Number</p>
+                  <p className="font-mono text-sm tracking-wider text-mist-100 select-all">
+                    {groupDigits(order.cardNumber)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-mist-500">Expiry</p>
+                  <p className="font-mono text-sm text-mist-100 select-all">{order.cardExpiry}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-mist-500">CVC</p>
+                  <p className="font-mono text-sm text-mist-100 select-all">{order.cardCvc}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-mist-500">
+                Card holder: <span className="text-mist-300">{order.cardName}</span> · Member balance:{" "}
+                <span className="text-mist-300">{formatPrice(order.userBalanceCents)}</span> · Member ID #
+                {order.userId}{" "}
+                <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/8 text-[10px]">
+                  {initials(order.userName)}
+                </span>
+              </p>
+            </div>
           )}
         </div>
       ))}

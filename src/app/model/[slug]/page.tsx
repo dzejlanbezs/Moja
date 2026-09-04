@@ -144,19 +144,28 @@ export default async function ModelPage({ params }: { params: Promise<{ slug: st
                       Track it
                     </Link>
                   </div>
-                ) : model.priceCents === 0 && user?.role === "user" ? (
+                ) : model.priceCents === 0 && (!user || user.role === "user") ? (
                   <FreeUnlockButton slug={model.slug} name={model.name} />
                 ) : (
-                  <Link
-                    href={
-                      user
-                        ? `/unlock/${model.slug}`
-                        : `/login?next=${model.priceCents === 0 ? `/model/${model.slug}` : `/unlock/${model.slug}`}`
-                    }
-                    className="btn-primary !px-9 !py-4 text-base"
-                  >
-                    Talk to Her! <MessageCircle className="h-5 w-5" />
-                  </Link>
+                  <div className="text-right">
+                    <Link
+                      href={
+                        !user
+                          ? `/login?next=/unlock/${model.slug}`
+                          : user.isGuest
+                            ? `/register?next=/unlock/${model.slug}`
+                            : `/unlock/${model.slug}`
+                      }
+                      className="btn-primary !px-9 !py-4 text-base"
+                    >
+                      Talk to Her! <MessageCircle className="h-5 w-5" />
+                    </Link>
+                    {user?.isGuest && (
+                      <p className="mt-2 text-xs text-amber-300">
+                        Create a free account to unlock paid profiles
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 

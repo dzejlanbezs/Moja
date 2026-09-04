@@ -34,7 +34,6 @@ export default async function LoginPage({
           </Link>
         </>
       }
-      hint={{ label: "Demo member", lines: ["demo@aurea.chat", "demo1234"] }}
     >
       <AuthForm mode="login" portal="member" next={next} submitLabel="Sign in" />
     </AuthShell>

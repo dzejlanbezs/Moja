@@ -11,7 +11,7 @@ import type { SessionUser } from "@/lib/types";
 
 type NavItem = { href: string; label: string; badge?: number };
 
-export function HeaderBar({ user }: { user: SessionUser | null }) {
+export function HeaderBar({ user, logoUrl }: { user: SessionUser | null; logoUrl?: string | null }) {
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [pending, setPending] = useState(0);
@@ -43,11 +43,12 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
     };
   }, [user]);
 
+  const guest = !!user?.isGuest;
   const items: NavItem[] = [{ href: "/", label: "Catalog" }];
   if (!user || user.role === "user") items.push({ href: "/#how", label: "How it works" });
   if (user?.role === "user") {
     items.push({ href: "/chat", label: "Chat", badge: unread });
-    items.push({ href: "/account", label: "Account" });
+    if (!guest) items.push({ href: "/account", label: "Account" });
   }
   if (user?.role === "model") items.push({ href: "/portal", label: "Inbox", badge: unread });
   if (user?.role === "admin") items.push({ href: "/admin", label: "Payments", badge: pending });
@@ -61,7 +62,7 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
   return (
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-5">
       <div className="glass-strong mx-auto flex max-w-7xl items-center gap-3 rounded-[26px] px-4 py-3 sm:px-6">
-        <Logo />
+        <Logo logoUrl={logoUrl} />
 
         <nav className="ml-6 hidden items-center gap-1 md:flex">
           {items.map((item) => (
@@ -83,7 +84,7 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {user?.role === "user" && (
+          {user?.role === "user" && !guest && (
             <div className="hidden items-center rounded-full border border-white/10 bg-white/5 pr-1 pl-3.5 sm:flex">
               <Link href="/account" className="flex items-center gap-2 py-2 text-sm text-mist-100 hover:text-white">
                 <Wallet className="h-4 w-4 text-blush-400" />
@@ -98,7 +99,16 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
             </div>
           )}
 
-          {user ? (
+          {guest ? (
+            <div className="flex items-center gap-2">
+              <Link href="/login" className="btn-ghost hidden !px-4 sm:inline-flex">
+                Sign in
+              </Link>
+              <Link href="/register" className="btn-primary !px-5">
+                Create free account
+              </Link>
+            </div>
+          ) : user ? (
             <div className="flex items-center gap-2">
               <div className="hidden items-center gap-2.5 rounded-full border border-white/10 bg-white/5 py-1.5 pr-4 pl-1.5 sm:flex">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blush-500 to-violet-500 text-xs font-semibold text-white">
@@ -154,7 +164,7 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
                 )}
               </Link>
             ))}
-            {user?.role === "user" && (
+            {user?.role === "user" && !guest && (
               <div className="mt-1 flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3 text-sm">
                 <span className="flex items-center gap-2 text-mist-300">
                   <Wallet className="h-4 w-4 text-blush-400" /> Balance
@@ -171,7 +181,7 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
                 </span>
               </div>
             )}
-            {!user && (
+            {(!user || guest) && (
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Link href="/login" className="btn-ghost">
                   Sign in
@@ -181,7 +191,7 @@ export function HeaderBar({ user }: { user: SessionUser | null }) {
                 </Link>
               </div>
             )}
-            {user?.role === "user" && (
+            {user?.role === "user" && !guest && (
               <Link href="/chat" className="btn-primary mt-2">
                 <MessageCircle className="h-4 w-4" /> Open chat
               </Link>

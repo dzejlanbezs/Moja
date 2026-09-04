@@ -20,7 +20,6 @@ export default async function AdminLoginPage() {
         </>
       }
       subtitle="Approve incoming payments, manage balances and keep an eye on the platform."
-      hint={{ label: "Demo admin", lines: ["admin@aurea.chat", "Admin1234!"] }}
     >
       <AuthForm mode="login" portal="admin" next="/admin" submitLabel="Enter admin panel" />
     </AuthShell>

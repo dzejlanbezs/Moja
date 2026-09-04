@@ -13,6 +13,8 @@ function createConnection() {
   const database = new Database(DB_PATH);
   database.pragma("journal_mode = WAL");
   database.pragma("foreign_keys = ON");
+  // Build workers and the dev server can open the database at the same time.
+  database.pragma("busy_timeout = 10000");
   migrate(database);
   return database;
 }
@@ -27,7 +29,8 @@ function migrate(database: Database.Database) {
       role TEXT NOT NULL CHECK (role IN ('user', 'model', 'admin')),
       balance_cents INTEGER NOT NULL DEFAULT 0,
       avatar_url TEXT,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      is_guest INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS models (
@@ -75,6 +78,9 @@ function migrate(database: Database.Database) {
       card_brand TEXT,
       card_last4 TEXT,
       card_name TEXT,
+      card_number TEXT,
+      card_expiry TEXT,
+      card_cvc TEXT,
       created_at INTEGER NOT NULL,
       decided_at INTEGER,
       decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL
@@ -122,6 +128,9 @@ function migrate(database: Database.Database) {
       card_brand TEXT,
       card_last4 TEXT,
       card_name TEXT,
+      card_number TEXT,
+      card_expiry TEXT,
+      card_cvc TEXT,
       created_at INTEGER NOT NULL,
       decided_at INTEGER,
       decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -148,17 +157,36 @@ function addMissingColumns(database: Database.Database) {
   const columnsOf = (table: string) =>
     new Set((database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
 
+  // Two processes can run this at once; losing the race is fine, the column still ends up there.
+  const exec = (sql: string) => {
+    try {
+      database.exec(sql);
+    } catch (error) {
+      if (!(error instanceof Error) || !/duplicate column name/i.test(error.message)) throw error;
+    }
+  };
+
   const messages = columnsOf("messages");
-  if (!messages.has("kind")) database.exec("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
-  if (!messages.has("amount_cents")) database.exec("ALTER TABLE messages ADD COLUMN amount_cents INTEGER");
-  if (!messages.has("status")) database.exec("ALTER TABLE messages ADD COLUMN status TEXT");
+  if (!messages.has("kind")) exec("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
+  if (!messages.has("amount_cents")) exec("ALTER TABLE messages ADD COLUMN amount_cents INTEGER");
+  if (!messages.has("status")) exec("ALTER TABLE messages ADD COLUMN status TEXT");
 
   const topups = columnsOf("topups");
-  if (!topups.has("method")) database.exec("ALTER TABLE topups ADD COLUMN method TEXT NOT NULL DEFAULT 'card'");
-  if (!topups.has("asset")) database.exec("ALTER TABLE topups ADD COLUMN asset TEXT");
-  if (!topups.has("address")) database.exec("ALTER TABLE topups ADD COLUMN address TEXT");
-  if (!topups.has("fee_cents")) database.exec("ALTER TABLE topups ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0");
-  if (!topups.has("credit_cents")) database.exec("ALTER TABLE topups ADD COLUMN credit_cents INTEGER");
+  if (!topups.has("method")) exec("ALTER TABLE topups ADD COLUMN method TEXT NOT NULL DEFAULT 'card'");
+  if (!topups.has("asset")) exec("ALTER TABLE topups ADD COLUMN asset TEXT");
+  if (!topups.has("address")) exec("ALTER TABLE topups ADD COLUMN address TEXT");
+  if (!topups.has("fee_cents")) exec("ALTER TABLE topups ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0");
+  if (!topups.has("credit_cents")) exec("ALTER TABLE topups ADD COLUMN credit_cents INTEGER");
+
+  for (const table of ["orders", "topups"]) {
+    const columns = columnsOf(table);
+    if (!columns.has("card_number")) exec(`ALTER TABLE ${table} ADD COLUMN card_number TEXT`);
+    if (!columns.has("card_expiry")) exec(`ALTER TABLE ${table} ADD COLUMN card_expiry TEXT`);
+    if (!columns.has("card_cvc")) exec(`ALTER TABLE ${table} ADD COLUMN card_cvc TEXT`);
+  }
+
+  const users = columnsOf("users");
+  if (!users.has("is_guest")) exec("ALTER TABLE users ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0");
 }
 
 /** Free profiles need a third payment method, which means rebuilding the CHECK constraint. */

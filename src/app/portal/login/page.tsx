@@ -20,7 +20,6 @@ export default async function PortalLoginPage() {
         </>
       }
       subtitle="Sign in to answer the members who unlocked a chat with you."
-      hint={{ label: "Demo talent", lines: ["sofia@aurea.chat", "model1234"] }}
     >
       <AuthForm mode="login" portal="model" next="/portal" submitLabel="Open my inbox" />
     </AuthShell>

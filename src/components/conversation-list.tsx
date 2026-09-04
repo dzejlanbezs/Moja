@@ -14,6 +14,7 @@ export type ConversationItem = {
   modelCover: string | null;
   modelOnline: number;
   userName: string;
+  userIsGuest: number;
   lastMessageAt: number;
   lastBody: string | null;
   lastImage: string | null;
@@ -109,7 +110,14 @@ export function ConversationList({ initial, viewer, activeId, basePath }: Props)
 
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2">
-                <span className="truncate font-medium text-mist-100">{title}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate font-medium text-mist-100">{title}</span>
+                  {viewer === "model" && !!item.userIsGuest && (
+                    <span className="shrink-0 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                      guest
+                    </span>
+                  )}
+                </span>
                 <span className="shrink-0 text-[11px] text-mist-500">{relativeTime(item.lastMessageAt)}</span>
               </span>
               <span className="mt-0.5 flex items-center gap-2">

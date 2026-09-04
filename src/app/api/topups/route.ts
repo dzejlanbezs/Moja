@@ -1,6 +1,6 @@
 import { fail, json } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
-import { validateCard } from "@/lib/cards";
+import { validateCard, type ValidatedCard } from "@/lib/cards";
 import { findCryptoAsset } from "@/lib/crypto-wallets";
 import { MIN_TOPUP_CENTS, OrderError, createTopup } from "@/lib/queries";
 
@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return fail("Please sign in first", 401);
   if (user.role !== "user") return fail("Only member accounts have a balance", 403);
+  if (user.isGuest) return fail("Create a free account to use a balance", 403);
 
   const body = (await request.json().catch(() => null)) as
     | {
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   if (amount < MIN_TOPUP_CENTS) return fail(`The minimum top-up is $${MIN_TOPUP_CENTS / 100}`);
 
   const method = body?.method === "crypto" ? "crypto" : "card";
-  let card: { brand: string; last4: string; name: string } | undefined;
+  let card: ValidatedCard | undefined;
   let crypto: { assetId: string; address: string } | undefined;
 
   if (method === "crypto") {

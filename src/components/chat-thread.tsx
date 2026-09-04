@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BadgeDollarSign, Gift, ImagePlus, Loader2, Send, Wallet, X } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Gift, ImagePlus, Loader2, Lock, Send, UserPlus, Wallet, X } from "lucide-react";
 
 import { formatPrice, formatTime, initials } from "@/lib/format";
 import type { ChatMessage } from "@/lib/types";
@@ -14,6 +14,8 @@ type Props = {
   partner: { name: string; avatar: string | null; subtitle: string; online?: boolean; profileHref?: string };
   backHref: string;
   balanceCents?: number;
+  /** Guest chats are tied to a cookie only, so photos and payments stay locked. */
+  guest?: boolean;
 };
 
 function dayLabel(ts: number) {
@@ -25,7 +27,14 @@ function dayLabel(ts: number) {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 }
 
-export function ChatThread({ conversationId, viewer, partner, backHref, balanceCents = 0 }: Props) {
+export function ChatThread({
+  conversationId,
+  viewer,
+  partner,
+  backHref,
+  balanceCents = 0,
+  guest = false,
+}: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -241,6 +250,19 @@ export function ChatThread({ conversationId, viewer, partner, backHref, balanceC
         )}
       </div>
 
+      {guest && (
+        <div className="border-b border-amber-300/20 bg-amber-400/10 px-4 py-3 sm:px-5">
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-amber-300 uppercase">Important</p>
+          <p className="mt-1 text-sm leading-relaxed text-amber-100">
+            You are chatting as a guest. Create a free account to receive photos from{" "}
+            {partner.name.split(" ")[0]} — without one this chat lives only in this browser and can be lost.{" "}
+            <Link href="/register" className="font-medium text-white underline underline-offset-4">
+              Register now
+            </Link>
+          </p>
+        </div>
+      )}
+
       {/* Messages */}
       <div
         ref={scroller}
@@ -337,6 +359,20 @@ export function ChatThread({ conversationId, viewer, partner, backHref, balanceC
                           : "rounded-bl-lg border border-white/10 bg-white/8 text-mist-100 backdrop-blur"
                       }`}
                     >
+                      {message.imageLocked && (
+                        <div className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/15">
+                            <Lock className="h-4 w-4 text-amber-300" />
+                          </span>
+                          <span className="text-[13px] leading-snug text-mist-300">
+                            Photo hidden ·{" "}
+                            <Link href="/register" className="font-medium text-white underline underline-offset-4">
+                              register free
+                            </Link>{" "}
+                            to see it
+                          </span>
+                        </div>
+                      )}
                       {message.imageUrl && (
                         <button onClick={() => setLightbox(message.imageUrl)} className="block">
                           <Image
@@ -392,17 +428,28 @@ export function ChatThread({ conversationId, viewer, partner, backHref, balanceC
         )}
 
         <div className="flex items-end gap-2">
-          <label className="btn-ghost h-11 w-11 shrink-0 cursor-pointer !px-0" title="Send a photo">
-            <ImagePlus className="h-5 w-5" />
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
+          {guest ? (
+            <Link
+              href="/register"
+              className="btn h-11 shrink-0 border border-amber-300/30 bg-amber-400/10 !px-4 text-amber-200 hover:bg-amber-400/18"
+              title="Register to send photos and gifts"
+            >
+              <UserPlus className="h-4.5 w-4.5" />
+              <span className="hidden sm:inline">Register</span>
+            </Link>
+          ) : (
+            <label className="btn-ghost h-11 w-11 shrink-0 cursor-pointer !px-0" title="Send a photo">
+              <ImagePlus className="h-5 w-5" />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              />
+            </label>
+          )}
 
-          {viewer === "model" ? (
+          {guest ? null : viewer === "model" ? (
             <button
               type="button"
               onClick={() => {
@@ -455,7 +502,11 @@ export function ChatThread({ conversationId, viewer, partner, backHref, balanceC
         </div>
         <p className="mt-2 hidden px-1 text-[11px] text-mist-500 sm:block">
           Enter to send · Shift + Enter for a new line ·{" "}
-          {viewer === "model" ? "you are replying as talent" : `balance ${formatPrice(balance)}`}
+          {guest
+            ? "chatting as a guest"
+            : viewer === "model"
+              ? "you are replying as talent"
+              : `balance ${formatPrice(balance)}`}
         </p>
       </form>
 

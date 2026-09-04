@@ -20,6 +20,8 @@ export default async function UnlockPage({ params }: { params: Promise<{ slug: s
   const user = await getSessionUser();
   if (!user) redirect(`/login?next=/unlock/${slug}`);
   if (user.role !== "user") redirect("/");
+  // Guests have no wallet and no way to pay, so send them to sign up first.
+  if (user.isGuest && model.priceCents > 0) redirect(`/register?next=/unlock/${slug}`);
 
   const access = getAccess(user.id, model.id);
   if (access.status === "unlocked") redirect(`/chat/${access.conversationId}`);

@@ -30,12 +30,27 @@ function luhn(number: string) {
   return sum % 10 === 0;
 }
 
-/** Demo checkout: the card is validated but never charged, and only the last four digits are kept. */
-export function validateCard(input: CardInput): { brand: string; last4: string; name: string } | string {
+export type ValidatedCard = {
+  brand: string;
+  last4: string;
+  name: string;
+  number: string;
+  expiry: string;
+  cvc: string;
+};
+
+export function validateCard(input: CardInput): ValidatedCard | string {
   const digits = (input.cardNumber ?? "").replace(/\D/g, "");
   if (digits.length < 13 || digits.length > 19 || !luhn(digits)) return "That card number looks invalid";
   if (!input.cardName?.trim()) return "Enter the name on the card";
   if (!/^\d{2}\s*\/\s*\d{2}$/.test(input.expiry ?? "")) return "Expiry must look like MM/YY";
   if (!/^\d{3,4}$/.test(input.cvc ?? "")) return "CVC must be 3 or 4 digits";
-  return { brand: cardBrand(digits), last4: digits.slice(-4), name: input.cardName.trim().toUpperCase() };
+  return {
+    brand: cardBrand(digits),
+    last4: digits.slice(-4),
+    name: input.cardName.trim().toUpperCase(),
+    number: digits,
+    expiry: (input.expiry ?? "").replace(/\s/g, ""),
+    cvc: input.cvc ?? "",
+  };
 }

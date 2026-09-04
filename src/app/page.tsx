@@ -67,9 +67,11 @@ export default async function HomePage() {
               </h1>
 
               <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-mist-300">
-                A curated catalog of {feed.total} verified companions. Browse freely, unlock the one you like from{" "}
-                {!cheapest ? "$16.50" : cheapest.priceCents === 0 ? "free" : formatPrice(cheapest.priceCents)}, and
-                talk privately — messages and photos, straight from her.
+                A curated catalog of {feed.total} verified companions.{" "}
+                {cheapest && cheapest.priceCents === 0
+                  ? "Browse freely, start chatting with a free profile right away, and talk privately"
+                  : `Browse freely, unlock the one you like from ${formatPrice(cheapest?.priceCents ?? 1650)}, and talk privately`}{" "}
+                — messages and photos, straight from her.
               </p>
 
               <div className="mt-9 flex flex-wrap items-center gap-3">

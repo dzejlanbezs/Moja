@@ -44,7 +44,9 @@ export default async function PortalThreadPage({ params }: { params: Promise<{ i
             partner={{
               name: viewer.conversation.userName,
               avatar: null,
-              subtitle: `Member · ${viewer.conversation.userEmail}`,
+              subtitle: viewer.conversation.userIsGuest
+                ? "Guest · not registered yet"
+                : `Member · ${viewer.conversation.userEmail}`,
             }}
           />
         </div>

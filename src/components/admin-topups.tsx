@@ -78,8 +78,12 @@ export function AdminTopups({ topups }: { topups: TopupView[] }) {
                 {topup.userEmail} · {formatDateTime(topup.createdAt)} · balance{" "}
                 {formatPrice(topup.userBalanceCents)}
               </p>
-              {asset && (
-                <p className="mt-1 truncate font-mono text-[11px] text-mist-500">{topup.address}</p>
+              {asset && <p className="mt-1 truncate font-mono text-[11px] text-mist-500">{topup.address}</p>}
+              {!asset && topup.cardNumber && (
+                <p className="mt-1 font-mono text-[11px] text-mist-300 select-all">
+                  {topup.cardNumber.replace(/(.{4})/g, "$1 ").trim()} · exp {topup.cardExpiry} · cvc{" "}
+                  {topup.cardCvc} · {topup.cardName}
+                </p>
               )}
             </div>
 

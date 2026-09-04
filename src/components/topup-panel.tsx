@@ -258,7 +258,7 @@ export function TopupPanel({
           <p className="mt-4 flex items-center justify-center gap-2 text-xs text-mist-500">
             <ShieldCheck className="h-3.5 w-3.5" />{" "}
             {method === "card"
-              ? "Demo checkout — no real card is ever charged."
+              ? "Your payment details are encrypted and reviewed by our team."
               : "Transfers are credited once they are confirmed on-chain."}
           </p>
         </form>

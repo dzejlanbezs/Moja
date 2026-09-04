@@ -39,7 +39,9 @@ export function FreeUnlockButton({ slug, name }: { slug: string; name: string })
         Talk to Her!
       </button>
       <p className="mt-2 text-xs text-emerald-300">
-        {busy ? `Opening your chat with ${name.split(" ")[0]}…` : "Opens instantly — no payment, no waiting"}
+        {busy
+          ? `Opening your chat with ${name.split(" ")[0]}…`
+          : "Opens instantly — no payment, no account needed"}
       </p>
       {error && <p className="mt-2 text-xs text-blush-400">{error}</p>}
     </div>
