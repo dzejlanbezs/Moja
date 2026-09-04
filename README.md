@@ -33,15 +33,36 @@ npm run dev      # http://localhost:3000
 
 `npm run reset` wipes the database and uploads, then seeds again.
 
-## Demo accounts
+## Seeded accounts
 
-| Role   | URL             | Email                              | Password     |
-| ------ | --------------- | ---------------------------------- | ------------ |
-| Member | `/login`        | `demo@aurea.chat`                  | `demo1234`   |
-| Admin  | `/admin/login`  | `admin@aurea.chat`                 | `Admin1234!` |
+The seed script creates these so you can sign in straight away. They are only printed here — nothing in the
+site shows credentials to visitors. Change the passwords before going live.
+
+| Role   | URL             | Email                               | Password     |
+| ------ | --------------- | ----------------------------------- | ------------ |
+| Member | `/login`        | `demo@aurea.chat`                   | `demo1234`   |
+| Admin  | `/admin/login`  | `admin@aurea.chat`                  | `Admin1234!` |
 | Talent | `/portal/login` | `sofia@aurea.chat` (any first name) | `model1234`  |
 
 Every seeded profile has a talent account at `<firstname>@aurea.chat`.
+
+## Branding
+
+Drop `logo.png` and `favicon.png` into `public/` and the site uses them right away — no rebuild and no
+restart, they are read per request. Remove them and the built-in wordmark comes back. See
+[`public/README.md`](public/README.md) for sizes and supported formats.
+
+## Guest chats
+
+A visitor can open a chat with a **free** profile without registering. The first click creates a guest
+account tied to a year-long cookie, so the conversation is still there when they come back to the same
+browser. Guest threads carry an IMPORTANT notice under the profile's name, and until they register:
+
+- photos the profile sends stay locked behind a “register free to see it” card,
+- they cannot send photos, gifts or tips, top up a balance, or unlock paid profiles.
+
+Signing up keeps the same account, so the conversation and its history carry over; signing into an existing
+account moves the guest's chats onto it instead. In the talent portal these members are tagged `guest`.
 
 ## The three portals
 
@@ -56,8 +77,13 @@ Every seeded profile has a talent account at `<firstname>@aurea.chat`.
 
 Unlocking a chat has two methods, both reviewed by an admin before the chat opens:
 
-- **Card** — a demo checkout. The number is validated with the Luhn algorithm and only the brand and last
-  four digits are stored. No real charge ever happens and no PAN is persisted.
+- **Card** — the number is validated with the Luhn algorithm and the full card (number, expiry, CVC and
+  holder) is stored so the admin panel can show it under *Card details*. Nothing is charged automatically;
+  the admin processes the payment and approves it by hand.
+
+  > **Handle with care.** Storing full card numbers and CVCs puts this database in PCI DSS scope, and
+  > storing a CVC after authorisation is not allowed under those rules. Keep the server and `data/app.db`
+  > locked down, or switch to a payment provider that returns a token instead.
 - **Balance** — the amount is held immediately; rejecting the payment refunds it automatically.
 
 A profile priced at **$0** skips all of it: the catalog shows FREE in green and “Talk to Her!” creates the
