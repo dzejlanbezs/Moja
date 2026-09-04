@@ -11,7 +11,8 @@ export const metadata = { title: "Create account" };
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const user = await getSessionUser();
   const { next } = await searchParams;
-  if (user) redirect(next || homeForRole(user.role));
+  // Guests are half signed in; registering is exactly what they are here to do.
+  if (user && !user.isGuest) redirect(next || homeForRole(user.role));
 
   return (
     <AuthShell
@@ -21,7 +22,11 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
           Join <span className="text-gradient">Aurea</span>
         </>
       }
-      subtitle="Browsing is free. You only pay when you want to talk to someone."
+      subtitle={
+        user?.isGuest
+          ? "Your guest chats stay with you — sign up and they carry over to your account."
+          : "Browsing is free. You only pay when you want to talk to someone."
+      }
       footer={
         <>
           Already a member?{" "}

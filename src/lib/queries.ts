@@ -745,6 +745,39 @@ export function sendGift(input: {
   })();
 }
 
+/** Moves a guest's chats onto a real account when they sign in, then retires the guest row. */
+export function mergeGuestInto(guestId: number, targetId: number) {
+  db.transaction(() => {
+    const conversations = db
+      .prepare("SELECT id, model_id FROM conversations WHERE user_id = ?")
+      .all(guestId) as { id: number; model_id: number }[];
+
+    for (const conversation of conversations) {
+      const existing = db
+        .prepare("SELECT id FROM conversations WHERE user_id = ? AND model_id = ?")
+        .get(targetId, conversation.model_id) as { id: number } | undefined;
+
+      if (existing) {
+        db.prepare("UPDATE messages SET conversation_id = ? WHERE conversation_id = ?").run(
+          existing.id,
+          conversation.id,
+        );
+        db.prepare(
+          `UPDATE conversations SET last_message_at =
+             COALESCE((SELECT MAX(created_at) FROM messages WHERE conversation_id = ?), last_message_at)
+           WHERE id = ?`,
+        ).run(existing.id, existing.id);
+        db.prepare("DELETE FROM conversations WHERE id = ?").run(conversation.id);
+      } else {
+        db.prepare("UPDATE conversations SET user_id = ? WHERE id = ?").run(targetId, conversation.id);
+      }
+    }
+
+    db.prepare("UPDATE orders SET user_id = ? WHERE user_id = ?").run(targetId, guestId);
+    db.prepare("DELETE FROM users WHERE id = ? AND is_guest = 1").run(guestId);
+  })();
+}
+
 /* --------------------------------- admin tools -------------------------------- */
 
 export function setModelPrice(modelId: number, priceCents: number) {

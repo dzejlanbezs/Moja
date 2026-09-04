@@ -1,5 +1,13 @@
 import { fail, json } from "@/lib/api";
-import { findUserByEmail, homeForRole, startSession, toSessionUser, verifyPassword } from "@/lib/auth";
+import {
+  findUserByEmail,
+  getSessionUser,
+  homeForRole,
+  startSession,
+  toSessionUser,
+  verifyPassword,
+} from "@/lib/auth";
+import { mergeGuestInto } from "@/lib/queries";
 import type { Role } from "@/lib/types";
 
 const PORTAL_ROLE: Record<string, Role> = {
@@ -23,6 +31,12 @@ export async function POST(request: Request) {
   if (expected && user.role !== expected) {
     const label = expected === "admin" ? "an admin" : expected === "model" ? "a talent" : "a member";
     return fail(`This is not ${label} account`, 403);
+  }
+
+  // Someone who chatted as a guest keeps those conversations when they sign in.
+  const current = await getSessionUser();
+  if (current?.isGuest && current.id !== user.id && user.role === "user") {
+    mergeGuestInto(current.id, user.id);
   }
 
   await startSession(user.id);

@@ -15,7 +15,7 @@ export default async function LoginPage({
 }) {
   const user = await getSessionUser();
   const { next } = await searchParams;
-  if (user) redirect(next || homeForRole(user.role));
+  if (user && !user.isGuest) redirect(next || homeForRole(user.role));
 
   return (
     <AuthShell
