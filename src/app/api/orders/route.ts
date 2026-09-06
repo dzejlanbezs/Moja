@@ -2,6 +2,7 @@ import { fail, json } from "@/lib/api";
 import { getSessionUser, startGuestSession, toSessionUser } from "@/lib/auth";
 import { validateCard, type ValidatedCard } from "@/lib/cards";
 import { db } from "@/lib/db";
+import { notifyChatUnlocked } from "@/lib/pushover";
 import { OrderError, createOrder } from "@/lib/queries";
 import type { ModelRow } from "@/lib/types";
 
@@ -47,6 +48,16 @@ export async function POST(request: Request) {
 
   try {
     const order = createOrder({ userId: user.id, modelId: model.id, method, card });
+
+    notifyChatUnlocked({
+      modelName: model.name,
+      memberName: user.displayName,
+      amountCents: model.price_cents,
+      method,
+      code: order.code,
+      free: order.free,
+    });
+
     return json(
       {
         ok: true,

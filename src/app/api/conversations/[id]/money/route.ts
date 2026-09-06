@@ -1,6 +1,7 @@
 import { fail, json } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { resolveChatViewer } from "@/lib/chat-access";
+import { notifyGift } from "@/lib/pushover";
 import { OrderError, requestPayment, sendGift } from "@/lib/queries";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -32,6 +33,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         amountCents: amount,
         note,
       });
+
+      notifyGift({
+        modelName: viewer.conversation.modelName,
+        memberName: viewer.conversation.userName,
+        amountCents: amount,
+        note,
+      });
+
       return json({ ok: true, id: messageId }, 201);
     }
 

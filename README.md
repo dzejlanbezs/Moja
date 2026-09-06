@@ -46,6 +46,32 @@ site shows credentials to visitors. Change the passwords before going live.
 
 Every seeded profile has a talent account at `<firstname>@aurea.chat`.
 
+## Push notifications
+
+Copy `.env.example` to `.env.local`, paste your [Pushover](https://pushover.net) keys and restart the
+server:
+
+```
+PUSHOVER_TOKEN=your-application-token
+PUSHOVER_USER=your-user-key
+SITE_URL=https://your-domain.com   # optional, makes each notification link to /admin
+```
+
+You then get a push for every event that needs you:
+
+| Event                        | Example                                                        |
+| ---------------------------- | -------------------------------------------------------------- |
+| Chat unlocked (paid)         | **Sofia needs to talk** — Alex Morgan paid $24.00 by card · AUR-… |
+| Chat unlocked (free profile) | **Mei needs to talk** — Guest 4F21 opened her free chat.        |
+| Balance top-up               | **Top-up · $100** — Alex Morgan sent $100.00 via BTC · TOP-…    |
+| Gift in a chat               | **Sofia got a gift** — Alex Morgan sent $25.00 — “…”            |
+| Tip request paid             | **Sofia got a tip** — Alex Morgan paid her $40.00 request.      |
+| New registration             | **New member** — Push Tester (push@test.com) just signed up.    |
+
+Without the keys the calls are silent no-ops, so the site runs exactly as before. Notifications are sent
+fire-and-forget: a Pushover outage can never block a payment or a chat. Every message is built in
+`src/lib/pushover.ts` — delete a `notify…` call in the matching route to switch that event off.
+
 ## Branding
 
 Drop `logo.png` and `favicon.png` into `public/` and the site uses them right away — no rebuild and no

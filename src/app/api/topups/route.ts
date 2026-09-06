@@ -2,6 +2,7 @@ import { fail, json } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { validateCard, type ValidatedCard } from "@/lib/cards";
 import { findCryptoAsset } from "@/lib/crypto-wallets";
+import { notifyTopup } from "@/lib/pushover";
 import { MIN_TOPUP_CENTS, OrderError, createTopup } from "@/lib/queries";
 
 export async function POST(request: Request) {
@@ -42,6 +43,15 @@ export async function POST(request: Request) {
 
   try {
     const topup = createTopup({ userId: user.id, amountCents: amount, method, card, crypto });
+
+    notifyTopup({
+      memberName: user.displayName,
+      amountCents: amount,
+      creditCents: topup.creditCents,
+      code: topup.code,
+      source: crypto ? crypto.assetId.toUpperCase() : `${card?.brand} ••${card?.last4}`,
+    });
+
     return json(
       {
         ok: true,

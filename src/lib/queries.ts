@@ -718,7 +718,15 @@ export function payRequest(messageId: number, userId: number) {
     db.prepare("UPDATE messages SET status = 'paid' WHERE id = ?").run(messageId);
   })();
 
-  return message.amount_cents;
+  const member = db.prepare("SELECT display_name FROM users WHERE id = ?").get(userId) as
+    | { display_name: string }
+    | undefined;
+
+  return {
+    amountCents: message.amount_cents,
+    modelName: parties.model_name,
+    memberName: member?.display_name ?? "A member",
+  };
 }
 
 /** The member sends money on their own, with an optional note. */

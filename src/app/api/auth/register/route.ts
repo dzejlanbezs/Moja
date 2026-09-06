@@ -1,6 +1,7 @@
 import { fail, json } from "@/lib/api";
 import { findUserByEmail, getSessionUser, hashPassword, startSession, toSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notifyNewMember } from "@/lib/pushover";
 import type { UserRow } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     ).run(email, hashPassword(password), name, current.id);
     const upgraded = db.prepare("SELECT * FROM users WHERE id = ?").get(current.id) as UserRow;
     await startSession(upgraded.id);
+    notifyNewMember({ name, email, fromGuest: true });
     return json({ user: toSessionUser(upgraded), redirect: "/chat" }, 201);
   }
 
@@ -37,5 +39,6 @@ export async function POST(request: Request) {
 
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(Number(info.lastInsertRowid)) as UserRow;
   await startSession(user.id);
+  notifyNewMember({ name, email, fromGuest: false });
   return json({ user: toSessionUser(user), redirect: "/" }, 201);
 }
