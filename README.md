@@ -46,6 +46,41 @@ site shows credentials to visitors. Change the passwords before going live.
 
 Every seeded profile has a talent account at `<firstname>@aurea.chat`.
 
+## Hosting it on Hostinger (or any Node host)
+
+The app starts from `server.js`, which is the file hosting panels ask for. `npm start` runs it too.
+
+1. In hPanel open **Website → Node.js** and create an app: Node version **20 or newer**, application root = the
+   folder you uploaded the project to, startup file = `server.js`.
+2. Upload the project (git clone or File Manager) — everything except `node_modules`, `.next` and `data`.
+3. Run once, from the panel's terminal or its "Run npm install" button:
+
+   ```bash
+   npm install      # better-sqlite3 and sharp compile here, so it must run on the server
+   npm run seed     # creates data/app.db and the profile artwork
+   npm run build
+   ```
+
+4. Add your environment variables in the Node.js app settings (`PUSHOVER_TOKEN`, `PUSHOVER_USER`,
+   `SITE_URL`), or upload a `.env.local` file.
+5. Start the app. The host passes its own `PORT`; `server.js` picks it up automatically.
+
+Keep the `data/` folder writable and never delete it — it holds the SQLite database and every uploaded photo.
+After changing code, run `npm run build` again and restart the app.
+
+## Speed
+
+The site is tuned to stay fast on shared hosting:
+
+- Profile artwork and uploads are already resized webp, so `images.unoptimized` serves them straight from
+  disk. The landing page went from 76 on-demand image transforms (~100 ms of CPU each on the first visit) to
+  zero, and an image now answers in ~3 ms instead of ~106 ms.
+- `staleTimes` keeps visited pages in the client router for 30 seconds, so going back is instant instead of
+  a new round trip.
+- Every section has a skeleton screen (`loading.tsx`), so a navigation shows the page shape immediately
+  instead of appearing frozen while the server renders.
+- The page gradient sits on one fixed layer, so scrolling never repaints it.
+
 ## Push notifications
 
 Copy `.env.example` to `.env.local`, paste your [Pushover](https://pushover.net) keys and restart the

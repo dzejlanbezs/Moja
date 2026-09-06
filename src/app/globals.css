@@ -60,14 +60,18 @@ html {
 }
 
 body {
+  background: #05040a;
+  color: var(--color-mist-100);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The page gradient lives on a fixed layer instead of the body, so scrolling never repaints it. */
+@utility app-backdrop {
   background:
     radial-gradient(1100px 700px at 12% -8%, rgba(255, 61, 127, 0.16), transparent 60%),
     radial-gradient(900px 600px at 88% 4%, rgba(139, 92, 246, 0.18), transparent 62%),
     linear-gradient(180deg, #08060f 0%, #05040a 40%, #05040a 100%);
-  background-attachment: fixed;
-  color: var(--color-mist-100);
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {

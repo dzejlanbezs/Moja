@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geist.variable} ${display.variable}`}>
       <body className="font-sans antialiased">
-        <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div aria-hidden className="app-backdrop pointer-events-none fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute -top-40 -left-32 h-[34rem] w-[34rem] rounded-full bg-blush-500/18 blur-[130px] animate-float" />
           <div className="absolute top-1/3 -right-40 h-[32rem] w-[32rem] rounded-full bg-violet-500/18 blur-[140px] animate-float [animation-delay:-4s]" />
           <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(circle_at_50%_0%,black,transparent_72%)]" />
