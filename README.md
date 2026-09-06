@@ -92,6 +92,13 @@ PUSHOVER_USER=your-user-key
 SITE_URL=https://your-domain.com   # optional, makes each notification link to /admin
 ```
 
+Not sure whether it is set up? The admin panel shows a green **Push notifications on** pill when the keys
+are loaded, and this check prints exactly what is missing and sends a test push:
+
+```bash
+npm run notify:test
+```
+
 You then get a push for every event that needs you:
 
 | Event                        | Example                                                        |

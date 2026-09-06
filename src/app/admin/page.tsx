@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { BellRing, CircleDollarSign, MessagesSquare, Users } from "lucide-react";
+import { BellOff, BellRing, CircleDollarSign, MessagesSquare, Users } from "lucide-react";
 
 import { AdminBalance } from "@/components/admin-balance";
 import { AdminOrders } from "@/components/admin-orders";
@@ -24,6 +24,7 @@ export default async function AdminPage() {
   const approved = listOrders({ status: "approved" }).slice(0, 8);
   const rejected = listOrders({ status: "rejected" }).slice(0, 4);
   const pendingTopups = listTopups({ status: "pending" });
+  const notificationsOn = !!process.env.PUSHOVER_TOKEN && !!process.env.PUSHOVER_USER;
   const catalogModels = listModelsForAdmin();
   const freeCount = catalogModels.filter((model) => model.priceCents === 0).length;
 
@@ -69,12 +70,26 @@ export default async function AdminPage() {
               Approve a payment and the member instantly gets the chat with that profile.
             </p>
           </div>
-          {pending.length > 0 && (
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-400/10 px-4 py-2 text-sm text-amber-200">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
-              {pending.length} waiting
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {notificationsOn ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200">
+                <BellRing className="h-3.5 w-3.5" /> Push notifications on
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-mist-500"
+                title="Add PUSHOVER_TOKEN and PUSHOVER_USER to .env.local and restart the app"
+              >
+                <BellOff className="h-3.5 w-3.5" /> Push notifications off
+              </span>
+            )}
+            {pending.length > 0 && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-400/10 px-4 py-2 text-sm text-amber-200">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
+                {pending.length} waiting
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

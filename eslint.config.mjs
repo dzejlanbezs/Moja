@@ -8,8 +8,8 @@ const eslintConfig = [
     ignores: [".next/**", "node_modules/**", "data/**", "public/**"],
   },
   {
-    // server.js is the CommonJS entry point hosting panels start, so require() is expected there.
-    files: ["server.js"],
+    // These run as plain Node on the host, where only production deps exist, so require() is expected.
+    files: ["server.js", "scripts/*.js"],
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
 ];
