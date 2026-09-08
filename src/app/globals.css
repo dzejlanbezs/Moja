@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #05040a;
+  --color-ink-900: #0a0812;
+  --color-ink-800: #12101d;
+  --color-ink-700: #1b1828;
+  --color-ink-600: #262234;
+  --color-mist-100: #f6f4ff;
+  --color-mist-300: #cfc9e6;
+  --color-mist-500: #9d95b8;
+  --color-blush-400: #ff7aa8;
+  --color-blush-500: #ff3d7f;
+  --color-blush-600: #e01d63;
+  --color-violet-400: #a78bfa;
+  --color-violet-500: #8b5cf6;
+
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), Georgia, "Times New Roman", serif;
+
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-float: float 9s ease-in-out infinite;
+  --animate-rise: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-marquee: marquee 48s linear infinite;
+}
+
+@keyframes marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -22px, 0) scale(1.05); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 22px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+* {
+  border-color: color-mix(in oklab, var(--color-mist-500) 14%, transparent);
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  background: #05040a;
+  color: var(--color-mist-100);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The page gradient lives on a fixed layer instead of the body, so scrolling never repaints it. */
+@utility app-backdrop {
+  background:
+    radial-gradient(1100px 700px at 12% -8%, rgba(255, 61, 127, 0.16), transparent 60%),
+    radial-gradient(900px 600px at 88% 4%, rgba(139, 92, 246, 0.18), transparent 62%),
+    linear-gradient(180deg, #08060f 0%, #05040a 40%, #05040a 100%);
+}
+
+::selection {
+  background: rgba(255, 61, 127, 0.32);
+}
+
+/* Utilities ---------------------------------------------------------------- */
+
+@utility glass {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@utility glass-strong {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035));
+  backdrop-filter: blur(26px);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+@utility text-gradient {
+  background: linear-gradient(96deg, #fff 12%, #ffb3cd 48%, #b79bff 88%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility hide-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium
+         transition-all duration-200 select-none disabled:opacity-50 disabled:pointer-events-none;
+}
+
+@layer components {
+  .btn-primary {
+    @apply btn text-white shadow-[0_10px_40px_-12px_rgba(255,61,127,0.85)];
+    background-image: linear-gradient(100deg, #ff3d7f, #b14bf4);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+  .btn-ghost {
+    @apply btn border border-white/12 bg-white/5 text-mist-100 hover:bg-white/10;
+  }
+  .btn-soft {
+    @apply btn bg-white/8 text-mist-100 hover:bg-white/14;
+  }
+  .field {
+    @apply w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[15px] text-mist-100
+           placeholder:text-mist-500/70 outline-none transition
+           focus:border-blush-500/60 focus:bg-white/8 focus:ring-4 focus:ring-blush-500/12;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-[0.14em] text-mist-500;
+  }
+  .card {
+    @apply glass rounded-3xl;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1
+           text-xs font-medium text-mist-300;
+  }
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
