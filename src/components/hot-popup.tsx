@@ -20,6 +20,8 @@ const POPUP = {
   title: "Chloe is horny!",
   /** Any image in /public — for example "/my-popup.png" or a profile poster. */
   image: "/models/rina-alvarez-1.webp",
+  /** Width and height of that image, in pixels. Bigger than ~150 needs a wider card below. */
+  imageSize: 150,
   message: "Chloe is horny! She is looking for someone rightnow!",
   offerLabel: "Custom Video for...",
   price: "$10",
@@ -194,18 +196,22 @@ export function HotPopup() {
           {POPUP.title}
         </h2>
 
-        <div className="relative mx-auto mt-3 h-16 w-16">
+        <div
+          className="relative mx-auto mt-3"
+          style={{ width: POPUP.imageSize, height: POPUP.imageSize }}
+        >
           <span className="aurea-popup-ring absolute -inset-1.5 rounded-full border border-blush-500/50" />
           <span className="absolute -inset-3 rounded-full bg-blush-500/25 blur-xl" />
           <Image
             src={POPUP.image}
             alt={POPUP.title}
-            width={64}
-            height={64}
+            width={POPUP.imageSize}
+            height={POPUP.imageSize}
             unoptimized
-            className="relative h-16 w-16 rounded-full border-2 border-blush-500/60 object-cover object-[center_18%]"
+            style={{ width: POPUP.imageSize, height: POPUP.imageSize }}
+            className="relative rounded-full border-2 border-blush-500/60 object-cover object-[center_18%]"
           />
-          <span className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-[#0b0714] bg-emerald-400" />
+          <span className="absolute right-[7%] bottom-[7%] h-3 w-3 rounded-full border-2 border-[#0b0714] bg-emerald-400" />
         </div>
 
         <div className="mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
