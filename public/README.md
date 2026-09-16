@@ -14,3 +14,6 @@ Notes:
 - The favicon should be square, 512×512 is plenty.
 - Remove the files and the built-in Aurea wordmark comes back.
 - `models/` holds the generated profile artwork and is recreated by `npm run seed`.
+- Each poster also has a small `-sm.webp` copy that the catalog cards load, so a phone downloads about a
+  third of the bytes. If you replace the artwork with your own photos, run `npm run seed` once and the
+  small copies are generated for anything that is missing one.

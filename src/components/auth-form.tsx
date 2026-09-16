@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -12,7 +11,6 @@ type Props = {
 };
 
 export function AuthForm({ mode, portal = "member", next, submitLabel }: Props) {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,8 +33,9 @@ export function AuthForm({ mode, portal = "member", next, submitLabel }: Props) 
         setError(data.error ?? "Something went wrong");
         return;
       }
-      router.push(next || data.redirect || "/");
-      router.refresh();
+      // One full navigation instead of push + refresh: on a slow host that is
+      // half the work, and the header is guaranteed to show the new session.
+      window.location.assign(next || data.redirect || "/");
     } catch {
       setError("Network error — please try again");
     } finally {

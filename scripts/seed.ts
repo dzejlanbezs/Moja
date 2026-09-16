@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import bcrypt from "bcryptjs";
+import sharp from "sharp";
 
 import { db } from "../src/lib/db";
 import { PALETTES, renderPoster } from "./art";
@@ -104,6 +105,11 @@ async function main() {
           outFile,
         });
         renderedPhotos += 1;
+      }
+      // Catalog cards load the small copy, which is a quarter of the bytes on a phone.
+      const smallFile = outFile.replace(/\.webp$/, "-sm.webp");
+      if (!fs.existsSync(smallFile)) {
+        await sharp(outFile).resize(400).webp({ quality: 74 }).toFile(smallFile);
       }
       photoUrls.push(`/models/${file}`);
     }

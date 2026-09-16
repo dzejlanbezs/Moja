@@ -1,21 +1,22 @@
 import Image from "next/image";
-import Link from "next/link";
 import { BadgeCheck, MapPin, Star } from "lucide-react";
 
+import { PrefetchLink } from "@/components/prefetch-link";
 import { formatPrice } from "@/lib/format";
+import { thumbnail } from "@/lib/images";
 import type { CatalogModel } from "@/lib/types";
 
 export type CatalogItem = CatalogModel & { access?: "none" | "pending" | "unlocked" };
 
 export function ModelCard({ model, priority = false }: { model: CatalogItem; priority?: boolean }) {
   return (
-    <Link
+    <PrefetchLink
       href={`/model/${model.slug}`}
       className="group relative block overflow-hidden rounded-[28px] border border-white/8 bg-ink-800/60 transition-all duration-500 hover:-translate-y-1.5 hover:border-white/16 hover:shadow-[0_30px_70px_-30px_rgba(255,61,127,0.55)]"
     >
       <div className="relative aspect-4/5 overflow-hidden">
         <Image
-          src={model.cover}
+          src={thumbnail(model.cover)}
           alt={model.name}
           fill
           priority={priority}
@@ -83,7 +84,7 @@ export function ModelCard({ model, priority = false }: { model: CatalogItem; pri
           View →
         </span>
       </div>
-    </Link>
+    </PrefetchLink>
   );
 }
 

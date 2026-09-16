@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PrefetchLink } from "@/components/prefetch-link";
 
 import { Logo } from "@/components/logo";
 import { brandAssets } from "@/lib/brand";
@@ -18,33 +18,33 @@ export function SiteFooter() {
         <div className="grid grid-cols-2 gap-10 text-sm sm:grid-cols-3">
           <div className="space-y-3">
             <p className="text-xs font-medium tracking-[0.14em] text-mist-500 uppercase">Browse</p>
-            <Link href="/" className="block text-mist-300 hover:text-white">
+            <PrefetchLink href="/" className="block text-mist-300 hover:text-white">
               Catalog
-            </Link>
-            <Link href="/#how" className="block text-mist-300 hover:text-white">
+            </PrefetchLink>
+            <PrefetchLink href="/#how" className="block text-mist-300 hover:text-white">
               How it works
-            </Link>
+            </PrefetchLink>
           </div>
           <div className="space-y-3">
             <p className="text-xs font-medium tracking-[0.14em] text-mist-500 uppercase">Account</p>
-            <Link href="/login" className="block text-mist-300 hover:text-white">
+            <PrefetchLink href="/login" className="block text-mist-300 hover:text-white">
               Member sign in
-            </Link>
-            <Link href="/register" className="block text-mist-300 hover:text-white">
+            </PrefetchLink>
+            <PrefetchLink href="/register" className="block text-mist-300 hover:text-white">
               Create account
-            </Link>
-            <Link href="/chat" className="block text-mist-300 hover:text-white">
+            </PrefetchLink>
+            <PrefetchLink href="/chat" className="block text-mist-300 hover:text-white">
               My chats
-            </Link>
+            </PrefetchLink>
           </div>
           <div className="space-y-3">
             <p className="text-xs font-medium tracking-[0.14em] text-mist-500 uppercase">Staff</p>
-            <Link href="/portal/login" className="block text-mist-300 hover:text-white">
+            <PrefetchLink href="/portal/login" className="block text-mist-300 hover:text-white">
               Talent portal
-            </Link>
-            <Link href="/admin/login" className="block text-mist-300 hover:text-white">
+            </PrefetchLink>
+            <PrefetchLink href="/admin/login" className="block text-mist-300 hover:text-white">
               Admin panel
-            </Link>
+            </PrefetchLink>
           </div>
         </div>
       </div>

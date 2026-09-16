@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ImageIcon, MessageCircle } from "lucide-react";
 
+import { PrefetchLink } from "@/components/prefetch-link";
 import { initials, relativeTime } from "@/lib/format";
+import { usePoll } from "@/lib/use-poll";
 
 export type ConversationItem = {
   id: number;
@@ -33,24 +35,16 @@ type Props = {
 export function ConversationList({ initial, viewer, activeId, basePath }: Props) {
   const [items, setItems] = useState(initial);
 
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const response = await fetch("/api/conversations", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as { conversations: ConversationItem[] };
-        if (alive) setItems(data.conversations);
-      } catch {
-        /* best effort */
-      }
-    };
-    const timer = setInterval(load, 5000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, []);
+  usePoll(async () => {
+    try {
+      const response = await fetch("/api/conversations", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as { conversations: ConversationItem[] };
+      setItems(data.conversations);
+    } catch {
+      /* best effort */
+    }
+  }, 8000);
 
   if (items.length === 0) {
     return (
@@ -80,7 +74,7 @@ export function ConversationList({ initial, viewer, activeId, basePath }: Props)
         const title = viewer === "user" ? item.modelName.split(" ")[0] : item.userName;
         const active = item.id === activeId;
         return (
-          <Link
+          <PrefetchLink
             key={item.id}
             href={`${basePath}/${item.id}`}
             className={`flex items-center gap-3.5 rounded-2xl border p-3 transition ${
@@ -137,7 +131,7 @@ export function ConversationList({ initial, viewer, activeId, basePath }: Props)
                 )}
               </span>
             </span>
-          </Link>
+          </PrefetchLink>
         );
       })}
     </div>

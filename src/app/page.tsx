@@ -3,11 +3,13 @@ import Link from "next/link";
 import { ArrowRight, CreditCard, MessageSquareHeart, ShieldCheck, Sparkles, Wallet } from "lucide-react";
 
 import { Catalog } from "@/components/catalog";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { formatPrice } from "@/lib/format";
-import { getAccess, listModels } from "@/lib/queries";
+import { thumbnail } from "@/lib/images";
+import { catalogHighlights, getAccess, listModels } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +45,7 @@ export default async function HomePage() {
       : feed.items;
 
   const spotlight = listModels({ page: 1, pageSize: 12, sort: "rating" }).items;
-  const onlineNow = listModels({ page: 1, pageSize: 1, onlineOnly: true }).total;
-  const cheapest = listModels({ page: 1, pageSize: 1, sort: "price-asc" }).items[0];
+  const { onlineNow, cheapestCents } = catalogHighlights();
 
   return (
     <>
@@ -68,9 +69,9 @@ export default async function HomePage() {
 
               <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-mist-300">
                 A curated catalog of {feed.total} verified companions.{" "}
-                {cheapest && cheapest.priceCents === 0
+                {cheapestCents === 0
                   ? "Browse freely, start chatting with a free profile right away, and talk privately"
-                  : `Browse freely, unlock the one you like from ${formatPrice(cheapest?.priceCents ?? 1650)}, and talk privately`}{" "}
+                  : `Browse freely, unlock the one you like from ${formatPrice(cheapestCents)}, and talk privately`}{" "}
                 — messages and photos, straight from her.
               </p>
 
@@ -78,9 +79,9 @@ export default async function HomePage() {
                 <Link href="#catalog" className="btn-primary !px-7 !py-3.5 text-[15px]">
                   Browse the catalog <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link href={user ? "/chat" : "/register"} className="btn-ghost !px-7 !py-3.5 text-[15px]">
+                <PrefetchLink href={user ? "/chat" : "/register"} className="btn-ghost !px-7 !py-3.5 text-[15px]">
                   {user ? "Open my chats" : "Create free account"}
-                </Link>
+                </PrefetchLink>
               </div>
 
               <dl className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-white/8 pt-7">
@@ -155,13 +156,13 @@ export default async function HomePage() {
         <section className="relative overflow-hidden py-6 [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)]">
           <div className="flex w-max animate-marquee gap-4 hover:[animation-play-state:paused]">
             {[...spotlight, ...spotlight].map((model, index) => (
-              <Link
+              <PrefetchLink
                 key={`${model.id}-${index}`}
                 href={`/model/${model.slug}`}
                 className="group relative h-28 w-44 shrink-0 overflow-hidden rounded-2xl border border-white/8"
               >
                 <Image
-                  src={model.cover}
+                  src={thumbnail(model.cover)}
                   alt={model.name}
                   fill
                   sizes="176px"
@@ -176,7 +177,7 @@ export default async function HomePage() {
                     formatPrice(model.priceCents)
                   )}
                 </p>
-              </Link>
+              </PrefetchLink>
             ))}
           </div>
         </section>
@@ -216,9 +217,9 @@ export default async function HomePage() {
                 <p className="text-sm text-mist-500">Top up your Aurea balance once and unlock chats in one tap.</p>
               </div>
             </div>
-            <Link href={user ? "/account" : "/register"} className="btn-soft">
+            <PrefetchLink href={user ? "/account" : "/register"} className="btn-soft">
               {user ? "View balance" : "Create account"} <ArrowRight className="h-4 w-4" />
-            </Link>
+            </PrefetchLink>
           </div>
         </section>
 

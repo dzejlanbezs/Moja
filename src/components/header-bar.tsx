@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { LogOut, Menu, MessageCircle, Plus, Wallet, X } from "lucide-react";
 
 import { Logo } from "@/components/logo";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { formatPrice, initials } from "@/lib/format";
+import { usePoll } from "@/lib/use-poll";
 import type { SessionUser } from "@/lib/types";
 
 type NavItem = { href: string; label: string; badge?: number };
@@ -17,31 +19,23 @@ export function HeaderBar({ user, logoUrl }: { user: SessionUser | null; logoUrl
   const [pending, setPending] = useState(0);
   const [balance, setBalance] = useState(user?.balanceCents ?? 0);
   const pathname = usePathname();
-  const router = useRouter();
 
-  useEffect(() => {
-    if (!user) return;
-    let alive = true;
-    const load = async () => {
+  usePoll(
+    async () => {
       try {
         const response = await fetch("/api/notifications", { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as { unread: number; pending: number; balanceCents: number };
-        if (!alive) return;
         setUnread(data.unread);
         setPending(data.pending);
-        if (user.role === "user") setBalance(data.balanceCents);
+        if (user?.role === "user") setBalance(data.balanceCents);
       } catch {
         /* offline polling is best-effort */
       }
-    };
-    load();
-    const timer = setInterval(load, 5000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, [user]);
+    },
+    10_000,
+    !!user,
+  );
 
   const guest = !!user?.isGuest;
   const items: NavItem[] = [{ href: "/", label: "Catalog" }];
@@ -55,8 +49,8 @@ export function HeaderBar({ user, logoUrl }: { user: SessionUser | null; logoUrl
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load guarantees the new session is used
+    window.location.assign("/");
   }
 
   return (
@@ -66,7 +60,7 @@ export function HeaderBar({ user, logoUrl }: { user: SessionUser | null; logoUrl
 
         <nav className="ml-6 hidden items-center gap-1 md:flex">
           {items.map((item) => (
-            <Link
+            <PrefetchLink
               key={item.href}
               href={item.href}
               className={`relative rounded-full px-4 py-2 text-sm transition ${
@@ -79,7 +73,7 @@ export function HeaderBar({ user, logoUrl }: { user: SessionUser | null; logoUrl
                   {item.badge}
                 </span>
               )}
-            </Link>
+            </PrefetchLink>
           ))}
         </nav>
 

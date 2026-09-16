@@ -79,7 +79,15 @@ The site is tuned to stay fast on shared hosting:
   a new round trip.
 - Every section has a skeleton screen (`loading.tsx`), so a navigation shows the page shape immediately
   instead of appearing frozen while the server renders.
-- The page gradient sits on one fixed layer, so scrolling never repaints it.
+- The page gradient sits on one fixed layer, so scrolling never repaints it, and phones get a lighter
+  backdrop blur and no background animation.
+- Links warm their target on hover or first touch instead of prefetching everything in view. Scrolling the
+  landing page used to fire **nine** server renders before the visitor clicked anything; now it fires one.
+- Catalog cards load a small `-sm` copy of the poster instead of the full-size one.
+- Signing in, signing up and signing out do one navigation instead of a push plus a refresh: **2 server
+  requests instead of 5–7**.
+- Polling stops while the tab is in the background and is slower elsewhere (notifications every 10 s,
+  conversation lists every 8 s), so an idle visitor costs the server nothing.
 
 ## Push notifications
 

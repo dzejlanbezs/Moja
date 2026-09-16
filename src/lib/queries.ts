@@ -93,6 +93,17 @@ export function listModels(query: CatalogQuery = {}) {
   };
 }
 
+/** The two numbers the landing page needs, without running the catalog query twice more. */
+export function catalogHighlights() {
+  const row = db
+    .prepare(
+      `SELECT (SELECT COUNT(*) FROM models WHERE is_online = 1) AS onlineNow,
+              (SELECT MIN(price_cents) FROM models) AS cheapestCents`,
+    )
+    .get() as { onlineNow: number; cheapestCents: number | null };
+  return { onlineNow: row.onlineNow, cheapestCents: row.cheapestCents ?? 1650 };
+}
+
 export function getModelBySlug(slug: string): ModelDetail | null {
   const row = db
     .prepare(
