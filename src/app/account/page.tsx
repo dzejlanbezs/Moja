@@ -6,6 +6,7 @@ import { Clock, CreditCard, MessageCircle, Plus, Wallet } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { findCryptoAsset } from "@/lib/crypto-wallets";
+import { PROVIDER_LABEL } from "@/lib/providers";
 import { db } from "@/lib/db";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { listConversationsForUser, listOrders, listTopups } from "@/lib/queries";
@@ -112,9 +113,11 @@ export default async function AccountPage() {
                       {order.code} · {formatDateTime(order.createdAt)} ·{" "}
                       {order.method === "free"
                         ? "Free profile"
-                        : order.method === "card"
-                          ? `${order.cardBrand} ••${order.cardLast4}`
-                          : "Aurea balance"}
+                        : order.provider
+                          ? (PROVIDER_LABEL[order.provider] ?? order.provider)
+                          : order.cardBrand
+                            ? `${order.cardBrand} ••${order.cardLast4}`
+                            : "Aurea balance"}
                     </p>
                   </div>
                   <p className="font-medium">{formatPrice(order.amountCents)}</p>
@@ -143,12 +146,16 @@ export default async function AccountPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-mist-100">
                           {formatPrice(topup.amountCents)}
-                          {topup.method === "crypto" && (
+                          {topup.method === "crypto" ? (
                             <span className="ml-1.5 text-xs text-mist-500">
                               in {findCryptoAsset(topup.asset)?.symbol ?? "crypto"} · {formatPrice(topup.creditCents)}{" "}
                               after fee
                             </span>
-                          )}
+                          ) : topup.provider ? (
+                            <span className="ml-1.5 text-xs text-mist-500">
+                              via {PROVIDER_LABEL[topup.provider] ?? topup.provider}
+                            </span>
+                          ) : null}
                         </p>
                         <p className="truncate text-xs text-mist-500">
                           {topup.code} · {formatDateTime(topup.createdAt)}

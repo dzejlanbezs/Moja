@@ -3,6 +3,7 @@ import "server-only";
 import crypto from "node:crypto";
 
 import { cryptoFeeCents } from "@/lib/crypto-wallets";
+import { PROVIDER_LABEL } from "@/lib/providers";
 import { db } from "@/lib/db";
 import type { CatalogModel, ModelDetail, ModelRow } from "@/lib/types";
 
@@ -475,6 +476,7 @@ export function decideTopup(topupId: number, adminId: number, action: "approve" 
         credit_cents: number | null;
         method: string;
         asset: string | null;
+        provider: string | null;
         status: string;
         code: string;
       }
@@ -486,7 +488,9 @@ export function decideTopup(topupId: number, adminId: number, action: "approve" 
   // Crypto top-ups are credited net of the 0.5% fee that was quoted when they were created.
   const credit = topup.credit_cents ?? topup.amount_cents;
   const label =
-    topup.method === "crypto" ? `${(topup.asset ?? "crypto").toUpperCase()} top-up` : "Card top-up";
+    topup.method === "crypto"
+      ? `${(topup.asset ?? "crypto").toUpperCase()} top-up`
+      : `${PROVIDER_LABEL[topup.provider ?? ""] ?? "Card"} top-up`;
 
   db.transaction(() => {
     db.prepare("UPDATE topups SET status = ?, decided_at = ?, decided_by = ? WHERE id = ?").run(

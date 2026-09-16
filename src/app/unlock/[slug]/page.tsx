@@ -6,6 +6,7 @@ import { PaymentPanel } from "@/components/payment-panel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
+import { providerLogos } from "@/lib/brand";
 import { getAccess, getModelBySlug } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,7 @@ export default async function UnlockPage({ params }: { params: Promise<{ slug: s
             age: model.age,
           }}
           balanceCents={user.balanceCents}
+          logos={providerLogos()}
         />
       </main>
 

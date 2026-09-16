@@ -2,4 +2,5 @@
 export const PROVIDER_LABEL: Record<string, string> = {
   banxa: "Card · Banxa",
   paypal: "PayPal",
+  cashapp: "Cash App",
 };

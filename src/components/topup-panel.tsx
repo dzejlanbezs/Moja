@@ -2,40 +2,43 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Bitcoin,
-  CheckCircle2,
-  CreditCard,
-  Loader2,
-  Lock,
-  ShieldCheck,
-  Wallet,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Lock, ShieldCheck, Wallet } from "lucide-react";
 
 import { CryptoPayment, type CryptoAssetWithQr } from "@/components/crypto-payment";
+import { MethodIcon, type ProviderLogos } from "@/components/method-icon";
 import { cryptoFeeCents } from "@/lib/crypto-wallets";
 import { formatPrice } from "@/lib/format";
 
 const PRESETS = [25, 50, 100, 250];
 
-type Method = "card" | "paypal" | "crypto";
+type Method = "card" | "paypal" | "cashapp" | "crypto";
 
-const METHODS: { key: Method; label: string; icon: typeof CreditCard }[] = [
-  { key: "card", label: "Card", icon: CreditCard },
-  { key: "paypal", label: "PayPal", icon: Wallet },
-  { key: "crypto", label: "Crypto", icon: Bitcoin },
+const METHODS: { key: Method; label: string }[] = [
+  { key: "card", label: "Card" },
+  { key: "paypal", label: "PayPal" },
+  { key: "cashapp", label: "Cash App" },
+  { key: "crypto", label: "Crypto" },
 ];
+
+const METHOD_BLURB: Record<Exclude<Method, "crypto">, { title: string; body: string }> = {
+  card: {
+    title: "Debit or credit card",
+    body: "Visa, Mastercard and Apple Pay, handled by our licensed provider.",
+  },
+  paypal: { title: "PayPal", body: "Pay with your PayPal balance or a linked card." },
+  cashapp: { title: "Cash App", body: "Pay straight from your Cash App balance." },
+};
 
 export function TopupPanel({
   balanceCents,
   minCents,
   assets,
+  logos,
 }: {
   balanceCents: number;
   minCents: number;
   assets: CryptoAssetWithQr[];
+  logos?: ProviderLogos;
 }) {
   const [step, setStep] = useState<"amount" | "pay">("amount");
   const [method, setMethod] = useState<Method>("card");
@@ -192,7 +195,7 @@ export function TopupPanel({
               : "You are taken to our payment provider to finish the payment securely."}
           </p>
 
-          <div className="mb-7 flex gap-2 rounded-2xl bg-white/5 p-1.5">
+          <div className="mb-7 grid grid-cols-2 gap-2 rounded-2xl bg-white/5 p-1.5 sm:grid-cols-4">
             {METHODS.map((tab) => (
               <button
                 key={tab.key}
@@ -201,11 +204,11 @@ export function TopupPanel({
                   setMethod(tab.key);
                   setError(null);
                 }}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                className={`flex items-center justify-center gap-2 rounded-xl px-2 py-3 text-sm font-medium transition ${
                   method === tab.key ? "bg-white/12 text-white shadow-lg" : "text-mist-500 hover:text-mist-100"
                 }`}
               >
-                <tab.icon className="h-4 w-4" /> {tab.label}
+                <MethodIcon method={tab.key} logos={logos} size={16} /> {tab.label}
               </button>
             ))}
           </div>
@@ -223,21 +226,11 @@ export function TopupPanel({
             <div className="space-y-4">
               <div className="card flex items-center gap-4 p-5">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blush-500/25 to-violet-500/25 ring-1 ring-white/10">
-                  {method === "card" ? (
-                    <CreditCard className="h-5 w-5 text-blush-400" />
-                  ) : (
-                    <Wallet className="h-5 w-5 text-violet-300" />
-                  )}
+                  <MethodIcon method={method} logos={logos} size={24} className="text-blush-400" />
                 </span>
                 <div>
-                  <p className="font-medium text-mist-100">
-                    {method === "card" ? "Debit or credit card" : "PayPal"}
-                  </p>
-                  <p className="mt-0.5 text-sm text-mist-500">
-                    {method === "card"
-                      ? "Visa, Mastercard and Apple Pay, handled by our licensed provider."
-                      : "Pay with your PayPal balance or a linked card."}
-                  </p>
+                  <p className="font-medium text-mist-100">{METHOD_BLURB[method].title}</p>
+                  <p className="mt-0.5 text-sm text-mist-500">{METHOD_BLURB[method].body}</p>
                 </div>
               </div>
 
@@ -271,7 +264,7 @@ export function TopupPanel({
               ? "Processing"
               : method === "crypto"
                 ? `I have sent ${formatPrice(amountCents)} in ${asset.symbol}`
-                : `Continue to ${method === "card" ? "secure checkout" : "PayPal"}`}
+                : `Continue to ${method === "card" ? "secure checkout" : METHOD_BLURB[method].title}`}
           </button>
 
           <p className="mt-4 flex items-center justify-center gap-2 text-xs text-mist-500">
@@ -302,7 +295,7 @@ export function TopupPanel({
         <div className="card space-y-4 p-6 text-sm text-mist-500">
           <p className="text-[11px] tracking-[0.14em] text-mist-500 uppercase">What balance is for</p>
           <p>Unlock chats in one tap, pay a tip request, or send a gift — all without paying again.</p>
-          <p>Card, PayPal or crypto: ETH, USDC, USDT, BTC and SOL are all accepted.</p>
+          <p>Card, PayPal, Cash App or crypto: ETH, USDC, USDT, BTC and SOL are all accepted.</p>
           <p>Every top-up is confirmed by our team before it lands in your wallet.</p>
         </div>
       </aside>

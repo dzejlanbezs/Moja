@@ -120,6 +120,9 @@ Drop `logo.png` and `favicon.png` into `public/` and the site uses them right aw
 restart, they are read per request. Remove them and the built-in wordmark comes back. See
 [`public/README.md`](public/README.md) for sizes and supported formats.
 
+The same works for the payment methods: put `card.png`, `paypal.png`, `cashapp.png` or `crypto.png` into
+`public/providers/` and those logos replace the built-in icons on both checkout screens.
+
 ## Guest chats
 
 A visitor can open a chat with a **free** profile without registering. The first click creates a guest
@@ -145,9 +148,9 @@ account moves the guest's chats onto it instead. In the talent portal these memb
 
 Unlocking a chat has three methods, all reviewed by an admin before the chat opens:
 
-- **Card** and **PayPal** — handled by [PayGate.to](https://paygate.to). The member is redirected to the
-  provider's own page, so no card data ever touches this server, and the payout arrives on the configured
-  USDC (Polygon) wallet.
+- **Card**, **PayPal** and **Cash App** — handled by [PayGate.to](https://paygate.to). The member is
+  redirected to the provider's own page, so no card data ever touches this server, and the payout arrives on
+  the configured USDC (Polygon) wallet.
 - **Balance** — the amount is held immediately; rejecting the payment refunds it automatically.
 
 ### Card and PayPal (PayGate.to)
@@ -157,7 +160,7 @@ Two calls, exactly as in their docs:
 1. `GET api.paygate.to/control/wallet.php?address=<payout wallet>&callback=<our callback>` returns a
    temporary encrypted `address_in`.
 2. The member is sent to `checkout.paygate.to/process-payment.php` with that address, the amount, the
-   provider (`banxa` for card, `paypal` for PayPal), the contact email and `USD`.
+   provider (`banxa` for card, `paypal` for PayPal, `cashapp` for Cash App), the contact email and `USD`.
 
 When the payment clears, PayGate calls `GET /api/paygate/callback?ref=…&t=…&value_coin=…`. The reference is
 the order or top-up code and `t` is a random token stored with it, so a stranger cannot mark a payment as
@@ -177,8 +180,8 @@ The balance pill in the header has a **Top up** button. The member enters any am
 it, then pays by card, PayPal or crypto. The request waits in the admin panel under *Balance top-ups* and
 the money only reaches the wallet once an admin approves it — rejecting it credits nothing.
 
-**Card** and **PayPal** go through PayGate.to exactly like an unlock (see above). **Crypto** accepts ETH,
-USDC (ERC-20), USDT (ERC-20), BTC and SOL. Each coin shows its deposit address, a
+**Card**, **PayPal** and **Cash App** go through PayGate.to exactly like an unlock (see above). **Crypto**
+accepts ETH, USDC (ERC-20), USDT (ERC-20), BTC and SOL. Each coin shows its deposit address, a
 scannable QR code containing exactly that address, and a copy button. Crypto top-ups carry a 0.5% fee: the
 net amount is quoted before sending, stored with the request and credited on approval. Wallet addresses live
 in `src/lib/crypto-wallets.ts` — change them there and the QR codes follow automatically.

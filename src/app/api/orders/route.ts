@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (user && user.role !== "user") return fail("Only member accounts can unlock chats", 403);
 
   const body = (await request.json().catch(() => null)) as
-    | { slug?: string; method?: "card" | "paypal" | "balance" }
+    | { slug?: string; method?: "card" | "paypal" | "cashapp" | "balance" }
     | null;
 
   if (!body?.slug) return fail("Missing profile");
@@ -29,7 +29,14 @@ export async function POST(request: Request) {
     user = toSessionUser(await startGuestSession());
   }
 
-  const requested = body.method === "balance" ? "balance" : body.method === "paypal" ? "paypal" : "card";
+  const requested =
+    body.method === "balance"
+      ? "balance"
+      : body.method === "paypal"
+        ? "paypal"
+        : body.method === "cashapp"
+          ? "cashapp"
+          : "card";
 
   try {
     // Free profile: no payment at all, the chat opens immediately.

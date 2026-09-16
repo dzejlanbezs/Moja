@@ -15,9 +15,9 @@ const PAYOUT_ADDRESS = process.env.PAYGATE_ADDRESS || "0x020c6b1c7adc49e629a1fcb
 const CONTACT_EMAIL = process.env.PAYGATE_EMAIL || "infektorr234@gmail.com";
 const SITE_URL = (process.env.SITE_URL || "https://www.theaurea.app").replace(/\/+$/, "");
 
-export type PaygateMethod = "card" | "paypal";
+export type PaygateMethod = "card" | "paypal" | "cashapp";
 
-const PROVIDER_ID: Record<PaygateMethod, string> = { card: "banxa", paypal: "paypal" };
+const PROVIDER_ID: Record<PaygateMethod, string> = { card: "banxa", paypal: "paypal", cashapp: "cashapp" };
 
 export class PaygateError extends Error {}
 

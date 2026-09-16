@@ -12,14 +12,21 @@ export async function POST(request: Request) {
   if (user.isGuest) return fail("Create a free account to use a balance", 403);
 
   const body = (await request.json().catch(() => null)) as
-    | { amountCents?: number; method?: "card" | "paypal" | "crypto"; asset?: string }
+    | { amountCents?: number; method?: "card" | "paypal" | "cashapp" | "crypto"; asset?: string }
     | null;
 
   const amount = Math.round(Number(body?.amountCents ?? 0));
   if (!Number.isFinite(amount) || amount <= 0) return fail("Enter how much you want to add");
   if (amount < MIN_TOPUP_CENTS) return fail(`The minimum top-up is $${MIN_TOPUP_CENTS / 100}`);
 
-  const method = body?.method === "crypto" ? "crypto" : body?.method === "paypal" ? "paypal" : "card";
+  const method =
+    body?.method === "crypto"
+      ? "crypto"
+      : body?.method === "paypal"
+        ? "paypal"
+        : body?.method === "cashapp"
+          ? "cashapp"
+          : "card";
 
   try {
     // Crypto: the member sends it themselves to our wallet.

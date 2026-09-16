@@ -3,18 +3,29 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { CreditCard, Loader2, Lock, ShieldCheck, Wallet } from "lucide-react";
+import { Loader2, Lock, ShieldCheck, Wallet } from "lucide-react";
 
+import { MethodIcon, type ProviderLogos } from "@/components/method-icon";
 import { formatPrice } from "@/lib/format";
 
 type Props = {
   model: { slug: string; name: string; cover: string; priceCents: number; city: string; age: number };
   balanceCents: number;
+  logos?: ProviderLogos;
 };
 
-type Method = "balance" | "card" | "paypal";
+type Method = "balance" | "card" | "paypal" | "cashapp";
 
-export function PaymentPanel({ model, balanceCents }: Props) {
+const METHOD_BLURB: Record<Exclude<Method, "balance">, { title: string; body: string }> = {
+  card: {
+    title: "Debit or credit card",
+    body: "Visa, Mastercard and Apple Pay, handled by our licensed provider.",
+  },
+  paypal: { title: "PayPal", body: "Pay with your PayPal balance or a linked card." },
+  cashapp: { title: "Cash App", body: "Pay straight from your Cash App balance." },
+};
+
+export function PaymentPanel({ model, balanceCents, logos }: Props) {
   const [method, setMethod] = useState<Method>(balanceCents >= model.priceCents ? "balance" : "card");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,12 +60,13 @@ export function PaymentPanel({ model, balanceCents }: Props) {
   return (
     <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
       <form onSubmit={submit} className="glass-strong order-2 rounded-[30px] p-6 sm:p-8 lg:order-1">
-        <div className="flex gap-2 rounded-2xl bg-white/5 p-1.5">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/5 p-1.5 sm:grid-cols-4">
           {(
             [
-              { key: "balance", label: "Balance", icon: Wallet },
-              { key: "card", label: "Card", icon: CreditCard },
-              { key: "paypal", label: "PayPal", icon: Wallet },
+              { key: "balance", label: "Balance" },
+              { key: "card", label: "Card" },
+              { key: "paypal", label: "PayPal" },
+              { key: "cashapp", label: "Cash App" },
             ] as const
           ).map((tab) => (
             <button
@@ -64,11 +76,11 @@ export function PaymentPanel({ model, balanceCents }: Props) {
                 setMethod(tab.key);
                 setError(null);
               }}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${
+              className={`flex items-center justify-center gap-2 rounded-xl px-2 py-3 text-sm font-medium transition ${
                 method === tab.key ? "bg-white/12 text-white shadow-lg" : "text-mist-500 hover:text-mist-100"
               }`}
             >
-              <tab.icon className="h-4 w-4" /> {tab.label}
+              <MethodIcon method={tab.key} logos={logos} size={16} /> {tab.label}
             </button>
           ))}
         </div>
@@ -112,21 +124,11 @@ export function PaymentPanel({ model, balanceCents }: Props) {
           <div className="mt-7 space-y-4">
             <div className="card flex items-center gap-4 p-5">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blush-500/25 to-violet-500/25 ring-1 ring-white/10">
-                {method === "card" ? (
-                  <CreditCard className="h-5 w-5 text-blush-400" />
-                ) : (
-                  <Wallet className="h-5 w-5 text-violet-300" />
-                )}
+                <MethodIcon method={method} logos={logos} size={24} className="text-blush-400" />
               </span>
               <div>
-                <p className="font-medium text-mist-100">
-                  {method === "card" ? "Debit or credit card" : "PayPal"}
-                </p>
-                <p className="mt-0.5 text-sm text-mist-500">
-                  {method === "card"
-                    ? "Visa, Mastercard and Apple Pay, handled by our licensed provider."
-                    : "Pay with your PayPal balance or a linked card."}
-                </p>
+                <p className="font-medium text-mist-100">{METHOD_BLURB[method].title}</p>
+                <p className="mt-0.5 text-sm text-mist-500">{METHOD_BLURB[method].body}</p>
               </div>
             </div>
 
@@ -153,7 +155,7 @@ export function PaymentPanel({ model, balanceCents }: Props) {
             ? "Processing"
             : method === "balance"
               ? `Pay ${formatPrice(model.priceCents)} from balance`
-              : `Continue to ${method === "card" ? "secure checkout" : "PayPal"}`}
+              : `Continue to ${method === "card" ? "secure checkout" : METHOD_BLURB[method].title}`}
         </button>
 
         <p className="mt-4 flex items-center justify-center gap-2 text-xs text-mist-500">

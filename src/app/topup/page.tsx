@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { TopupPanel } from "@/components/topup-panel";
 import { getSessionUser } from "@/lib/auth";
+import { providerLogos } from "@/lib/brand";
 import { cryptoAssetsWithQr } from "@/lib/qr";
 import { MIN_TOPUP_CENTS } from "@/lib/queries";
 
@@ -18,6 +19,7 @@ export default async function TopupPage() {
   if (user.role !== "user") redirect("/");
 
   const assets = await cryptoAssetsWithQr();
+  const logos = providerLogos();
 
   return (
     <>
@@ -34,12 +36,12 @@ export default async function TopupPage() {
             Top up your <span className="text-gradient">balance</span>
           </h1>
           <p className="mt-3 max-w-xl text-[15px] text-mist-300">
-            Choose an amount, confirm it, then pay by card, PayPal or crypto. The money is added to your wallet
+            Choose an amount, confirm it, then pay by card, PayPal, Cash App or crypto. The money is added to your wallet
             as soon as the payment is confirmed.
           </p>
         </div>
 
-        <TopupPanel balanceCents={user.balanceCents} minCents={MIN_TOPUP_CENTS} assets={assets} />
+        <TopupPanel balanceCents={user.balanceCents} minCents={MIN_TOPUP_CENTS} assets={assets} logos={logos} />
       </main>
 
       <SiteFooter />
