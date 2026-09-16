@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Check, CreditCard, Loader2, X } from "lucide-react";
 
 import { findCryptoAsset } from "@/lib/crypto-wallets";
+import { PROVIDER_LABEL } from "@/lib/providers";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import type { TopupView } from "@/lib/queries";
 
@@ -87,7 +88,11 @@ export function AdminTopups({ topups }: { topups: TopupView[] }) {
               )}
             </div>
 
-            {asset ? (
+            {topup.provider ? (
+              <span className="chip !py-1.5">
+                <CreditCard className="h-3.5 w-3.5" /> {PROVIDER_LABEL[topup.provider] ?? topup.provider}
+              </span>
+            ) : asset ? (
               <span className="chip !py-1.5">
                 <span
                   className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold text-white"
@@ -100,6 +105,18 @@ export function AdminTopups({ topups }: { topups: TopupView[] }) {
             ) : (
               <span className="chip !py-1.5">
                 <CreditCard className="h-3.5 w-3.5" /> {topup.cardBrand} ••{topup.cardLast4}
+              </span>
+            )}
+
+            {topup.provider && (
+              <span
+                className={`chip !py-1.5 ${
+                  topup.paidAt ? "!border-emerald-300/30 !bg-emerald-400/10 !text-emerald-200" : "!text-amber-200"
+                }`}
+              >
+                {topup.paidAt
+                  ? `Paid${topup.paidValue ? ` · ${topup.paidValue} USDC` : ""}`
+                  : "Waiting for payment"}
               </span>
             )}
 

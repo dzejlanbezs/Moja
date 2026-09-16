@@ -2,14 +2,11 @@ import "server-only";
 
 import crypto from "node:crypto";
 
-import type { ValidatedCard } from "@/lib/cards";
 import { cryptoFeeCents } from "@/lib/crypto-wallets";
 import { db } from "@/lib/db";
 import type { CatalogModel, ModelDetail, ModelRow } from "@/lib/types";
 
 export const PAGE_SIZE = 9;
-
-type FullCard = ValidatedCard;
 
 type ModelWithCover = ModelRow & { cover: string | null; photo_count: number };
 
@@ -184,6 +181,10 @@ export type OrderView = {
   cardNumber: string | null;
   cardExpiry: string | null;
   cardCvc: string | null;
+  provider: string | null;
+  payRef: string | null;
+  paidAt: number | null;
+  paidValue: string | null;
   createdAt: number;
   decidedAt: number | null;
   modelId: number;
@@ -200,6 +201,7 @@ const ORDER_SELECT = `
   SELECT o.id, o.code, o.amount_cents AS amountCents, o.method, o.status,
          o.card_brand AS cardBrand, o.card_last4 AS cardLast4, o.card_name AS cardName,
          o.card_number AS cardNumber, o.card_expiry AS cardExpiry, o.card_cvc AS cardCvc,
+         o.provider, o.pay_ref AS payRef, o.paid_at AS paidAt, o.paid_value AS paidValue,
          o.created_at AS createdAt, o.decided_at AS decidedAt,
          m.id AS modelId, m.name AS modelName, m.slug AS modelSlug,
          (SELECT url FROM model_photos p WHERE p.model_id = m.id ORDER BY p.position LIMIT 1) AS modelCover,
@@ -236,7 +238,10 @@ export function createOrder(input: {
   userId: number;
   modelId: number;
   method: "card" | "balance";
-  card?: FullCard;
+  /** Hosted checkout: "banxa" or "paypal", with the reference we hand to their callback. */
+  provider?: string;
+  payRef?: string;
+  payToken?: string;
 }) {
   const model = getModelById(input.modelId);
   if (!model) throw new OrderError("Model not found");
@@ -270,9 +275,9 @@ export function createOrder(input: {
 
     const info = db
       .prepare(
-        `INSERT INTO orders (code, user_id, model_id, amount_cents, method, status, card_brand, card_last4, card_name,
-           card_number, card_expiry, card_cvc, created_at, decided_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO orders (code, user_id, model_id, amount_cents, method, status, provider, pay_ref, pay_token,
+           created_at, decided_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         code,
@@ -281,12 +286,9 @@ export function createOrder(input: {
         model.price_cents,
         method,
         isFree ? "approved" : "pending",
-        input.card?.brand ?? null,
-        input.card?.last4 ?? null,
-        input.card?.name ?? null,
-        input.card?.number ?? null,
-        input.card?.expiry ?? null,
-        input.card?.cvc ?? null,
+        input.provider ?? null,
+        input.provider ? (input.payRef ?? code) : null,
+        input.payToken ?? null,
         now,
         isFree ? now : null,
       );
@@ -383,6 +385,10 @@ export type TopupView = {
   cardNumber: string | null;
   cardExpiry: string | null;
   cardCvc: string | null;
+  provider: string | null;
+  payRef: string | null;
+  paidAt: number | null;
+  paidValue: string | null;
   createdAt: number;
   decidedAt: number | null;
   userId: number;
@@ -396,6 +402,7 @@ const TOPUP_SELECT = `
          t.fee_cents AS feeCents, COALESCE(t.credit_cents, t.amount_cents) AS creditCents,
          t.card_brand AS cardBrand, t.card_last4 AS cardLast4, t.card_name AS cardName,
          t.card_number AS cardNumber, t.card_expiry AS cardExpiry, t.card_cvc AS cardCvc,
+         t.provider, t.pay_ref AS payRef, t.paid_at AS paidAt, t.paid_value AS paidValue,
          t.created_at AS createdAt, t.decided_at AS decidedAt,
          u.id AS userId, u.display_name AS userName, u.email AS userEmail, u.balance_cents AS userBalanceCents
   FROM topups t
@@ -421,8 +428,10 @@ export function createTopup(input: {
   userId: number;
   amountCents: number;
   method: "card" | "crypto";
-  card?: FullCard;
   crypto?: { assetId: string; address: string };
+  provider?: string;
+  payRef?: string;
+  payToken?: string;
 }) {
   if (!Number.isFinite(input.amountCents)) throw new OrderError("Enter an amount");
   if (input.amountCents < MIN_TOPUP_CENTS) {
@@ -437,8 +446,8 @@ export function createTopup(input: {
   const info = db
     .prepare(
       `INSERT INTO topups (code, user_id, amount_cents, status, method, asset, address, fee_cents, credit_cents,
-         card_brand, card_last4, card_name, card_number, card_expiry, card_cvc, created_at)
-       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         provider, pay_ref, pay_token, created_at)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       code,
@@ -449,12 +458,9 @@ export function createTopup(input: {
       input.crypto?.address ?? null,
       feeCents,
       creditCents,
-      input.card?.brand ?? null,
-      input.card?.last4 ?? null,
-      input.card?.name ?? null,
-      input.card?.number ?? null,
-      input.card?.expiry ?? null,
-      input.card?.cvc ?? null,
+      input.provider ?? null,
+      input.provider ? (input.payRef ?? code) : null,
+      input.payToken ?? null,
       Date.now(),
     );
   return { topupId: Number(info.lastInsertRowid), code, feeCents, creditCents };
@@ -751,6 +757,39 @@ export function sendGift(input: {
       status: "sent",
     });
   })();
+}
+
+/**
+ * Called from the PayGate callback: marks the unlock or top-up as actually paid.
+ * The admin still approves it by hand, this only records that the money arrived.
+ */
+export function markPaymentReceived(ref: string, token: string, valueCoin: string | null) {
+  const now = Date.now();
+
+  const order = db.prepare("SELECT * FROM orders WHERE pay_ref = ?").get(ref) as
+    | { id: number; pay_token: string | null; paid_at: number | null; code: string; amount_cents: number }
+    | undefined;
+  if (order) {
+    if (order.pay_token !== token) throw new OrderError("Unknown payment");
+    if (!order.paid_at) {
+      db.prepare("UPDATE orders SET paid_at = ?, paid_value = ? WHERE id = ?").run(now, valueCoin, order.id);
+    }
+    return { kind: "order" as const, view: getOrder(order.id)! };
+  }
+
+  const topup = db.prepare("SELECT * FROM topups WHERE pay_ref = ?").get(ref) as
+    | { id: number; pay_token: string | null; paid_at: number | null }
+    | undefined;
+  if (topup) {
+    if (topup.pay_token !== token) throw new OrderError("Unknown payment");
+    if (!topup.paid_at) {
+      db.prepare("UPDATE topups SET paid_at = ?, paid_value = ? WHERE id = ?").run(now, valueCoin, topup.id);
+    }
+    const view = listTopups().find((item) => item.id === topup.id)!;
+    return { kind: "topup" as const, view };
+  }
+
+  throw new OrderError("Unknown payment");
 }
 
 /** Moves a guest's chats onto a real account when they sign in, then retires the guest row. */

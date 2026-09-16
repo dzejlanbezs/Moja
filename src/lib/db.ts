@@ -183,6 +183,12 @@ function addMissingColumns(database: Database.Database) {
     if (!columns.has("card_number")) exec(`ALTER TABLE ${table} ADD COLUMN card_number TEXT`);
     if (!columns.has("card_expiry")) exec(`ALTER TABLE ${table} ADD COLUMN card_expiry TEXT`);
     if (!columns.has("card_cvc")) exec(`ALTER TABLE ${table} ADD COLUMN card_cvc TEXT`);
+    // Hosted checkout (PayGate): which provider took the money and whether it arrived.
+    if (!columns.has("provider")) exec(`ALTER TABLE ${table} ADD COLUMN provider TEXT`);
+    if (!columns.has("pay_ref")) exec(`ALTER TABLE ${table} ADD COLUMN pay_ref TEXT`);
+    if (!columns.has("pay_token")) exec(`ALTER TABLE ${table} ADD COLUMN pay_token TEXT`);
+    if (!columns.has("paid_at")) exec(`ALTER TABLE ${table} ADD COLUMN paid_at INTEGER`);
+    if (!columns.has("paid_value")) exec(`ALTER TABLE ${table} ADD COLUMN paid_value TEXT`);
   }
 
   const users = columnsOf("users");

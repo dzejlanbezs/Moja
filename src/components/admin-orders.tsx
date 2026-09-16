@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Check, CreditCard, Loader2, Wallet, X } from "lucide-react";
 
 import { formatDateTime, formatPrice, initials } from "@/lib/format";
+import { PROVIDER_LABEL } from "@/lib/providers";
 import type { OrderView } from "@/lib/queries";
 
 function groupDigits(value: string) {
@@ -97,7 +98,11 @@ export function AdminOrders({ orders }: { orders: OrderView[] }) {
 
             <div className="flex items-center gap-3">
               <span className="chip !py-1.5">
-                {order.method === "card" ? (
+                {order.provider ? (
+                  <>
+                    <CreditCard className="h-3.5 w-3.5" /> {PROVIDER_LABEL[order.provider] ?? order.provider}
+                  </>
+                ) : order.method === "card" ? (
                   <>
                     <CreditCard className="h-3.5 w-3.5" /> {order.cardBrand} ••{order.cardLast4}
                   </>
@@ -107,6 +112,17 @@ export function AdminOrders({ orders }: { orders: OrderView[] }) {
                   </>
                 )}
               </span>
+              {order.provider && (
+                <span
+                  className={`chip !py-1.5 ${
+                    order.paidAt ? "!border-emerald-300/30 !bg-emerald-400/10 !text-emerald-200" : "!text-amber-200"
+                  }`}
+                >
+                  {order.paidAt
+                    ? `Paid${order.paidValue ? ` · ${order.paidValue} USDC` : ""}`
+                    : "Waiting for payment"}
+                </span>
+              )}
               <p className="font-display text-3xl">{formatPrice(order.amountCents)}</p>
             </div>
 

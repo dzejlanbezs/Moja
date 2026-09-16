@@ -34,8 +34,8 @@ export default async function TopupPage() {
             Top up your <span className="text-gradient">balance</span>
           </h1>
           <p className="mt-3 max-w-xl text-[15px] text-mist-300">
-            Choose an amount, confirm it, then pay by card or with crypto. The money is added to your wallet as
-            soon as the payment is confirmed.
+            Choose an amount, confirm it, then pay by card, PayPal or crypto. The money is added to your wallet
+            as soon as the payment is confirmed.
           </p>
         </div>
 

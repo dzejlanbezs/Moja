@@ -1,7 +1,7 @@
 import { fail, json } from "@/lib/api";
 import { getSessionUser, startGuestSession, toSessionUser } from "@/lib/auth";
-import { validateCard, type ValidatedCard } from "@/lib/cards";
 import { db } from "@/lib/db";
+import { PaygateError, createPaygatePayment, newPaymentToken, providerIdFor } from "@/lib/paygate";
 import { notifyChatUnlocked } from "@/lib/pushover";
 import { OrderError, createOrder } from "@/lib/queries";
 import type { ModelRow } from "@/lib/types";
@@ -11,14 +11,7 @@ export async function POST(request: Request) {
   if (user && user.role !== "user") return fail("Only member accounts can unlock chats", 403);
 
   const body = (await request.json().catch(() => null)) as
-    | {
-        slug?: string;
-        method?: "card" | "balance";
-        cardNumber?: string;
-        cardName?: string;
-        expiry?: string;
-        cvc?: string;
-      }
+    | { slug?: string; method?: "card" | "paypal" | "balance" }
     | null;
 
   if (!body?.slug) return fail("Missing profile");
@@ -36,41 +29,78 @@ export async function POST(request: Request) {
     user = toSessionUser(await startGuestSession());
   }
 
-  const method = body.method === "balance" ? "balance" : "card";
-  let card: ValidatedCard | undefined;
-
-  // Free profiles need no payment details at all — the chat opens immediately.
-  if (method === "card" && !isFree) {
-    const result = validateCard(body);
-    if (typeof result === "string") return fail(result);
-    card = result;
-  }
+  const requested = body.method === "balance" ? "balance" : body.method === "paypal" ? "paypal" : "card";
 
   try {
-    const order = createOrder({ userId: user.id, modelId: model.id, method, card });
+    // Free profile: no payment at all, the chat opens immediately.
+    if (isFree || requested === "balance") {
+      const order = createOrder({ userId: user.id, modelId: model.id, method: isFree ? "card" : "balance" });
+
+      notifyChatUnlocked({
+        modelName: model.name,
+        memberName: user.displayName,
+        amountCents: model.price_cents,
+        method: isFree ? "free" : "balance",
+        code: order.code,
+        free: order.free,
+      });
+
+      return json(
+        {
+          ok: true,
+          code: order.code,
+          method: isFree ? "free" : "balance",
+          free: order.free,
+          conversationId: order.conversationId,
+          amountCents: model.price_cents,
+          modelName: model.name,
+        },
+        201,
+      );
+    }
+
+    // Card or PayPal: create the order, then send the customer to the hosted checkout.
+    const payToken = newPaymentToken();
+    const providerId = providerIdFor(requested);
+    const order = createOrder({
+      userId: user.id,
+      modelId: model.id,
+      method: "card",
+      provider: providerId,
+      payToken,
+    });
+
+    const payment = await createPaygatePayment({
+      ref: order.code,
+      token: payToken,
+      amountCents: model.price_cents,
+      method: requested,
+    });
 
     notifyChatUnlocked({
       modelName: model.name,
       memberName: user.displayName,
       amountCents: model.price_cents,
-      method,
+      method: `${providerId} (started)`,
       code: order.code,
-      free: order.free,
+      free: false,
     });
 
     return json(
       {
         ok: true,
         code: order.code,
-        method,
-        free: order.free,
-        conversationId: order.conversationId,
+        method: requested,
+        free: false,
+        conversationId: null,
         amountCents: model.price_cents,
         modelName: model.name,
+        redirectUrl: payment.payUrl,
       },
       201,
     );
   } catch (error) {
+    if (error instanceof PaygateError) return fail(error.message, 502);
     if (error instanceof OrderError) return fail(error.message, 409);
     throw error;
   }
