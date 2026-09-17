@@ -807,6 +807,43 @@ export function markPaymentReceived(ref: string, token: string, valueCoin: strin
   throw new OrderError("Unknown payment");
 }
 
+/**
+ * Marks a conversation as reported to the ad network and returns what the pixel
+ * needs — but only the very first time. Later calls return null, so refreshing
+ * the chat or opening it in a second tab cannot count twice.
+ */
+export function claimConversionTracking(conversationId: number) {
+  const claimed = db
+    .prepare("UPDATE conversations SET tracked_at = ? WHERE id = ? AND tracked_at IS NULL")
+    .run(Date.now(), conversationId);
+  if (claimed.changes === 0) return null;
+
+  const row = db
+    .prepare(
+      `SELECT c.id, c.user_id AS userId, m.name AS modelName, m.price_cents AS priceCents,
+              o.code AS orderCode, u.is_guest AS isGuest
+       FROM conversations c
+       JOIN models m ON m.id = c.model_id
+       JOIN users u ON u.id = c.user_id
+       LEFT JOIN orders o ON o.id = c.order_id
+       WHERE c.id = ?`,
+    )
+    .get(conversationId) as
+    | { id: number; userId: number; modelName: string; priceCents: number; orderCode: string | null; isGuest: number }
+    | undefined;
+  if (!row) return null;
+
+  return {
+    transactionId: row.orderCode ?? `CHAT-${row.id}`,
+    description: [
+      row.modelName.replace(/\s+/g, "-"),
+      row.priceCents === 0 ? "free-chat" : "paid-chat",
+      row.isGuest ? "guest" : "member",
+      `user-${row.userId}`,
+    ].join("+"),
+  };
+}
+
 /** Moves a guest's chats onto a real account when they sign in, then retires the guest row. */
 export function mergeGuestInto(guestId: number, targetId: number) {
   db.transaction(() => {

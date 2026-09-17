@@ -102,6 +102,7 @@ function migrate(database: Database.Database) {
       order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
       created_at INTEGER NOT NULL,
       last_message_at INTEGER NOT NULL,
+      tracked_at INTEGER,
       UNIQUE (user_id, model_id)
     );
 
@@ -193,6 +194,9 @@ function addMissingColumns(database: Database.Database) {
 
   const users = columnsOf("users");
   if (!users.has("is_guest")) exec("ALTER TABLE users ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0");
+
+  const conversations = columnsOf("conversations");
+  if (!conversations.has("tracked_at")) exec("ALTER TABLE conversations ADD COLUMN tracked_at INTEGER");
 }
 
 /** Free profiles need a third payment method, which means rebuilding the CHECK constraint. */

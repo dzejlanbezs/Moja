@@ -2,10 +2,12 @@ import { notFound, redirect } from "next/navigation";
 
 import { ChatThread } from "@/components/chat-thread";
 import { ConversationList } from "@/components/conversation-list";
+import { ConversionPixel } from "@/components/conversion-pixel";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { resolveChatViewer } from "@/lib/chat-access";
-import { listConversationsForUser } from "@/lib/queries";
+import { claimConversionTracking, listConversationsForUser } from "@/lib/queries";
+import { trackingEnabled } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +21,14 @@ export default async function ChatThreadPage({ params }: { params: Promise<{ id:
   if (!viewer || viewer.role !== "user") notFound();
 
   const conversations = listConversationsForUser(user.id);
+  // Counts as a conversion the first time this member opens this chat, once ever.
+  const conversion = trackingEnabled() ? claimConversionTracking(conversationId) : null;
 
   return (
     <>
+      {conversion && (
+        <ConversionPixel transactionId={conversion.transactionId} description={conversion.description} />
+      )}
       <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-3 pt-6 pb-8 sm:px-5">

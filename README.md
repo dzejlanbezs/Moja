@@ -122,6 +122,21 @@ Without the keys the calls are silent no-ops, so the site runs exactly as before
 fire-and-forget: a Pushover outage can never block a payment or a chat. Every message is built in
 `src/lib/pushover.ts` — delete a `notify…` call in the matching route to switch that event off.
 
+## Conversion tracking
+
+TrafficJunky's pixel fires **the first time a visitor opens a chat with any profile** — the moment that
+matters for an ad campaign — and never again for that chat, not on a reload and not in a second tab, because
+the conversation row records that it was reported. It counts guests too, since a visitor arriving from an ad
+usually chats before registering.
+
+The pixel carries `cti` = the order code (`AUR-…`, or `CHAT-…` for a chat with no order) so it lines up with
+your admin panel, and `ctd` = profile, free or paid, guest or member, and the user id, for example
+`Rina-Alvarez+free-chat+guest+user-40`. The `Delegate-CH` meta tag they ask for sits in the head of every
+page.
+
+Configure it with `TRAFFICJUNKY_AD_ID`, `TRAFFICJUNKY_MEMBER_ID` and `TRAFFICJUNKY_VALUE`; clearing the ad id
+turns tracking off completely.
+
 ## Branding
 
 Drop `logo.png` and `favicon.png` into `public/` and the site uses them right away — no rebuild and no

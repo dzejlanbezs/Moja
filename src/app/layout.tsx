@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Instrument_Serif } from "next/font/google";
 
 import { brandAssets } from "@/lib/brand";
+import { DELEGATE_CH, trackingEnabled } from "@/lib/tracking";
 
 import "./globals.css";
 
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geist.variable} ${display.variable}`}>
       <body className="font-sans antialiased">
+        {trackingEnabled() && <meta httpEquiv="Delegate-CH" content={DELEGATE_CH} />}
         <div aria-hidden className="app-backdrop pointer-events-none fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute -top-40 -left-32 h-[34rem] w-[34rem] rounded-full bg-blush-500/18 blur-[130px] animate-float max-sm:animate-none" />
           <div className="absolute top-1/3 -right-40 h-[32rem] w-[32rem] rounded-full bg-violet-500/18 blur-[140px] animate-float max-sm:animate-none [animation-delay:-4s]" />
