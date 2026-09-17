@@ -1,3 +1,4 @@
+import { scheduleAiReply } from "@/lib/ai";
 import { fail, json, saveImageUpload } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { resolveChatViewer } from "@/lib/chat-access";
@@ -70,6 +71,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     body: text || null,
     imageUrl,
   });
+
+  if (viewer.role === "user") scheduleAiReply(conversationId);
 
   return json({ ok: true, id: messageId }, 201);
 }

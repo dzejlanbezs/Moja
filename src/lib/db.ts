@@ -103,6 +103,7 @@ function migrate(database: Database.Database) {
       created_at INTEGER NOT NULL,
       last_message_at INTEGER NOT NULL,
       tracked_at INTEGER,
+      ai_paused INTEGER NOT NULL DEFAULT 0,
       UNIQUE (user_id, model_id)
     );
 
@@ -197,6 +198,9 @@ function addMissingColumns(database: Database.Database) {
 
   const conversations = columnsOf("conversations");
   if (!conversations.has("tracked_at")) exec("ALTER TABLE conversations ADD COLUMN tracked_at INTEGER");
+  if (!conversations.has("ai_paused")) {
+    exec("ALTER TABLE conversations ADD COLUMN ai_paused INTEGER NOT NULL DEFAULT 0");
+  }
 }
 
 /** Free profiles need a third payment method, which means rebuilding the CHECK constraint. */

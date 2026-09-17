@@ -41,6 +41,7 @@ export default async function PortalThreadPage({ params }: { params: Promise<{ i
             conversationId={conversationId}
             viewer="model"
             backHref="/portal"
+            autoPaused={!!viewer.conversation.aiPaused}
             partner={{
               name: viewer.conversation.userName,
               avatar: null,

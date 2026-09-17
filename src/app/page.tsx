@@ -27,7 +27,7 @@ const STEPS = [
   {
     icon: ShieldCheck,
     title: "We approve it",
-    body: "A human on our team confirms every payment, usually within minutes — no bots, no fake accounts.",
+    body: "A human on our team confirms every payment, usually within minutes — no fake accounts, no waiting around.",
   },
   {
     icon: MessageSquareHeart,
@@ -88,7 +88,7 @@ export default async function HomePage() {
                 {[
                   { value: `${feed.total}`, label: "Verified profiles" },
                   { value: "< 5 min", label: "Average approval" },
-                  { value: "100%", label: "Human replies" },
+                  { value: "24/7", label: "Someone is always up" },
                 ].map((stat) => (
                   <div key={stat.label}>
                     <dt className="font-display text-3xl text-white">{stat.value}</dt>

@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s · Aurea",
     },
     description:
-      "A curated catalog of companions. Browse profiles, unlock a private chat and talk directly — no noise, no bots.",
+      "A curated catalog of companions. Browse profiles, unlock a private chat and talk directly — no noise, no waiting.",
     // Drop favicon.png into public/ to replace the default icon.
     icons: faviconUrl ? { icon: faviconUrl, apple: faviconUrl } : undefined,
   };

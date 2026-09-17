@@ -3,7 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BadgeDollarSign, Gift, ImagePlus, Loader2, Lock, Send, UserPlus, Wallet, X } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeDollarSign,
+  Gift,
+  ImagePlus,
+  Loader2,
+  Lock,
+  Pause,
+  Play,
+  Send,
+  UserPlus,
+  Wallet,
+  X,
+} from "lucide-react";
 
 import { formatPrice, formatTime, initials } from "@/lib/format";
 import type { ChatMessage } from "@/lib/types";
@@ -16,6 +29,8 @@ type Props = {
   balanceCents?: number;
   /** Guest chats are tied to a cookie only, so photos and payments stay locked. */
   guest?: boolean;
+  /** Profile side only: whether auto-replies are currently paused for this chat. */
+  autoPaused?: boolean;
 };
 
 function dayLabel(ts: number) {
@@ -34,6 +49,7 @@ export function ChatThread({
   backHref,
   balanceCents = 0,
   guest = false,
+  autoPaused = false,
 }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
@@ -42,6 +58,8 @@ export function ChatThread({
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [paused, setPaused] = useState(autoPaused);
+  const [pausing, setPausing] = useState(false);
   const [balance, setBalance] = useState(balanceCents);
   const [money, setMoney] = useState<null | "request" | "gift">(null);
   const [moneyAmount, setMoneyAmount] = useState("");
@@ -192,6 +210,27 @@ export function ChatThread({
     }
   }
 
+  async function togglePause() {
+    const next = !paused;
+    setPausing(true);
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paused: next }),
+      });
+      if (!response.ok) {
+        setError("Could not change that, try again");
+        return;
+      }
+      setPaused(next);
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setPausing(false);
+    }
+  }
+
   async function payRequest(messageId: number) {
     setPaying(messageId);
     setError(null);
@@ -243,12 +282,40 @@ export function ChatThread({
           </p>
         </div>
 
+        {viewer === "model" && (
+          <button
+            onClick={togglePause}
+            disabled={pausing}
+            title={paused ? "Let the assistant reply again" : "Take over this chat yourself"}
+            className={`btn !px-4 !py-2 text-xs ${
+              paused
+                ? "border border-emerald-300/30 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/18"
+                : "border border-amber-300/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/18"
+            }`}
+          >
+            {pausing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : paused ? (
+              <Play className="h-3.5 w-3.5" />
+            ) : (
+              <Pause className="h-3.5 w-3.5" />
+            )}
+            {paused ? "Resume" : "Pause"}
+          </button>
+        )}
+
         {partner.profileHref && (
           <Link href={partner.profileHref} className="btn-ghost !px-4 !py-2 text-xs">
             View profile
           </Link>
         )}
       </div>
+
+      {viewer === "model" && paused && (
+        <div className="border-b border-emerald-300/20 bg-emerald-400/10 px-4 py-2.5 text-sm text-emerald-100 sm:px-5">
+          You are answering this chat yourself. Press Resume when you are done.
+        </div>
+      )}
 
       {guest && (
         <div className="border-b border-amber-300/20 bg-amber-400/10 px-4 py-3 sm:px-5">

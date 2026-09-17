@@ -158,6 +158,28 @@ browser. Guest threads carry an IMPORTANT notice under the profile's name, and u
 Signing up keeps the same account, so the conversation and its history carry over; signing into an existing
 account moves the guest's chats onto it instead. In the talent portal these members are tagged `guest`.
 
+## Automatic replies
+
+When `OPENROUTER_API_KEY` is set, a profile's chats answer themselves through OpenRouter (model from
+`OPENROUTER_MODEL`, `minimax/minimax-m2-her` by default). Replies are written to sound like someone
+texting from her phone: a few words, lowercase, the odd emoji, sent after a short pause rather than
+instantly. Photo and video requests are always welcomed and pointed at the gift button; video calls are
+turned down for now.
+
+Every chat header in the talent portal has a **Pause** button. Pressing it stops the automatic replies for
+that one conversation so she can answer herself — a banner reminds her she is in control — and **Resume**
+hands the conversation back, with all the history it missed. Nothing is ever sent while paused.
+
+Two things to know before switching it on:
+
+- If a member asks outright whether they are talking to a bot, the reply says so plainly and carries on
+  flirting. Denying it would be a lie told to someone who is paying, and in a lot of places (California's
+  B.O.T. Act, the EU AI Act) an illegal one. Everything up to that point stays in character.
+- The replies promise photos and custom videos in exchange for gifts. Someone has to actually deliver
+  them, or the gift is money taken for nothing. Keep an eye on the paused threads.
+
+Leave `OPENROUTER_API_KEY` empty and none of this runs: chats behave exactly as they did before.
+
 ## The three portals
 
 - **Member** — catalog, profiles, checkout, wallet with self-service top-ups, `/chat` inbox.

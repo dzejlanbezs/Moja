@@ -544,6 +544,7 @@ export type ConversationView = {
   userEmail: string;
   userBalanceCents: number;
   userIsGuest: number;
+  aiPaused: number;
   lastMessageAt: number;
   lastBody: string | null;
   lastImage: string | null;
@@ -553,7 +554,7 @@ export type ConversationView = {
 };
 
 const CONVERSATION_SELECT = `
-  SELECT c.id, c.last_message_at AS lastMessageAt,
+  SELECT c.id, c.last_message_at AS lastMessageAt, c.ai_paused AS aiPaused,
          m.id AS modelId, m.name AS modelName, m.slug AS modelSlug, m.is_online AS modelOnline, m.accent AS modelAccent,
          (SELECT url FROM model_photos p WHERE p.model_id = m.id ORDER BY p.position LIMIT 1) AS modelCover,
          u.id AS userId, u.display_name AS userName, u.email AS userEmail, u.balance_cents AS userBalanceCents,
