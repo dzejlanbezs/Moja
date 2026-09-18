@@ -1,0 +1,268 @@
+# Aurea
+
+A modern companion catalog with paid, admin-approved private chat.
+
+Members browse an endless catalog (3 profiles per row on desktop, 1 on mobile), open a profile to see the
+full gallery and details, then tap **“Talk to Her!”** to pay by card or from their Aurea balance. Every
+payment lands in the admin panel; when an admin approves it, a private conversation opens between the
+member and that profile. The profile answers from her own separate portal — messages and photos both ways.
+
+Inside a chat, money flows in both directions: the profile can ask for a tip and the member pays it with one
+button, and the member can send a gift with a note. Members refill their wallet themselves through a top-up
+flow, and an admin sets every catalog price — including free profiles, which open instantly.
+
+## Stack
+
+| Layer    | Choice                                                    |
+| -------- | --------------------------------------------------------- |
+| Frontend | Next.js 16 (App Router), React 19, Tailwind CSS v4         |
+| Backend  | Next.js route handlers                                     |
+| Database | SQLite via `better-sqlite3` (file at `data/app.db`)        |
+| Auth     | HMAC-signed session cookie, `bcryptjs` password hashes     |
+| Media    | `sharp` — uploads normalised to webp, served from `data/`  |
+| Crypto   | `qrcode` — deposit QR codes rendered server-side           |
+| Realtime | Short polling (messages every 2.5 s, lists every 5 s)      |
+
+## Getting started
+
+```bash
+npm install
+npm run seed     # creates the database, demo accounts and 36 profiles with generated artwork
+npm run dev      # http://localhost:3000
+```
+
+`npm run reset` wipes the database and uploads, then seeds again.
+
+## Seeded accounts
+
+The seed script creates these so you can sign in straight away. They are only printed here — nothing in the
+site shows credentials to visitors. Change the passwords before going live.
+
+| Role   | URL             | Email                               | Password     |
+| ------ | --------------- | ----------------------------------- | ------------ |
+| Member | `/login`        | `demo@aurea.chat`                   | `demo1234`   |
+| Admin  | `/admin/login`  | `admin@aurea.chat`                  | `Admin1234!` |
+| Talent | `/portal/login` | `sofia@aurea.chat` (any first name) | `model1234`  |
+
+Every seeded profile has a talent account at `<firstname>@aurea.chat`.
+
+## Hosting it on Hostinger (or any Node host)
+
+The app starts from `server.js`, which is the file hosting panels ask for. `npm start` runs it too.
+
+1. In hPanel open **Website → Node.js** and create an app: Node version **20 or newer**, application root = the
+   folder you uploaded the project to, startup file = `server.js`.
+2. Upload the project (git clone or File Manager) — everything except `node_modules`, `.next` and `data`.
+3. Run once, from the panel's terminal or its "Run npm install" button:
+
+   ```bash
+   npm install      # better-sqlite3 and sharp compile here, so it must run on the server
+   npm run seed     # creates data/app.db and the profile artwork
+   npm run build
+   ```
+
+4. Add your environment variables in the Node.js app settings (`PUSHOVER_TOKEN`, `PUSHOVER_USER`,
+   `SITE_URL`), or upload a `.env.local` file.
+5. Start the app. The host passes its own `PORT`; `server.js` picks it up automatically.
+
+Keep the `data/` folder writable and never delete it — it holds the SQLite database and every uploaded photo.
+After changing code, run `npm run build` again and restart the app.
+
+## Speed
+
+The site is tuned to stay fast on shared hosting:
+
+- Profile artwork and uploads are already resized webp, so `images.unoptimized` serves them straight from
+  disk. The landing page went from 76 on-demand image transforms (~100 ms of CPU each on the first visit) to
+  zero, and an image now answers in ~3 ms instead of ~106 ms.
+- `staleTimes` keeps visited pages in the client router for 30 seconds, so going back is instant instead of
+  a new round trip.
+- Every section has a skeleton screen (`loading.tsx`), so a navigation shows the page shape immediately
+  instead of appearing frozen while the server renders.
+- The page gradient sits on one fixed layer, so scrolling never repaints it, and phones get a lighter
+  backdrop blur and no background animation.
+- Links warm their target on hover or first touch instead of prefetching everything in view. Scrolling the
+  landing page used to fire **nine** server renders before the visitor clicked anything; now it fires one.
+- Catalog cards load a small `-sm` copy of the poster instead of the full-size one.
+- Signing in, signing up and signing out do one navigation instead of a push plus a refresh: **2 server
+  requests instead of 5–7**.
+- Polling stops while the tab is in the background and is slower elsewhere (notifications every 10 s,
+  conversation lists every 8 s), so an idle visitor costs the server nothing.
+
+## Push notifications
+
+Copy `.env.example` to `.env.local`, paste your [Pushover](https://pushover.net) keys and restart the
+server:
+
+```
+PUSHOVER_TOKEN=your-application-token
+PUSHOVER_USER=your-user-key
+SITE_URL=https://your-domain.com   # optional, makes each notification link to /admin
+```
+
+Not sure whether it is set up? The admin panel shows a green **Push notifications on** pill when the keys
+are loaded, and this check prints exactly what is missing and sends a test push:
+
+```bash
+npm run notify:test
+```
+
+You then get a push for every event that needs you:
+
+| Event                        | Example                                                        |
+| ---------------------------- | -------------------------------------------------------------- |
+| Chat unlocked (paid)         | **Sofia needs to talk** — Alex Morgan paid $24.00 by card · AUR-… |
+| Chat unlocked (free profile) | **Mei needs to talk** — Guest 4F21 opened her free chat.        |
+| Balance top-up               | **Top-up · $100** — Alex Morgan sent $100.00 via BTC · TOP-…    |
+| Gift in a chat               | **Sofia got a gift** — Alex Morgan sent $25.00 — “…”            |
+| Tip request paid             | **Sofia got a tip** — Alex Morgan paid her $40.00 request.      |
+| New registration             | **New member** — Push Tester (push@test.com) just signed up.    |
+
+Without the keys the calls are silent no-ops, so the site runs exactly as before. Notifications are sent
+fire-and-forget: a Pushover outage can never block a payment or a chat. Every message is built in
+`src/lib/pushover.ts` — delete a `notify…` call in the matching route to switch that event off.
+
+## Conversion tracking
+
+TrafficJunky's pixel fires **the first time a visitor opens a chat with any profile** — the moment that
+matters for an ad campaign — and never again for that chat, not on a reload and not in a second tab, because
+the conversation row records that it was reported. It counts guests too, since a visitor arriving from an ad
+usually chats before registering.
+
+The pixel carries `cti` = the order code (`AUR-…`, or `CHAT-…` for a chat with no order) so it lines up with
+your admin panel, and `ctd` = profile, free or paid, guest or member, and the user id, for example
+`Rina-Alvarez+free-chat+guest+user-40`. The `Delegate-CH` meta tag they ask for sits in the head of every
+page.
+
+Configure it with `TRAFFICJUNKY_AD_ID`, `TRAFFICJUNKY_MEMBER_ID` and `TRAFFICJUNKY_VALUE`; clearing the ad id
+turns tracking off completely.
+
+## Branding
+
+Drop `logo.png` and `favicon.png` into `public/` and the site uses them right away — no rebuild and no
+restart, they are read per request. Remove them and the built-in wordmark comes back. See
+[`public/README.md`](public/README.md) for sizes and supported formats.
+
+The same works for the payment methods: put `card.png`, `paypal.png`, `cashapp.png` or `crypto.png` into
+`public/providers/` and those logos replace the built-in icons on both checkout screens.
+
+## Guest chats
+
+A visitor can open a chat with a **free** profile without registering. The first click creates a guest
+account tied to a year-long cookie, so the conversation is still there when they come back to the same
+browser. Guest threads carry an IMPORTANT notice under the profile's name, and until they register:
+
+- photos the profile sends stay locked behind a “register free to see it” card,
+- they cannot send photos, gifts or tips, top up a balance, or unlock paid profiles.
+
+Signing up keeps the same account, so the conversation and its history carry over; signing into an existing
+account moves the guest's chats onto it instead. In the talent portal these members are tagged `guest`.
+
+## Automatic replies
+
+When `OPENROUTER_API_KEY` is set, a profile's chats answer themselves through OpenRouter (model from
+`OPENROUTER_MODEL`, `minimax/minimax-m2-her` by default). Replies are written to sound like someone
+texting from her phone: a few words, lowercase, the odd emoji, sent after a short pause rather than
+instantly. Photo and video requests are always welcomed and pointed at the gift button; video calls are
+turned down for now.
+
+Every chat header in the talent portal has a **Pause** button. Pressing it stops the automatic replies for
+that one conversation so she can answer herself — a banner reminds her she is in control — and **Resume**
+hands the conversation back, with all the history it missed. Nothing is ever sent while paused.
+
+She also brings money up twice on her own, once each per conversation:
+
+- somewhere between the 5th and 10th message she is suddenly craving a pineapple pizza and asks him to
+  treat her through the gift button,
+- somewhere between the 12th and 20th, once there is chemistry, she offers custom content — a photo for
+  $20, a video for $50, through the same button.
+
+Both moments are timed in code rather than left to the model, which cannot count its own turns, and each is
+recorded in the database the moment it goes out, so nobody is ever asked twice. The exact message they land
+on shifts per conversation, and the wording is different every time. Guests are never asked, since the gift
+button is locked for them until they register.
+
+Two things to know before switching it on:
+
+- If a member asks outright whether they are talking to a bot, the reply says so plainly and carries on
+  flirting. Denying it would be a lie told to someone who is paying, and in a lot of places (California's
+  B.O.T. Act, the EU AI Act) an illegal one. Everything up to that point stays in character.
+- The replies promise photos and custom videos in exchange for gifts. Someone has to actually deliver
+  them, or the gift is money taken for nothing. Keep an eye on the paused threads.
+
+Leave `OPENROUTER_API_KEY` empty and none of this runs: chats behave exactly as they did before.
+
+## The three portals
+
+- **Member** — catalog, profiles, checkout, wallet with self-service top-ups, `/chat` inbox.
+- **Admin** (`/admin`) — pending payments with approve/reject, balance top-up approvals, catalog prices for
+  every profile, revenue and platform stats, manual member balance adjustments. Approving a payment is what
+  creates the conversation.
+- **Talent** (`/portal`) — the inbox for one profile: every member who paid to talk to her, plus the tips
+  and gifts she earns.
+
+## Payments
+
+Unlocking a chat has three methods, all reviewed by an admin before the chat opens:
+
+- **Card**, **PayPal** and **Cash App** — handled by [PayGate.to](https://paygate.to). The member is
+  redirected to the provider's own page, so no card data ever touches this server, and the payout arrives on
+  the configured USDC (Polygon) wallet.
+- **Balance** — the amount is held immediately; rejecting the payment refunds it automatically.
+
+### Card and PayPal (PayGate.to)
+
+Two calls, exactly as in their docs:
+
+1. `GET api.paygate.to/control/wallet.php?address=<payout wallet>&callback=<our callback>` returns a
+   temporary encrypted `address_in`.
+2. The member is sent to `checkout.paygate.to/process-payment.php` with that address, the amount, the
+   provider (`banxa` for card, `paypal` for PayPal, `cashapp` for Cash App), the contact email and `USD`.
+
+When the payment clears, PayGate calls `GET /api/paygate/callback?ref=…&t=…&value_coin=…`. The reference is
+the order or top-up code and `t` is a random token stored with it, so a stranger cannot mark a payment as
+paid. The callback only records that the money arrived (with the USDC amount) and sends a push — the admin
+still approves it by hand, and the admin panel shows a green **Paid · 39.80 USDC** chip next to the
+provider.
+
+Configure it with `PAYGATE_ADDRESS`, `PAYGATE_EMAIL` and `SITE_URL` (the callback is built from it, so it
+must be the live domain).
+
+A profile priced at **$0** skips all of it: the catalog shows FREE in green and “Talk to Her!” creates the
+conversation on the spot, without an entry in the approval queue.
+
+### Wallet top-ups
+
+The balance pill in the header has a **Top up** button. The member enters any amount (minimum $25), confirms
+it, then pays by card, PayPal or crypto. The request waits in the admin panel under *Balance top-ups* and
+the money only reaches the wallet once an admin approves it — rejecting it credits nothing.
+
+**Card**, **PayPal** and **Cash App** go through PayGate.to exactly like an unlock (see above). **Crypto**
+accepts ETH, USDC (ERC-20), USDT (ERC-20), BTC and SOL. Each coin shows its deposit address, a
+scannable QR code containing exactly that address, and a copy button. Crypto top-ups carry a 0.5% fee: the
+net amount is quoted before sending, stored with the request and credited on approval. Wallet addresses live
+in `src/lib/crypto-wallets.ts` — change them there and the QR codes follow automatically.
+
+### Money inside a chat
+
+- **Tip request** — the profile enters an amount and an optional note; the member sees a card in the thread
+  with a **PAY** button and one tap moves the money from their balance to hers.
+- **Gift** — the member sends any amount with an optional note, straight from their balance.
+
+Both are refused when the balance is too low, with a link to the top-up page, and both are recorded as
+transactions on the member's and the profile's side.
+
+## Profile imagery
+
+The catalog ships without licensed photography. `scripts/art.ts` renders a deterministic, poster-style
+portrait for every profile (four per person) into `public/models/`, so the seed is reproducible and the
+repository stays free of third-party images. Replace those files with real photos to go live.
+
+## Project layout
+
+```
+scripts/         seed script, profile data, artwork generator
+src/app/         pages and route handlers
+src/components/  catalog, gallery, checkout, chat, admin UI
+src/lib/         database, auth, queries, formatting helpers
+```
