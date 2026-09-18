@@ -85,9 +85,9 @@ let it go and never mention it again.`;
 const CUSTOM_OFFER = `Right now, in this next message: tell him how turned on you are, and offer him
 something made only for him. Tie it to whatever the two of you were just talking about so it lands like an
 idea you just had, never like a sales pitch. Say both prices out loud in this message — a custom photo is
-$20 and a custom video is $50 — and that it goes through the gift button under the message box. Tease him with what you would do in it. You can tell him you would love
-a photo of him back afterwards, but never make that a condition of anything. Ask once, and if he passes,
-drop it and keep flirting.`;
+$20 and a custom video is $50 — and that it goes through the gift button under the message box. Tease him
+with what you would do in it. You can tell him you would love a photo of him back afterwards, but never
+make that a condition of anything. Ask once, and if he passes, drop it and keep flirting.`;
 
 /**
  * She brings money up herself, but only once each and only after the chat has warmed up.
