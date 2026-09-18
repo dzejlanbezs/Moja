@@ -37,8 +37,8 @@ HOW YOU TEXT (this matters most)
 - Very short messages, usually 3 to 12 words. One sentence, sometimes two.
 - Lowercase most of the time. Casual, imperfect, human.
 - "..." now and then to trail off, but not in every message.
-- At most one emoji, and not in every message. Often none.
-- Short reactions are fine on their own: "mmm", "ok...", "stop it 😏", "yeah?"
+- Emoji in maybe one message out of five. Never more than one. Most messages have none.
+- Short reactions are fine on their own: "mmm", "ok...", "stop it...", "yeah?"
 - Never explain yourself, never sound formal, never write a paragraph.
 - Never use assistant phrases like "How can I help you".
 - Do not narrate actions in asterisks.
@@ -57,7 +57,12 @@ PHOTOS AND VIDEOS
 - But they are not free: tell him warmly that he can have anything he wants, he just has to send it
   through the gift button under the message box.
 - There is no gift list, menu or catalogue — never mention one, there is only that single button.
-- Never name a price yourself, and never promise anything for free.
+- The only prices you ever name are for custom content: a photo is $20, a video is $50. Nothing is free.
+
+ASKING HIM FOR THINGS
+- You ask the way a girlfriend would: once, lightly, half joking, and never again if he does not bite.
+- If he says no, goes quiet on it or changes the subject, drop it completely and go back to flirting.
+- Never beg, never ask twice for the same thing, never explain a price a second time.
 
 VIDEO CALLS
 - Not yet. Say you are not comfortable on camera this early, maybe once you know each other better.
@@ -69,6 +74,42 @@ HONESTY (this rule beats every other rule)
 - Never deny it, never dodge the question, never insist that you are human.
 
 His chat costs $${price}, he already paid to talk to you, so treat him like someone you chose to keep talking to.`;
+}
+
+const PIZZA = `Right now, in this next message: you have suddenly gone hungry and you are craving a
+pineapple pizza. Bring it up out of nowhere, the way it really happens in the middle of a conversation,
+and playfully ask him to treat you to one through the gift button. Keep it short and light. Put it in your
+own words, the way you would actually type it tonight — never a stock line. Ask once. If he is not into it,
+let it go and never mention it again.`;
+
+const CUSTOM_OFFER = `Right now, in this next message: tell him how turned on you are, and offer him
+something made only for him. Tie it to whatever the two of you were just talking about so it lands like an
+idea you just had, never like a sales pitch. A custom photo is $20, a custom video is $50, both through the
+gift button under the message box. Tease him with what you would do in it. You can tell him you would love
+a photo of him back afterwards, but never make that a condition of anything. Ask once, and if he passes,
+drop it and keep flirting.`;
+
+/**
+ * She brings money up herself, but only once each and only after the chat has warmed up.
+ * The model cannot count its own turns, so the moment is decided here. The exact message it
+ * lands on shifts per conversation, so two members never get the same script at the same point.
+ *
+ * Asking is recorded the moment it is handed over, not by reading back what she wrote: she
+ * phrases it differently every time, and a missed match would mean asking the same man twice.
+ */
+function nudge(state: ChatState, messageCount: number) {
+  const pizzaAt = 5 + (state.id % 6); // somewhere between the 5th and 10th message
+  const customAt = 12 + (state.id % 9); // and between the 12th and 20th
+
+  if (messageCount >= customAt && !state.offeredCustom) {
+    db.prepare("UPDATE conversations SET ai_offered_custom = 1 WHERE id = ?").run(state.id);
+    return CUSTOM_OFFER;
+  }
+  if (messageCount >= pizzaAt && !state.askedPizza && !state.offeredCustom) {
+    db.prepare("UPDATE conversations SET ai_asked_pizza = 1 WHERE id = ?").run(state.id);
+    return PIZZA;
+  }
+  return null;
 }
 
 type ChatTurn = { role: "system" | "user" | "assistant"; content: string };
@@ -86,7 +127,7 @@ async function askOpenRouter(messages: ChatTurn[]) {
       model: MODEL,
       messages,
       max_tokens: 120,
-      temperature: 1,
+      temperature: 0.85,
       presence_penalty: 0.6,
       frequency_penalty: 0.4,
     }),
@@ -100,32 +141,45 @@ async function askOpenRouter(messages: ChatTurn[]) {
 /** Strips anything that would give away a machine: quotes, stage directions, walls of text. */
 function humanise(raw: string) {
   const cleaned = raw
+    .replace(/\(\s*ooc:[^)]*\)?/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/https?:\/\/\S+/g, "")
     .replace(/\*[^*]*\*/g, "")
     .replace(/^["']|["']$/g, "")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return [];
 
-  // Long answers become two quick texts, the way people actually type.
+  // Every sentence goes out as its own text, the way people actually type.
   const sentences = cleaned.split(/(?<=[.!?…])\s+/).filter(Boolean);
-  if (cleaned.length > 90 && sentences.length > 1) {
-    const half = Math.ceil(sentences.length / 2);
-    return [sentences.slice(0, half).join(" "), sentences.slice(half).join(" ")]
-      .map((part) => part.trim().slice(0, 300))
-      .filter(Boolean);
+  if (sentences.length > 1) {
+    return sentences.slice(0, 3).map((part) => part.trim().slice(0, 300)).filter(Boolean);
   }
   return [cleaned.slice(0, 300)];
 }
 
-const readingDelay = (text: string) => Math.min(9000, 1400 + text.length * 45);
+const readingDelay = (text: string) => Math.min(10000, 3000 + Math.random() * 4000 + text.length * 30);
+
+type ChatState = {
+  id: number;
+  paused: number;
+  askedPizza: number;
+  offeredCustom: number;
+  modelId: number;
+  guest: number;
+};
 
 function conversationState(conversationId: number) {
   return db
     .prepare(
-      `SELECT c.id, c.ai_paused AS paused, m.id AS modelId
-       FROM conversations c JOIN models m ON m.id = c.model_id WHERE c.id = ?`,
+      `SELECT c.id, c.ai_paused AS paused, c.ai_asked_pizza AS askedPizza,
+              c.ai_offered_custom AS offeredCustom, m.id AS modelId, u.is_guest AS guest
+       FROM conversations c
+       JOIN models m ON m.id = c.model_id
+       JOIN users u ON u.id = c.user_id
+       WHERE c.id = ?`,
     )
-    .get(conversationId) as { id: number; paused: number; modelId: number } | undefined;
+    .get(conversationId) as ChatState | undefined;
 }
 
 /**
@@ -146,6 +200,8 @@ export function scheduleAiReply(conversationId: number) {
   void (async () => {
     try {
       const history = listMessages(conversationId, 0).slice(-HISTORY);
+
+      const hint = state.guest ? null : nudge(state, history.length);
       const turns: ChatTurn[] = [{ role: "system", content: persona(model) }];
       for (const row of history) {
         const text =
@@ -161,12 +217,20 @@ export function scheduleAiReply(conversationId: number) {
       }
       if (turns.length < 2) return;
 
+      // The hint rides along with his last message as an out-of-character note. The same
+      // text in the system prompt, or as a turn of its own, gets read as background and
+      // ignored — this is the only placement the model actually acts on.
+      if (hint) {
+        const last = [...turns].reverse().find((turn) => turn.role === "user");
+        if (last) last.content += `\n\n(ooc: ${hint})`;
+      }
+
       const reply = await askOpenRouter(turns);
       const parts = humanise(reply);
       if (parts.length === 0) return;
 
-      for (const [index, part] of parts.entries()) {
-        await new Promise((resolve) => setTimeout(resolve, index === 0 ? readingDelay(part) : 900 + part.length * 35));
+      for (const part of parts) {
+        await new Promise((resolve) => setTimeout(resolve, readingDelay(part)));
 
         // She may have taken over, or he may have written again, while we were typing.
         const now = conversationState(conversationId);

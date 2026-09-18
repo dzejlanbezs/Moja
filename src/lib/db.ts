@@ -104,6 +104,8 @@ function migrate(database: Database.Database) {
       last_message_at INTEGER NOT NULL,
       tracked_at INTEGER,
       ai_paused INTEGER NOT NULL DEFAULT 0,
+      ai_asked_pizza INTEGER NOT NULL DEFAULT 0,
+      ai_offered_custom INTEGER NOT NULL DEFAULT 0,
       UNIQUE (user_id, model_id)
     );
 
@@ -200,6 +202,12 @@ function addMissingColumns(database: Database.Database) {
   if (!conversations.has("tracked_at")) exec("ALTER TABLE conversations ADD COLUMN tracked_at INTEGER");
   if (!conversations.has("ai_paused")) {
     exec("ALTER TABLE conversations ADD COLUMN ai_paused INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!conversations.has("ai_asked_pizza")) {
+    exec("ALTER TABLE conversations ADD COLUMN ai_asked_pizza INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!conversations.has("ai_offered_custom")) {
+    exec("ALTER TABLE conversations ADD COLUMN ai_offered_custom INTEGER NOT NULL DEFAULT 0");
   }
 }
 
