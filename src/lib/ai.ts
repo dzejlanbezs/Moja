@@ -84,8 +84,8 @@ let it go and never mention it again.`;
 
 const CUSTOM_OFFER = `Right now, in this next message: tell him how turned on you are, and offer him
 something made only for him. Tie it to whatever the two of you were just talking about so it lands like an
-idea you just had, never like a sales pitch. A custom photo is $20, a custom video is $50, both through the
-gift button under the message box. Tease him with what you would do in it. You can tell him you would love
+idea you just had, never like a sales pitch. Say both prices out loud in this message — a custom photo is
+$20 and a custom video is $50 — and that it goes through the gift button under the message box. Tease him with what you would do in it. You can tell him you would love
 a photo of him back afterwards, but never make that a condition of anything. Ask once, and if he passes,
 drop it and keep flirting.`;
 
@@ -144,18 +144,21 @@ function humanise(raw: string) {
     .replace(/\(\s*ooc:[^)]*\)?/gi, "")
     .replace(/<[^>]*>/g, "")
     .replace(/https?:\/\/\S+/g, "")
+    .replace(/[\u2800\u200b-\u200f\u2060\ufeff]/g, "")
     .replace(/\*[^*]*\*/g, "")
     .replace(/^["']|["']$/g, "")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return [];
 
-  // Every sentence goes out as its own text, the way people actually type.
-  const sentences = cleaned.split(/(?<=[.!?…])\s+/).filter(Boolean);
-  if (sentences.length > 1) {
-    return sentences.slice(0, 3).map((part) => part.trim().slice(0, 300)).filter(Boolean);
+  // Every sentence goes out as its own text, the way people actually type. A trailing
+  // emoji is not a sentence though — it rides along with the line it belongs to.
+  const parts: string[] = [];
+  for (const sentence of cleaned.split(/(?<=[.!?…])\s+/).filter(Boolean)) {
+    if (parts.length && !/\p{L}/u.test(sentence)) parts[parts.length - 1] += ` ${sentence}`;
+    else parts.push(sentence);
   }
-  return [cleaned.slice(0, 300)];
+  return parts.slice(0, 3).map((part) => part.trim().slice(0, 300)).filter(Boolean);
 }
 
 const readingDelay = (text: string) => Math.min(10000, 3000 + Math.random() * 4000 + text.length * 30);

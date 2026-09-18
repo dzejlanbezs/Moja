@@ -170,6 +170,18 @@ Every chat header in the talent portal has a **Pause** button. Pressing it stops
 that one conversation so she can answer herself — a banner reminds her she is in control — and **Resume**
 hands the conversation back, with all the history it missed. Nothing is ever sent while paused.
 
+She also brings money up twice on her own, once each per conversation:
+
+- somewhere between the 5th and 10th message she is suddenly craving a pineapple pizza and asks him to
+  treat her through the gift button,
+- somewhere between the 12th and 20th, once there is chemistry, she offers custom content — a photo for
+  $20, a video for $50, through the same button.
+
+Both moments are timed in code rather than left to the model, which cannot count its own turns, and each is
+recorded in the database the moment it goes out, so nobody is ever asked twice. The exact message they land
+on shifts per conversation, and the wording is different every time. Guests are never asked, since the gift
+button is locked for them until they register.
+
 Two things to know before switching it on:
 
 - If a member asks outright whether they are talking to a bot, the reply says so plainly and carries on
